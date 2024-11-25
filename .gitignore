@@ -27,5 +27,6 @@ dist-ssr
 .env
 .env.*
 
-fruition/bin/node 
+# Ignore node binaries
+fruition/bin/node
 fruition/src/node-v23.2.0-darwin-arm64/bin/node
