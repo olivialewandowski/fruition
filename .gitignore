@@ -30,3 +30,5 @@ dist-ssr
 # Ignore node binaries
 fruition/bin/node
 fruition/src/node-v23.2.0-darwin-arm64/bin/node
+# Ignore node-v23.2.0-darwin-arm64 directory
+fruition/src/node-v23.2.0-darwin-arm64
