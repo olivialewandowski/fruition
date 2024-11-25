@@ -28,4 +28,4 @@ dist-ssr
 .env.*
 
 fruition/bin/node 
-fruition/src/node-v23.2.0-darwin-arm64/bin/nodefruition/src/node-v23.2.0-darwin-arm64/bin/node
+fruition/src/node-v23.2.0-darwin-arm64/bin/node
