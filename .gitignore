@@ -3,6 +3,9 @@ dist
 dist-ssr
 *.local
 
+# Node modules anywhere in the project
+**/node_modules/
+
 # Logs
 logs
 *.log
