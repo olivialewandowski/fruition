@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #ffffff;
+}
+
+.font-montserrat {
+  font-family: var(--font-montserrat);
+}
+
+.font-montserrat-alternates {
+  font-family: var(--font-montserrat-alternates);
+}

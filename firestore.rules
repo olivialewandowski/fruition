@@ -1,0 +1,89 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return request.auth.token.role == 'superadmin';
+    }
+
+    function isResearchAdmin() {
+      return request.auth.token.role == 'admin';
+    }
+
+    function isFaculty() {
+      return request.auth.token.role == 'faculty';
+    }
+
+    function isStudent() {
+      return request.auth.token.role == 'student';
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isSameInstitution(institutionId) {
+      return request.auth.token.institution == institutionId;
+    }
+
+    // Default deny all (moved to top for clarity)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // rules for joining the waitlist
+    match /waitlist/{entryId} {
+      // Anyone can create a waitlist entry
+      allow create: if request.resource.data.keys().hasAll(['email', 'firstName', 'lastName', 'institution', 'role', 'source'])
+        && request.resource.data.role in ['student', 'faculty', 'admin'];
+  
+      // Only admins can read or modify waitlist entries
+      allow read, update, delete: if isAuthenticated() && (isResearchAdmin() || isSuperAdmin());
+      }
+    
+    //users collection
+    match /users/{userId} {
+      // Anyone authenticated can read basic user profiles
+      allow read: if isAuthenticated();
+      
+      // Users can create their own profile
+      // Remove the isAuthenticated check since they won't be authenticated during signup
+      allow create: if request.resource.data.keys().hasAll(['firstName', 'lastName', 'email', 'institution', 'role']) 
+        && request.resource.data.role in ['student', 'faculty', 'admin']
+        && request.resource.data.email.matches('.*@.*\\.edu');
+      
+      // Users can update their own profile
+      // Research admins can update users from their institution
+      // Superadmins can update any user
+      allow update: if isAuthenticated() && (
+        isOwner(userId) || 
+        (isResearchAdmin() && isSameInstitution(resource.data.institution)) ||
+        isSuperAdmin()
+      );
+      
+      // Only superadmins can delete user profiles
+      allow delete: if isSuperAdmin();
+    }
+
+    // rules for other collections as needed
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isFaculty() || isResearchAdmin() || isSuperAdmin());
+      allow update: if isAuthenticated() && (
+        (isFaculty() && resource.data.facultyId == request.auth.uid) ||
+        (isResearchAdmin() && isSameInstitution(resource.data.institution)) ||
+        isSuperAdmin()
+      );
+      allow delete: if isAuthenticated() && (
+        (isFaculty() && resource.data.facultyId == request.auth.uid) ||
+        isResearchAdmin() ||
+        isSuperAdmin()
+      );
+    }
+  }
+}

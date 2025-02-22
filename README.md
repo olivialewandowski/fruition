@@ -1,3 +1,9 @@
+echo "# Fruition
+
+Copyright © 2024 Fruition. All rights reserved.
+
+This repository contains proprietary and confidential information. Unauthorized copying, transfer, or use of this repository, via any medium, is strictly prohibited without the express written permission of Fruition." > README.md
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
