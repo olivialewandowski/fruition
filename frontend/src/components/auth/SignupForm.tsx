@@ -2,6 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthError } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db, googleProvider } from '@/firebase';
 
 const SignupForm = () => {
   const router = useRouter();
@@ -26,43 +29,90 @@ const SignupForm = () => {
     setIsLoading(true);
     
     try {
-      const url = 'http://127.0.0.1:5001/fruition-4e3f8/us-central1/api/auth/signup';
-      console.log('Submitting to:', url);
-      console.log('Form data:', formData);
+      // 1. Create auth user
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          email: formData.email.trim(),
-          password: formData.password,
-          institution: formData.institution.trim(),
-          role: formData.role
-        })
+      // 2. Create Firestore profile
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        institution: formData.institution.trim(),
+        role: formData.role,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to sign up');
-      }
-
-      const data = await response.json();
-      console.log('Success response:', data);
-
-      // Redirect to login on success
       router.replace('/development/login');
     } catch (err) {
       console.error('Signup error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign up');
+      // Fix error handling by casting to AuthError
+      const authError = err as AuthError;
+      switch (authError.code) {
+        case 'auth/email-already-in-use':
+          setError('This email is already registered');
+          break;
+        case 'auth/invalid-email':
+          setError('Invalid email address');
+          break;
+        case 'auth/weak-password':
+          setError('Password should be at least 6 characters');
+          break;
+        default:
+          setError(authError.message || 'Failed to sign up');
+      }
     } finally {
       setIsLoading(false);
     }
-};
+  };
+
+  const handleGoogleSignup = async () => {
+    setError('');
+    setIsLoading(true);
+    console.log('Starting Google signup...');
+
+    try {
+      // Validate role selection first
+      if (!formData.role) {
+        throw new Error('Please select a role before continuing');
+      }
+
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      // Verify email domain
+      if (!user.email?.endsWith('.edu')) {
+        await auth.signOut();
+        throw new Error('Please use your university email address');
+      }
+
+      // Create or update user profile in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        firstName: user.displayName?.split(' ')[0] || '',
+        lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+        email: user.email,
+        institution: user.email.split('@')[1].replace('.edu', ''),
+        role: formData.role,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      router.replace('/development/login');
+    } catch (err) {
+      console.error('Google signup error:', err);
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -201,6 +251,41 @@ const SignupForm = () => {
               {isLoading ? 'Signing up...' : 'Sign up'}
             </button>
           </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={handleGoogleSignup}
+                disabled={!formData.role || isLoading}
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <span>Loading...</span>
+                ) : (
+                  <>
+                    <img
+                      className="h-5 w-5 mr-2"
+                      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                      alt="Google logo"
+                    />
+                    Sign up with Google
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

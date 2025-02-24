@@ -48,14 +48,14 @@ service cloud.firestore {
     
     //users collection
     match /users/{userId} {
+      // Allow creation if the user is authenticated and using an edu email
+      allow create: if request.auth != null 
+        && request.auth.token.email.matches('.*@.*\\.edu')
+        && request.resource.data.keys().hasAll(['firstName', 'lastName', 'email', 'institution', 'role'])
+        && request.resource.data.role in ['student', 'faculty', 'admin'];
+      
       // Anyone authenticated can read basic user profiles
       allow read: if isAuthenticated();
-      
-      // Users can create their own profile
-      // Remove the isAuthenticated check since they won't be authenticated during signup
-      allow create: if request.resource.data.keys().hasAll(['firstName', 'lastName', 'email', 'institution', 'role']) 
-        && request.resource.data.role in ['student', 'faculty', 'admin']
-        && request.resource.data.email.matches('.*@.*\\.edu');
       
       // Users can update their own profile
       // Research admins can update users from their institution
