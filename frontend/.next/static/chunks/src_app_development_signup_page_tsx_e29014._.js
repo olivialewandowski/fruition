@@ -8,7 +8,8 @@
     "static/chunks/node_modules_next_f6bf7a._.js",
     "static/chunks/d9ef2_@firebase_auth_dist_esm2017_f71102._.js",
     "static/chunks/node_modules_@firebase_firestore_dist_index_esm2017_c2fcaa.js",
-    "static/chunks/node_modules_060dd4._.js",
+    "static/chunks/node_modules_@firebase_storage_dist_index_esm2017_b3a08d.js",
+    "static/chunks/node_modules_a87a60._.js",
     "static/chunks/src_d67d9a._.js"
   ],
   "source": "dynamic"

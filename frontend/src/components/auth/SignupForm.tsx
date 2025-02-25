@@ -45,9 +45,24 @@ const SignupForm = () => {
       // Redirect to profile completion page
       // Use push instead of replace to avoid navigation history issues
       router.push('/development/complete-profile');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Signup error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign up');
+      
+      // Handle specific Firebase auth errors
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already in use. Please try logging in instead.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Invalid email address format.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak. Please use a stronger password.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your connection and try again.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Email/password accounts are not enabled. Please contact support.');
+      } else {
+        setError(err.message || 'Failed to sign up. Please try again.');
+      }
+      
       setIsLoading(false);
     }
   };
@@ -78,9 +93,22 @@ const SignupForm = () => {
       // Redirect to profile completion page
       // Use push instead of replace to avoid navigation history issues
       router.push('/development/complete-profile');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Google Sign-in error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in with Google');
+      
+      // Handle specific Firebase auth errors
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in was cancelled. Please try again.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Pop-up was blocked by your browser. Please enable pop-ups for this site and try again.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError('Sign-in process was interrupted. Please try again.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(err.message || 'Failed to sign in with Google');
+      }
+      
       setIsLoading(false);
     }
   };

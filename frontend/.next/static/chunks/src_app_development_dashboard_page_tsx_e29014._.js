@@ -7,7 +7,8 @@
   "chunks": [
     "static/chunks/node_modules_@firebase_firestore_dist_index_esm2017_c2fcaa.js",
     "static/chunks/d9ef2_@firebase_auth_dist_esm2017_6a294d._.js",
-    "static/chunks/node_modules_2b576f._.js",
+    "static/chunks/node_modules_@firebase_storage_dist_index_esm2017_b3a08d.js",
+    "static/chunks/node_modules_5c213e._.js",
     "static/chunks/src_341ebd._.js"
   ],
   "source": "dynamic"

@@ -57,9 +57,22 @@ const LoginForm = () => {
         // Check if profile is complete and redirect accordingly
         await checkProfileAndRedirect(user.uid);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Google Sign-in error:', err);
-      setError('Failed to sign in with Google');
+      
+      // Handle specific Firebase auth errors
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in was cancelled. Please try again.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Pop-up was blocked by your browser. Please enable pop-ups for this site and try again.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError('Sign-in process was interrupted. Please try again.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(err.message || 'Failed to sign in with Google');
+      }
+      
       setIsLoading(false);
     }
   };
@@ -89,9 +102,26 @@ const LoginForm = () => {
         // Check if profile is complete and redirect accordingly
         await checkProfileAndRedirect(user.uid);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setError('Invalid email or password');
+      
+      // Handle specific Firebase auth errors
+      if (err.code === 'auth/invalid-email') {
+        setError('Invalid email address format.');
+      } else if (err.code === 'auth/user-disabled') {
+        setError('This account has been disabled. Please contact support.');
+      } else if (err.code === 'auth/user-not-found') {
+        setError('No account found with this email. Please sign up first.');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Incorrect password. Please try again.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed login attempts. Please try again later or reset your password.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError('Login failed. Please check your credentials and try again.');
+      }
+      
       setIsLoading(false);
     }
   };
