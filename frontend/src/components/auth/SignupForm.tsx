@@ -2,32 +2,22 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   createUserWithEmailAndPassword, 
   signInWithPopup 
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/config/firebase';
-import { useAuth } from '@/contexts/AuthContext';
-import { getAuthErrorMessage } from '@/utils/auth-errors';
 
 const SignupForm = () => {
   const router = useRouter();
-  const { user } = useAuth();
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
     email: '',
     password: '',
-    institution: '',
-    role: ''
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleRoleSelect = (selectedRole: string) => {
-    setFormData({ ...formData, role: selectedRole });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,27 +25,29 @@ const SignupForm = () => {
     setIsLoading(true);
     
     try {
+      // Create user with email and password
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email.trim(),
         formData.password
       );
 
+      // Create minimal user document
       await setDoc(doc(db, 'users', userCredential.user.uid), {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
         email: formData.email.trim(),
-        institution: formData.institution.trim(),
-        role: formData.role,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       });
 
-      router.replace('/development/login');
+      // Get the ID token and store it
+      const idToken = await userCredential.user.getIdToken();
+      localStorage.setItem('authToken', idToken);
+
+      // Redirect to profile completion page
+      // Use push instead of replace to avoid navigation history issues
+      router.push('/development/complete-profile');
     } catch (err) {
       console.error('Signup error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign up');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -68,25 +60,27 @@ const SignupForm = () => {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
+      // Get the ID token and store it
+      const idToken = await user.getIdToken();
+      localStorage.setItem('authToken', idToken);
+      
+      // Check if user document already exists
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (!userDoc.exists()) {
+        // Create minimal user document if it doesn't exist
         await setDoc(doc(db, 'users', user.uid), {
-          firstName: user.displayName?.split(' ')[0] || '',
-          lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
           email: user.email,
-          institution: '',
-          role: formData.role || 'student',
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
         });
       }
 
-      router.replace('/development/login');
+      // Redirect to profile completion page
+      // Use push instead of replace to avoid navigation history issues
+      router.push('/development/complete-profile');
     } catch (err) {
       console.error('Google Sign-in error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign in with Google');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -97,53 +91,14 @@ const SignupForm = () => {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Create your account
         </h2>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Sign up to get started with Fruition
+        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {/* Role Selection Buttons */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              I am a:
-            </label>
-            <div className="grid grid-cols-3 gap-4">
-              <button
-                type="button"
-                className={`py-2 px-4 rounded-md w-full ${
-                  formData.role === 'faculty'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => handleRoleSelect('faculty')}
-              >
-                Faculty
-              </button>
-              <button
-                type="button"
-                className={`py-2 px-4 rounded-md w-full ${
-                  formData.role === 'student'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => handleRoleSelect('student')}
-              >
-                Student
-              </button>
-              <button
-                type="button"
-                className={`py-2 px-4 rounded-md w-full ${
-                  formData.role === 'admin'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => handleRoleSelect('admin')}
-              >
-                Admin
-              </button>
-            </div>
-          </div>
-
-          {/* Add Google Sign-in Button */}
+          {/* Google Sign-in Button */}
           <div className="mb-6">
             <button
               type="button"
@@ -170,38 +125,10 @@ const SignupForm = () => {
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* First Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                First Name
-              </label>
-              <input
-                type="text"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                value={formData.firstName}
-                onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-              />
-            </div>
-
-            {/* Last Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Last Name
-              </label>
-              <input
-                type="text"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                value={formData.lastName}
-                onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-              />
-            </div>
-
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                University Email
+                Email
               </label>
               <input
                 type="email"
@@ -226,34 +153,30 @@ const SignupForm = () => {
               />
             </div>
 
-            {/* Institution */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Institution
-              </label>
-              <input
-                type="text"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                value={formData.institution}
-                onChange={(e) => setFormData({...formData, institution: e.target.value})}
-              />
-            </div>
-
             {error && (
               <div className="text-red-600 text-sm">{error}</div>
             )}
 
             <button
               type="submit"
-              disabled={!formData.role || isLoading}
+              disabled={isLoading}
               className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
-                ${formData.role && !isLoading ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-400 cursor-not-allowed'}
+                ${!isLoading ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-400 cursor-not-allowed'}
                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500`}
             >
               {isLoading ? 'Signing up...' : 'Sign up'}
             </button>
           </form>
+          
+          {/* Login link */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <Link href="/development/login" className="font-medium text-purple-600 hover:text-purple-500">
+                Log in
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
