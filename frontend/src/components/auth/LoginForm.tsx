@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '@/config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db, googleProvider } from '@/config/firebase';
 
 const LoginForm = () => {
   const router = useRouter();
@@ -13,6 +15,32 @@ const LoginForm = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Helper function to check if profile is complete and redirect accordingly
+  const checkProfileAndRedirect = async (userId: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // Check if essential profile fields are filled
+        if (userData.role && userData.firstName && userData.lastName && userData.institution) {
+          // Profile is complete, redirect to dashboard
+          router.push('/development/dashboard');
+        } else {
+          // Profile is incomplete, redirect to profile completion
+          router.push('/development/complete-profile');
+        }
+      } else {
+        // User document doesn't exist, redirect to profile completion
+        router.push('/development/complete-profile');
+      }
+    } catch (err) {
+      console.error('Error checking profile:', err);
+      // Default to dashboard on error
+      router.push('/development/dashboard');
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     setError('');
@@ -25,12 +53,13 @@ const LoginForm = () => {
       if (user) {
         const idToken = await user.getIdToken();
         localStorage.setItem('authToken', idToken);
-        router.push('/development/dashboard');
+        
+        // Check if profile is complete and redirect accordingly
+        await checkProfileAndRedirect(user.uid);
       }
     } catch (err) {
       console.error('Google Sign-in error:', err);
       setError('Failed to sign in with Google');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -54,16 +83,15 @@ const LoginForm = () => {
         // Get the ID token
         const idToken = await user.getIdToken();
         
-        // You can store the token in localStorage if needed
+        // Store the token in localStorage
         localStorage.setItem('authToken', idToken);
         
-        // Redirect to dashboard or home page
-        router.push('/development/dashboard');
+        // Check if profile is complete and redirect accordingly
+        await checkProfileAndRedirect(user.uid);
       }
     } catch (err) {
       console.error('Login error:', err);
       setError('Invalid email or password');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -145,6 +173,16 @@ const LoginForm = () => {
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
+          
+          {/* Sign up link */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link href="/development/signup" className="font-medium text-purple-600 hover:text-purple-500">
+                Sign up
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

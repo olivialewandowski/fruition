@@ -51,11 +51,9 @@ service cloud.firestore {
       // Anyone authenticated can read basic user profiles
       allow read: if isAuthenticated();
       
-      // Users can create their own profile
-      // Remove the isAuthenticated check since they won't be authenticated during signup
-      allow create: if request.resource.data.keys().hasAll(['firstName', 'lastName', 'email', 'institution', 'role']) 
-        && request.resource.data.role in ['student', 'faculty', 'admin']
-        && request.resource.data.email.matches('.*@.*\\.edu');
+      // Users can create their own profile - simplified for Google sign-up
+      // Allow creation if the user ID matches the authenticated user
+      allow create: if request.auth != null && request.auth.uid == userId;
       
       // Users can update their own profile
       // Research admins can update users from their institution
