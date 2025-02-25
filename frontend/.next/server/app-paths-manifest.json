@@ -6,5 +6,6 @@
   "/development/dashboard/page": "app/development/dashboard/page.js",
   "/development/profile/page": "app/development/profile/page.js",
   "/development/complete-profile/page": "app/development/complete-profile/page.js",
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/development/connect/page": "app/development/connect/page.js"
 }

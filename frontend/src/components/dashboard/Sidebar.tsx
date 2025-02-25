@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 const Sidebar: React.FC = () => {
   return (
@@ -14,15 +15,17 @@ const Sidebar: React.FC = () => {
       />
       <div className="mt-3.5">Inbox</div>
       <div className="flex flex-col items-center self-stretch px-1.5 mt-4">
-        <div className="flex flex-col self-stretch px-7 py-3 bg-violet-100 rounded-[30px] max-md:px-5">
-          <img
-            loading="lazy"
-            src="https://cdn.builder.io/api/v1/image/assets/TEMP/e236698e6085e263953aa34568bd1bcfd846905c2c4d7355a9fd11d50351570f?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
-            className="object-contain self-center w-12 aspect-square"
-            alt=""
-          />
-          <div className="self-start mt-1.5">Projects</div>
-        </div>
+        <Link href="/development/dashboard" className="w-full">
+          <div className="flex flex-col self-stretch px-7 py-3 bg-violet-100 rounded-[30px] max-md:px-5">
+            <img
+              loading="lazy"
+              src="https://cdn.builder.io/api/v1/image/assets/TEMP/e236698e6085e263953aa34568bd1bcfd846905c2c4d7355a9fd11d50351570f?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
+              className="object-contain self-center w-12 aspect-square"
+              alt=""
+            />
+            <div className="self-start mt-1.5">Projects</div>
+          </div>
+        </Link>
         <img
           loading="lazy"
           src="https://cdn.builder.io/api/v1/image/assets/TEMP/463e851a6990d3c1ce476265e639c5cf01661fdd32ae1ecaea5c7a92b7888523?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
@@ -44,13 +47,15 @@ const Sidebar: React.FC = () => {
           alt=""
         />
         <div className="self-start mt-1.5 max-md:ml-1.5">Publications</div>
-        <img
-          loading="lazy"
-          src="https://cdn.builder.io/api/v1/image/assets/TEMP/94f9743ede2cbb4abf27b04e8ddd557190a0968fc7c7d188619a7bfd80869e0a?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
-          className="object-contain mt-7 aspect-square w-[55px]"
-          alt=""
-        />
-        <div>Connect</div>
+        <Link href="/development/connect" className="w-full flex flex-col items-center">
+          <img
+            loading="lazy"
+            src="https://cdn.builder.io/api/v1/image/assets/TEMP/94f9743ede2cbb4abf27b04e8ddd557190a0968fc7c7d188619a7bfd80869e0a?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
+            className="object-contain mt-7 aspect-square w-[55px]"
+            alt=""
+          />
+          <div>Connect</div>
+        </Link>
       </div>
     </div>
   );
