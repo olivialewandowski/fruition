@@ -89,6 +89,8 @@ __turbopack_esm__({
     "default": (()=>__TURBOPACK__default__export__)
 });
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_import__("[project]/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_import__("[project]/node_modules/next/dist/client/app-dir/link.js [app-client] (ecmascript)");
+;
 ;
 const Sidebar = ()=>{
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -99,7 +101,7 @@ const Sidebar = ()=>{
                 children: "fruition"
             }, void 0, false, {
                 fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                lineNumber: 6,
+                lineNumber: 7,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
@@ -109,7 +111,7 @@ const Sidebar = ()=>{
                 alt: ""
             }, void 0, false, {
                 fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                lineNumber: 9,
+                lineNumber: 10,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -117,37 +119,45 @@ const Sidebar = ()=>{
                 children: "Inbox"
             }, void 0, false, {
                 fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                lineNumber: 15,
+                lineNumber: 16,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "flex flex-col items-center self-stretch px-1.5 mt-4",
                 children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "flex flex-col self-stretch px-7 py-3 bg-violet-100 rounded-[30px] max-md:px-5",
-                        children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
-                                loading: "lazy",
-                                src: "https://cdn.builder.io/api/v1/image/assets/TEMP/e236698e6085e263953aa34568bd1bcfd846905c2c4d7355a9fd11d50351570f?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8",
-                                className: "object-contain self-center w-12 aspect-square",
-                                alt: ""
-                            }, void 0, false, {
-                                fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                                lineNumber: 18,
-                                columnNumber: 11
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "self-start mt-1.5",
-                                children: "Projects"
-                            }, void 0, false, {
-                                fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                                lineNumber: 24,
-                                columnNumber: 11
-                            }, this)
-                        ]
-                    }, void 0, true, {
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                        href: "/development/dashboard",
+                        className: "w-full",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: "flex flex-col self-stretch px-7 py-3 bg-violet-100 rounded-[30px] max-md:px-5",
+                            children: [
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
+                                    loading: "lazy",
+                                    src: "https://cdn.builder.io/api/v1/image/assets/TEMP/e236698e6085e263953aa34568bd1bcfd846905c2c4d7355a9fd11d50351570f?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8",
+                                    className: "object-contain self-center w-12 aspect-square",
+                                    alt: ""
+                                }, void 0, false, {
+                                    fileName: "[project]/src/components/dashboard/Sidebar.tsx",
+                                    lineNumber: 20,
+                                    columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                    className: "self-start mt-1.5",
+                                    children: "Projects"
+                                }, void 0, false, {
+                                    fileName: "[project]/src/components/dashboard/Sidebar.tsx",
+                                    lineNumber: 26,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/src/components/dashboard/Sidebar.tsx",
+                            lineNumber: 19,
+                            columnNumber: 11
+                        }, this)
+                    }, void 0, false, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 17,
+                        lineNumber: 18,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
@@ -157,7 +167,7 @@ const Sidebar = ()=>{
                         alt: ""
                     }, void 0, false, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 26,
+                        lineNumber: 29,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -165,7 +175,7 @@ const Sidebar = ()=>{
                         children: "Forums"
                     }, void 0, false, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 32,
+                        lineNumber: 35,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
@@ -175,7 +185,7 @@ const Sidebar = ()=>{
                         alt: ""
                     }, void 0, false, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 33,
+                        lineNumber: 36,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -183,7 +193,7 @@ const Sidebar = ()=>{
                         children: "Grants"
                     }, void 0, false, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 39,
+                        lineNumber: 42,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
@@ -193,7 +203,7 @@ const Sidebar = ()=>{
                         alt: ""
                     }, void 0, false, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 40,
+                        lineNumber: 43,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -201,36 +211,46 @@ const Sidebar = ()=>{
                         children: "Publications"
                     }, void 0, false, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 46,
+                        lineNumber: 49,
                         columnNumber: 9
                     }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
-                        loading: "lazy",
-                        src: "https://cdn.builder.io/api/v1/image/assets/TEMP/94f9743ede2cbb4abf27b04e8ddd557190a0968fc7c7d188619a7bfd80869e0a?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8",
-                        className: "object-contain mt-7 aspect-square w-[55px]",
-                        alt: ""
-                    }, void 0, false, {
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                        href: "/development/connect",
+                        className: "w-full flex flex-col items-center",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("img", {
+                                loading: "lazy",
+                                src: "https://cdn.builder.io/api/v1/image/assets/TEMP/94f9743ede2cbb4abf27b04e8ddd557190a0968fc7c7d188619a7bfd80869e0a?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8",
+                                className: "object-contain mt-7 aspect-square w-[55px]",
+                                alt: ""
+                            }, void 0, false, {
+                                fileName: "[project]/src/components/dashboard/Sidebar.tsx",
+                                lineNumber: 51,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                children: "Connect"
+                            }, void 0, false, {
+                                fileName: "[project]/src/components/dashboard/Sidebar.tsx",
+                                lineNumber: 57,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
                         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 47,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        children: "Connect"
-                    }, void 0, false, {
-                        fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                        lineNumber: 53,
+                        lineNumber: 50,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-                lineNumber: 16,
+                lineNumber: 17,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/dashboard/Sidebar.tsx",
-        lineNumber: 5,
+        lineNumber: 6,
         columnNumber: 5
     }, this);
 };
@@ -747,10 +767,28 @@ function DashboardPage() {
                                                 lineNumber: 87,
                                                 columnNumber: 15
                                             }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                                className: "px-9 py-2.5 text-3xl text-white bg-violet-800 rounded-[30px] max-md:px-5",
-                                                children: "New Project +"
-                                            }, void 0, false, {
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "flex gap-4",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                        onClick: ()=>router.push('/development/connect'),
+                                                        className: "px-6 py-2.5 text-3xl text-violet-800 border-2 border-violet-800 rounded-[30px] hover:bg-violet-100 transition-colors max-md:px-5",
+                                                        children: "Connect"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/src/app/development/dashboard/page.tsx",
+                                                        lineNumber: 89,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                        className: "px-9 py-2.5 text-3xl text-white bg-violet-800 rounded-[30px] max-md:px-5",
+                                                        children: "New Project +"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/src/app/development/dashboard/page.tsx",
+                                                        lineNumber: 95,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
                                                 fileName: "[project]/src/app/development/dashboard/page.tsx",
                                                 lineNumber: 88,
                                                 columnNumber: 15
@@ -768,7 +806,7 @@ function DashboardPage() {
                                                 projects: yourProjects
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/development/dashboard/page.tsx",
-                                                lineNumber: 94,
+                                                lineNumber: 102,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$dashboard$2f$ProjectSection$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -776,7 +814,7 @@ function DashboardPage() {
                                                 projects: facultyProjects
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/development/dashboard/page.tsx",
-                                                lineNumber: 95,
+                                                lineNumber: 103,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$dashboard$2f$ProjectSection$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -784,7 +822,7 @@ function DashboardPage() {
                                                 projects: peerProjects
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/development/dashboard/page.tsx",
-                                                lineNumber: 96,
+                                                lineNumber: 104,
                                                 columnNumber: 17
                                             }, this)
                                         ]
@@ -795,7 +833,7 @@ function DashboardPage() {
                                                 projects: facultyProjects
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/development/dashboard/page.tsx",
-                                                lineNumber: 100,
+                                                lineNumber: 108,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$dashboard$2f$ProjectSection$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -803,7 +841,7 @@ function DashboardPage() {
                                                 projects: yourProjects
                                             }, void 0, false, {
                                                 fileName: "[project]/src/app/development/dashboard/page.tsx",
-                                                lineNumber: 101,
+                                                lineNumber: 109,
                                                 columnNumber: 17
                                             }, this)
                                         ]
