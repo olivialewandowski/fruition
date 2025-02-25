@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/config/firebase';
 import Sidebar from '@/components/dashboard/Sidebar';
 import TopNavigation from '@/components/dashboard/TopNavigation';
 import ProjectSection from '@/components/dashboard/ProjectSection';
