@@ -1,9 +1,8 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/development/dashboard/page": "app/development/dashboard/page.js",
-  "/development/profile/page": "app/development/profile/page.js",
+  "/page": "app/page.js",
   "/development/signup/page": "app/development/signup/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
   "/development/login/page": "app/development/login/page.js",
-  "/page": "app/page.js"
+  "/development/dashboard/page": "app/development/dashboard/page.js",
+  "/development/profile/page": "app/development/profile/page.js"
 }

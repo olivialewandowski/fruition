@@ -1,7 +1,7 @@
 {
   "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
   },
   "functions": [
     {
@@ -16,8 +16,7 @@
         "*.local"
       ],
       "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run lint",
-        "npm --prefix \"$RESOURCE_DIR\" run build"
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
       ]
     }
   ],
@@ -37,6 +36,7 @@
     },
     "hub": {
       "port": 4400
-    }
+    },
+    "singleProjectMode": true
   }
 }

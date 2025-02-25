@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/firebase';
+import { auth } from '@/config/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const TopNavigation: React.FC = () => {
   const router = useRouter();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const { user, userData, signOut } = useAuth();
 
   const handleSignOut = async () => {
     try {

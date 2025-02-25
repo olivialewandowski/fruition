@@ -5,46 +5,47 @@ import { UserRecord } from "firebase-admin/lib/auth/user-record";
 
 export const authRouter = router();
 
-authRouter.post("/signup", async (req, res) => {
-  try {
-    const { firstName, lastName, email, password, institution, role } = req.body;
-
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password || !institution || !role) {
-      return res.status(400).json({
-        error: "All fields are required",
-        received: { firstName, lastName, email, institution, role },
-      });
-    }
-
-    // Create user in Firebase Auth
-    const userCredential = await auth.createUser({
-      email,
-      password,
-    });
-
-    // Create user profile in Firestore
-    await db.collection("users").doc(userCredential.uid).set({
-      firstName,
-      lastName,
-      email,
-      institution,
-      role,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    return res.status(201).json({
-      message: "User created successfully",
-      userId: userCredential.uid,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      error: "Failed to create user",
-      details: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
+// Comment out or remove the /signup endpoint since we're handling it client-side
+// authRouter.post("/signup", async (req, res) => {
+//   try {
+//     const { firstName, lastName, email, password, institution, role } = req.body;
+//
+//     // Validate required fields
+//     if (!firstName || !lastName || !email || !password || !institution || !role) {
+//       return res.status(400).json({
+//         error: "All fields are required",
+//         received: { firstName, lastName, email, institution, role },
+//       });
+//     }
+//
+//     // Create user in Firebase Auth
+//     const userCredential = await auth.createUser({
+//       email,
+//       password,
+//     });
+//
+//     // Create user profile in Firestore
+//     await db.collection("users").doc(userCredential.uid).set({
+//       firstName,
+//       lastName,
+//       email,
+//       institution,
+//       role,
+//       createdAt: new Date().toISOString(),
+//       updatedAt: new Date().toISOString(),
+//     });
+//
+//     return res.status(201).json({
+//       message: "User created successfully",
+//       userId: userCredential.uid,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       error: "Failed to create user",
+//       details: error instanceof Error ? error.message : "Unknown error",
+//     });
+//   }
+// });
 
 authRouter.post("/login", async (req, res) => {
   try {

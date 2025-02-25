@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '@/config/firebase';
 
 const ProfileForm: React.FC = () => {
   const router = useRouter();

@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/firebase'; 
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '@/config/firebase';
 
 const LoginForm = () => {
   const router = useRouter();
@@ -13,6 +13,27 @@ const LoginForm = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      if (user) {
+        const idToken = await user.getIdToken();
+        localStorage.setItem('authToken', idToken);
+        router.push('/development/dashboard');
+      }
+    } catch (err) {
+      console.error('Google Sign-in error:', err);
+      setError('Failed to sign in with Google');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +78,32 @@ const LoginForm = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {/* Google Sign-in Button */}
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isLoading}
+              className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              <img 
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                alt="Google" 
+                className="w-5 h-5 mr-2"
+              />
+              Sign in with Google
+            </button>
+          </div>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-medium text-gray-700">
