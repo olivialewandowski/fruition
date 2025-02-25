@@ -12,6 +12,11 @@ import {
   connectFirestoreEmulator, 
   Firestore 
 } from 'firebase/firestore';
+import {
+  getStorage,
+  connectStorageEmulator,
+  FirebaseStorage
+} from 'firebase/storage';
 
 // Validate environment variables
 if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
@@ -31,6 +36,7 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let storage: FirebaseStorage;
 let googleProvider: GoogleAuthProvider;
 
 if (!getApps().length) {
@@ -38,12 +44,14 @@ if (!getApps().length) {
   auth = getAuth(app);
   setPersistence(auth, browserLocalPersistence);
   db = getFirestore(app);
+  storage = getStorage(app);
   
   // Connect to emulators only in development
   if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
     if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
       connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
       connectFirestoreEmulator(db, 'localhost', 8080);
+      connectStorageEmulator(storage, 'localhost', 9199);
     }
   }
 
@@ -55,9 +63,10 @@ if (!getApps().length) {
   app = getApps()[0];
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
 }
 
-export { auth, db, googleProvider }; 
+export { auth, db, storage, googleProvider }; 

@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '@/config/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { auth, db, storage } from '@/config/firebase';
 
 const ProfileForm: React.FC = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingResume, setUploadingResume] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -20,7 +23,9 @@ const ProfileForm: React.FC = () => {
     researchInterests: '',
     major: '',
     graduationYear: '',
-    bio: ''
+    bio: '',
+    resumeURL: '',
+    resumeName: ''
   });
 
   useEffect(() => {
@@ -50,6 +55,139 @@ const ProfileForm: React.FC = () => {
 
     fetchProfile();
   }, [router]);
+
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!auth.currentUser) {
+      setError('You must be logged in to upload a resume. Please log in and try again.');
+      return;
+    }
+
+    const file = e.target.files[0];
+    setUploadingResume(true);
+    setError('');
+
+    try {
+      // Delete previous resume if exists
+      if (formData.resumeURL) {
+        try {
+          const oldResumeRef = ref(storage, `resumes/${auth.currentUser.uid}/${formData.resumeName}`);
+          await deleteObject(oldResumeRef);
+        } catch (err) {
+          console.error('Error deleting old resume:', err);
+          // Continue with upload even if delete fails
+        }
+      }
+
+      // Upload new resume
+      const resumeRef = ref(storage, `resumes/${auth.currentUser.uid}/${file.name}`);
+      await uploadBytes(resumeRef, file);
+      const downloadURL = await getDownloadURL(resumeRef);
+
+      // Update form data
+      const updatedFormData = {
+        ...formData,
+        resumeURL: downloadURL,
+        resumeName: file.name
+      };
+      setFormData(updatedFormData);
+
+      // Update Firestore
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        resumeURL: downloadURL,
+        resumeName: file.name,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err: any) {
+      console.error('Error uploading resume:', err);
+      // Provide more specific error messages based on the error type
+      if (err.code === 'storage/unauthorized') {
+        setError('Permission denied: You do not have permission to upload files.');
+      } else if (err.code === 'storage/canceled') {
+        setError('Upload cancelled: The resume upload was cancelled.');
+      } else if (err.code === 'storage/unknown') {
+        setError('Unknown error: An unknown error occurred during upload.');
+      } else if (err.code?.includes('auth/')) {
+        setError('Authentication error: Please log out and log back in to try again.');
+      } else {
+        setError(`Failed to upload resume: ${err.message || 'Unknown error'}`);
+      }
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleDeleteResume = async () => {
+    if (!auth.currentUser) {
+      setError('You must be logged in to delete a resume. Please log in and try again.');
+      return;
+    }
+    
+    if (!formData.resumeURL) {
+      setError('No resume found to delete.');
+      return;
+    }
+
+    setUploadingResume(true);
+    setError('');
+
+    try {
+      // Delete from storage
+      const resumeRef = ref(storage, `resumes/${auth.currentUser.uid}/${formData.resumeName}`);
+      await deleteObject(resumeRef);
+
+      // Update form data
+      const updatedFormData = {
+        ...formData,
+        resumeURL: '',
+        resumeName: ''
+      };
+      setFormData(updatedFormData);
+
+      // Update Firestore
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        resumeURL: '',
+        resumeName: '',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err: any) {
+      console.error('Error deleting resume:', err);
+      // Provide more specific error messages based on the error type
+      if (err.code === 'storage/object-not-found') {
+        // If file not found, still update the database to remove the reference
+        try {
+          const updatedFormData = {
+            ...formData,
+            resumeURL: '',
+            resumeName: ''
+          };
+          setFormData(updatedFormData);
+          
+          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+            resumeURL: '',
+            resumeName: '',
+            updatedAt: new Date().toISOString()
+          });
+          // Don't set error since we've cleaned up the database
+        } catch (dbErr) {
+          console.error('Error updating database after file not found:', dbErr);
+          setError('Resume reference removed but database update failed.');
+        }
+      } else if (err.code === 'storage/unauthorized') {
+        setError('Permission denied: You do not have permission to delete this file.');
+      } else if (err.code?.includes('auth/')) {
+        setError('Authentication error: Please log out and log back in to try again.');
+      } else {
+        setError(`Failed to delete resume: ${err.message || 'Unknown error'}`);
+      }
+    } finally {
+      setUploadingResume(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,6 +308,55 @@ const ProfileForm: React.FC = () => {
         />
       </div>
 
+      {/* Resume Upload Section */}
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium">Resume</label>
+        <div className="flex flex-col gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleResumeUpload}
+            accept=".pdf,.doc,.docx"
+            className="hidden"
+          />
+          <div className="flex items-center gap-3">
+            {formData.resumeURL ? (
+              <>
+                <a 
+                  href={formData.resumeURL} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 text-violet-800 bg-zinc-100 rounded-[30px] border border-solid border-zinc-300"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {formData.resumeName}
+                </a>
+                <button
+                  type="button"
+                  onClick={handleDeleteResume}
+                  disabled={uploadingResume}
+                  className="px-3 py-2 text-red-600 bg-zinc-100 rounded-[30px] border border-solid border-zinc-300"
+                >
+                  Delete
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingResume}
+                className="px-4 py-2 text-violet-800 bg-zinc-100 rounded-[30px] border border-solid border-zinc-300"
+              >
+                {uploadingResume ? 'Uploading...' : 'Upload Resume'}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">Accepted formats: PDF, DOC, DOCX</p>
+        </div>
+      </div>
+
       {error && (
         <div className="text-red-600 text-sm mt-2">{error}</div>
       )}
@@ -184,7 +371,7 @@ const ProfileForm: React.FC = () => {
         </button>
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || uploadingResume}
           className="px-9 py-2.5 text-white bg-violet-800 rounded-[30px]"
         >
           {isLoading ? 'Saving...' : 'Save Changes'}
