@@ -20,7 +20,7 @@ const SavedProjectCard = ({ project, onApply, onRemove }: SavedProjectCardProps)
         {project.skills.slice(0, 3).map((skill: string, index: number) => (
           <span 
             key={index} 
-            className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full"
+            className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-full"
           >
             {skill}
           </span>
@@ -33,7 +33,7 @@ const SavedProjectCard = ({ project, onApply, onRemove }: SavedProjectCardProps)
       </div>
       <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
         <div className="text-sm text-gray-500">
-          <span className="font-medium">Saved</span> • {project.duration}
+          <span className="font-medium text-violet-600">Saved</span> • {project.duration}
         </div>
         <div className="flex space-x-2">
           <button 
@@ -44,7 +44,7 @@ const SavedProjectCard = ({ project, onApply, onRemove }: SavedProjectCardProps)
           </button>
           <button 
             onClick={onApply}
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+            className="px-3 py-1 bg-violet-600 text-white text-sm rounded-md hover:bg-violet-700 transition-colors"
           >
             Apply
           </button>
