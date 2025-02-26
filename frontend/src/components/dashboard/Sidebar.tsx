@@ -1,7 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const Sidebar: React.FC = () => {
+  const pathname = usePathname();
+  const isConnectPage = pathname?.includes('/connect');
+  const isDashboardPage = pathname?.includes('/dashboard');
+
   return (
     <div className="flex overflow-hidden flex-col items-center pt-4 text-2xl text-center text-black whitespace-nowrap bg-purple-50 border border-solid border-neutral-200 pb-[506px] max-md:pb-24">
       <div className="text-4xl font-extrabold tracking-tighter text-black">
@@ -16,7 +21,7 @@ const Sidebar: React.FC = () => {
       <div className="mt-3.5">Inbox</div>
       <div className="flex flex-col items-center self-stretch px-1.5 mt-4">
         <Link href="/development/dashboard" className="w-full">
-          <div className="flex flex-col self-stretch px-7 py-3 bg-violet-100 rounded-[30px] max-md:px-5">
+          <div className={`flex flex-col self-stretch px-7 py-3 rounded-[30px] max-md:px-5 ${isDashboardPage ? 'bg-violet-100' : ''}`}>
             <img
               loading="lazy"
               src="https://cdn.builder.io/api/v1/image/assets/TEMP/e236698e6085e263953aa34568bd1bcfd846905c2c4d7355a9fd11d50351570f?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
@@ -47,14 +52,16 @@ const Sidebar: React.FC = () => {
           alt=""
         />
         <div className="self-start mt-1.5 max-md:ml-1.5">Publications</div>
-        <Link href="/development/connect" className="w-full flex flex-col items-center">
-          <img
-            loading="lazy"
-            src="https://cdn.builder.io/api/v1/image/assets/TEMP/94f9743ede2cbb4abf27b04e8ddd557190a0968fc7c7d188619a7bfd80869e0a?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
-            className="object-contain mt-7 aspect-square w-[55px]"
-            alt=""
-          />
-          <div>Connect</div>
+        <Link href="/development/connect" className="w-full">
+          <div className={`flex flex-col items-center px-7 py-3 rounded-[30px] max-md:px-5 ${isConnectPage ? 'bg-violet-100' : ''}`}>
+            <img
+              loading="lazy"
+              src="https://cdn.builder.io/api/v1/image/assets/TEMP/94f9743ede2cbb4abf27b04e8ddd557190a0968fc7c7d188619a7bfd80869e0a?placeholderIfAbsent=true&apiKey=2d8fdbce5bcb417799170ad0862fa2a8"
+              className="object-contain aspect-square w-[55px]"
+              alt=""
+            />
+            <div>Connect</div>
+          </div>
         </Link>
       </div>
     </div>

@@ -1,13 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Project } from '@/types/project';
 import { getProjects, applyToProject, saveProject, removeProject } from '@/services/projectsService';
+import Sidebar from '@/components/dashboard/Sidebar';
+import ConnectNavigation from '@/components/connect/ConnectNavigation';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
 import AppliedTab from '@/components/connect/AppliedTab';
 
 export default function ConnectPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'discover' | 'saved' | 'applied'>('discover');
   const [projects, setProjects] = useState<Project[]>([]);
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
@@ -82,83 +86,67 @@ export default function ConnectPage() {
     }
   };
 
-  return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Connect with Research</h1>
-      
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
-        <button
-          className={`py-3 px-6 font-medium text-sm ${
-            activeTab === 'discover'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-          onClick={() => setActiveTab('discover')}
-        >
-          Discover
-        </button>
-        <button
-          className={`py-3 px-6 font-medium text-sm ${
-            activeTab === 'saved'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-          onClick={() => setActiveTab('saved')}
-        >
-          Saved
-          {savedProjects.length > 0 && (
-            <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {savedProjects.length}
-            </span>
-          )}
-        </button>
-        <button
-          className={`py-3 px-6 font-medium text-sm ${
-            activeTab === 'applied'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-          onClick={() => setActiveTab('applied')}
-        >
-          Applied
-          {appliedProjects.length > 0 && (
-            <span className="ml-2 bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {appliedProjects.length}
-            </span>
-          )}
-        </button>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
       </div>
-      
-      {/* Loading state */}
-      {isLoading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="bg-yellow-100 p-4 text-yellow-800 text-center">
+        Development Environment
+      </div>
+      <div className="flex overflow-hidden bg-white border border-solid border-neutral-200">
+        <Sidebar />
+        <div className="flex flex-col grow shrink-0 self-start basis-0 w-fit max-md:max-w-full">
+          <ConnectNavigation 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+            savedCount={savedProjects.length}
+            appliedCount={appliedProjects.length}
+          />
+          
+          <div className="flex flex-col items-start px-5 mt-6 w-full max-md:max-w-full">
+            <div className="flex flex-wrap gap-5 justify-between self-stretch mr-6 ml-3.5 w-full font-bold text-center max-w-[1050px] max-md:mr-2.5 max-md:max-w-full">
+              <div className="my-auto text-3xl text-black">Connect with Research</div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => router.push('/development/dashboard')}
+                  className="px-6 py-2.5 text-3xl text-violet-800 border-2 border-violet-800 rounded-[30px] hover:bg-violet-100 transition-colors max-md:px-5"
+                >
+                  Dashboard
+                </button>
+              </div>
+            </div>
+            
+            {/* Tab content */}
+            <div className="w-full px-4 mt-6">
+              {activeTab === 'discover' && (
+                <DiscoverTab 
+                  projects={projects} 
+                  onSaveProject={handleSaveProject} 
+                  onApplyProject={handleApplyProject} 
+                />
+              )}
+              
+              {activeTab === 'saved' && (
+                <SavedTab 
+                  savedProjects={savedProjects} 
+                  onApplyProject={handleApplyProject} 
+                  onRemoveProject={handleRemoveProject} 
+                />
+              )}
+              
+              {activeTab === 'applied' && (
+                <AppliedTab appliedProjects={appliedProjects} />
+              )}
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Tab content */}
-          {activeTab === 'discover' && (
-            <DiscoverTab 
-              projects={projects} 
-              onSaveProject={handleSaveProject} 
-              onApplyProject={handleApplyProject} 
-            />
-          )}
-          
-          {activeTab === 'saved' && (
-            <SavedTab 
-              savedProjects={savedProjects} 
-              onApplyProject={handleApplyProject} 
-              onRemoveProject={handleRemoveProject} 
-            />
-          )}
-          
-          {activeTab === 'applied' && (
-            <AppliedTab appliedProjects={appliedProjects} />
-          )}
-        </>
-      )}
+      </div>
     </div>
   );
 } 

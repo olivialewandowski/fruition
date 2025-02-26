@@ -81,7 +81,7 @@ const ProjectCard = ({ project, onDecline, onSave, onApply, swipeDirection }: Pr
         className="absolute top-1/2 right-6 transform -translate-y-1/2 z-10 transition-opacity duration-200"
         style={{ opacity: applyOpacity }}
       >
-        <div className="bg-green-500 text-white px-4 py-2 rounded-lg font-bold transform rotate-12">
+        <div className="bg-violet-700 text-white px-4 py-2 rounded-lg font-bold transform rotate-12">
           APPLY
         </div>
       </div>
@@ -90,7 +90,7 @@ const ProjectCard = ({ project, onDecline, onSave, onApply, swipeDirection }: Pr
         className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-200"
         style={{ opacity: saveOpacity }}
       >
-        <div className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold">
+        <div className="bg-violet-500 text-white px-4 py-2 rounded-lg font-bold">
           SAVE
         </div>
       </div>
@@ -137,7 +137,7 @@ const ProjectCard = ({ project, onDecline, onSave, onApply, swipeDirection }: Pr
               {project.skills.map((skill: string, index: number) => (
                 <span 
                   key={index} 
-                  className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full"
+                  className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-full"
                 >
                   {skill}
                 </span>
@@ -166,14 +166,14 @@ const ProjectCard = ({ project, onDecline, onSave, onApply, swipeDirection }: Pr
           }}
         />
         <div 
-          className="h-1 bg-green-500 absolute bottom-0 right-0 transition-all duration-300"
+          className="h-1 bg-violet-700 absolute bottom-0 right-0 transition-all duration-300"
           style={{ 
             width: dragPosition.x > 0 ? `${Math.min(Math.abs(dragPosition.x) / 1.5, 100)}%` : '0%',
             opacity: dragPosition.x > 0 ? 1 : 0
           }}
         />
         <div 
-          className="w-1 bg-blue-500 absolute top-0 right-0 transition-all duration-300"
+          className="w-1 bg-violet-500 absolute top-0 right-0 transition-all duration-300"
           style={{ 
             height: dragPosition.y < 0 ? `${Math.min(Math.abs(dragPosition.y) / 1.5, 100)}%` : '0%',
             opacity: dragPosition.y < 0 ? 1 : 0
@@ -194,7 +194,7 @@ const ProjectCard = ({ project, onDecline, onSave, onApply, swipeDirection }: Pr
         
         <button 
           onClick={onSave}
-          className="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-md text-blue-500 hover:bg-blue-50 transition-colors"
+          className="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-md text-violet-500 hover:bg-violet-50 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
@@ -203,7 +203,7 @@ const ProjectCard = ({ project, onDecline, onSave, onApply, swipeDirection }: Pr
         
         <button 
           onClick={onApply}
-          className="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-md text-green-500 hover:bg-green-50 transition-colors"
+          className="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-md text-violet-700 hover:bg-violet-50 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
