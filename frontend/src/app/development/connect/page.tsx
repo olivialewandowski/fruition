@@ -109,21 +109,8 @@ export default function ConnectPage() {
             appliedCount={appliedProjects.length}
           />
           
-          <div className="flex flex-col items-start px-5 mt-6 w-full max-md:max-w-full">
-            <div className="flex flex-wrap gap-5 justify-between self-stretch mr-6 ml-3.5 w-full font-bold text-center max-w-[1050px] max-md:mr-2.5 max-md:max-w-full">
-              <div className="my-auto text-3xl text-black">Connect with Research</div>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => router.push('/development/dashboard')}
-                  className="px-6 py-2.5 text-3xl text-violet-800 border-2 border-violet-800 rounded-[30px] hover:bg-violet-100 transition-colors max-md:px-5"
-                >
-                  Dashboard
-                </button>
-              </div>
-            </div>
-            
-            {/* Tab content */}
-            <div className="w-full px-4 mt-6">
+          <div className="flex flex-col items-start w-full max-md:max-w-full">
+            <div className="w-full px-4 mt-4">
               {activeTab === 'discover' && (
                 <DiscoverTab 
                   projects={projects} 
