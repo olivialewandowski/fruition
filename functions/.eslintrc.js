@@ -26,6 +26,11 @@ module.exports = {
     "import",
   ],
   rules: {
+    "valid-jsdoc": "off",
+    "new-cap": ["error", {
+      "capIsNew": false,
+      "capIsNewExceptions": ["Router"]
+    }],
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "import/extensions": [
