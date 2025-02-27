@@ -1,12 +1,12 @@
 import * as functions from "firebase-functions";
 import express from "express";
 import cors from "cors";
-import { authRouter } from "./routes/auth";
-import { waitlistRouter } from "./routes/waitlist";
+import router from "./routes";
+import { requestLogger } from "./middleware/auth";
 
 const app = express();
 
-// Configure CORS with specific origins
+// configuring CORS with specific origins
 const allowedOrigins = [
   "https://fruitionresearch.com",
   "https://www.fruitionresearch.com",
@@ -15,7 +15,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // allowing requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.indexOf(origin) === -1) {
@@ -31,19 +31,13 @@ app.use(cors({
 
 app.use(express.json());
 
-// Add request logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log("Request headers:", req.headers);
-  console.log("Request body:", req.body);
-  next();
-});
+// request logging middleware
+app.use(requestLogger);
 
-// Mount routers
-app.use("/auth", authRouter);
-app.use("/waitlist", waitlistRouter);
+// mounting all routes
+app.use(router);
 
-// Error handling middleware
+// error handling middleware
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("Error:", err);
