@@ -7,7 +7,6 @@ export interface UserAction {
   timestamp: Timestamp;
   sessionId: string;
   timeSpentViewingSeconds: number;
-  visitCount: number;
   sourceFeature: string;
 }
 
