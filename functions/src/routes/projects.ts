@@ -9,12 +9,13 @@ import {
   addOnboardingMaterial,
   getOnboardingMaterials,
   applyToProject,
-  getAllProjects
+  getAllProjects,
+  deleteProject,
 } from "../services/projectsService";
 import { validateAuthToken, requirePermission } from "../middleware/auth";
-import { 
+import {
   PROJECT_PERMISSIONS,
-  CONNECT_PERMISSIONS 
+  CONNECT_PERMISSIONS,
 } from "../types/permissions";
 
 export const projectsRouter = Router();
@@ -28,7 +29,7 @@ projectsRouter.get(
   requirePermission(PROJECT_PERMISSIONS.VIEW_APPLICATIONS),
   async (req, res) => {
     try {
-      // Since we've passed through validateAuthToken and requirePermission,
+      // since we've passed through validateAuthToken and requirePermission,
       // we can be sure that req.user exists and has a uid
       const projects = await getAllProjects(req.user!.uid);
       return res.status(200).json({ data: projects });
@@ -128,12 +129,11 @@ projectsRouter.delete(
   requirePermission(PROJECT_PERMISSIONS.DELETE_PROJECT),
   async (req, res) => {
     try {
-      // uncomment when deleteProject implementation is available
-      // const { projectId } = req.params;
-      // await deleteProject(req.user!.uid, projectId);
-      
+      const { projectId } = req.params;
+      await deleteProject(req.user!.uid, projectId);
+
       return res.status(200).json({
-        message: "Project deletion endpoint reached. Implementation pending.",
+        message: "Project deleted successfully",
       });
     } catch (error) {
       return res.status(500).json({
