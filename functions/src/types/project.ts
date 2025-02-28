@@ -17,20 +17,20 @@ export interface Project {
   updatedAt: Timestamp;
   status: "active" | "archived" | "draft";
   isActive: boolean;
-  
+
   // mentor information
   mentorId: string;
   mentorName: string;
   mentorEmail: string;
   isPrincipalInvestigator: boolean;
-  
+
   // principal investigator (if mentor is not PI)
   principalInvestigatorName?: string;
   principalInvestigatorEmail?: string;
-  
+
   // department info
   department: string;
-  
+
   // Team members (hired students)
   teamMembers: TeamMember[];
 }

@@ -25,18 +25,18 @@ export interface User {
   lastActive: Timestamp;
   activeProjects: string[];
   archivedProjects: string[];
-  
+
   // student-specific fields
   year?: string;
   major?: string;
   minor?: string;
   gpa?: number;
-  
+
   // common fields
   aboutMe?: string;
   profilePhoto?: StoragePhoto;
   resumeFile?: StorageFile;
-  
+
   // student-specific arrays
   skills?: string[];
   interests?: string[];
@@ -45,7 +45,7 @@ export interface User {
     appliedProjects: string[];
     rejectedProjects: string[];
   };
-  
+
   // faculty/admin specific fields
   title?: string;
   department?: string;
