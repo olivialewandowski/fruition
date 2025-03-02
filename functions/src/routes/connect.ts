@@ -1,114 +1,177 @@
-import { Router } from "express";
+import express from "express";
 import { validateAuthToken, requirePermission } from "../middleware/auth";
 import { CONNECT_PERMISSIONS } from "../types/permissions";
+import { 
+  saveProject, 
+  removeSavedProject, 
+  declineProject, 
+  getSavedProjects,
+  getAppliedProjects
+} from "../services/connectService";
+import { getProjectsByIds } from "../services/projectsService";
 
-export const connectRouter = Router();
+export const connectRouter = express.Router();
 
-// all routes require authentication
+// All routes require authentication
 connectRouter.use(validateAuthToken);
 
-// get recommended projects
+// Get recommended projects
 connectRouter.get(
   "/recommended",
   requirePermission(CONNECT_PERMISSIONS.SWIPE_PROJECTS),
   async (req, res) => {
     try {
-      // this would have logic to fetch recommended projects
-      // for now, return a placeholder
+      // TODO: Implement recommendation algorithm
+      // For now, return placeholder data
       return res.status(200).json({
+        success: true,
         message: "Recommended projects retrieved successfully",
-        data: [],
+        data: []
       });
     } catch (error) {
+      console.error("Error getting recommended projects:", error);
       return res.status(500).json({
-        error: "Failed to get recommended projects",
-        details: error instanceof Error ? error.message : "Unknown error",
+        success: false,
+        message: "Failed to get recommended projects",
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   }
 );
 
-// save a project
+// Save a project
 connectRouter.post(
   "/save/:projectId",
   requirePermission(CONNECT_PERMISSIONS.SAVE_PROJECTS),
   async (req, res) => {
     try {
       const { projectId } = req.params;
+      const userId = req.user!.uid;
 
-      // this would have logic to save a project
-      // for now, return a success placeholder
+      await saveProject(userId, projectId);
+
       return res.status(200).json({
-        message: `Project ${projectId} saved successfully`,
+        success: true,
+        message: "Project saved successfully"
       });
     } catch (error) {
+      console.error("Error saving project:", error);
       return res.status(500).json({
-        error: "Failed to save project",
-        details: error instanceof Error ? error.message : "Unknown error",
+        success: false,
+        message: "Failed to save project",
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   }
 );
 
-// get saved projects
+// Decline a project
+connectRouter.post(
+  "/decline/:projectId",
+  requirePermission(CONNECT_PERMISSIONS.SWIPE_PROJECTS),
+  async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const userId = req.user!.uid;
+
+      await declineProject(userId, projectId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Project declined successfully"
+      });
+    } catch (error) {
+      console.error("Error declining project:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to decline project",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  }
+);
+
+// Get saved projects
 connectRouter.get(
   "/saved",
   requirePermission(CONNECT_PERMISSIONS.SAVE_PROJECTS),
   async (req, res) => {
     try {
-      // this would have logic to fetch saved projects
-      // for now, return a placeholder
+      const userId = req.user!.uid;
+      
+      // Get saved project IDs
+      const savedProjectIds = await getSavedProjects(userId);
+      
+      // Get project details
+      const savedProjects = await getProjectsByIds(savedProjectIds);
+
       return res.status(200).json({
+        success: true,
         message: "Saved projects retrieved successfully",
-        data: [],
+        data: savedProjects
       });
     } catch (error) {
+      console.error("Error getting saved projects:", error);
       return res.status(500).json({
-        error: "Failed to get saved projects",
-        details: error instanceof Error ? error.message : "Unknown error",
+        success: false,
+        message: "Failed to get saved projects",
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   }
 );
 
-// remove saved project
+// Remove a saved project
 connectRouter.delete(
   "/saved/:projectId",
   requirePermission(CONNECT_PERMISSIONS.SAVE_PROJECTS),
   async (req, res) => {
     try {
       const { projectId } = req.params;
+      const userId = req.user!.uid;
 
-      // this would have logic to remove a saved project
-      // for now, return a success placeholder
+      await removeSavedProject(userId, projectId);
+
       return res.status(200).json({
-        message: `Project ${projectId} removed from saved successfully`,
+        success: true,
+        message: "Project removed from saved successfully"
       });
     } catch (error) {
+      console.error("Error removing saved project:", error);
       return res.status(500).json({
-        error: "Failed to remove saved project",
-        details: error instanceof Error ? error.message : "Unknown error",
+        success: false,
+        message: "Failed to remove saved project",
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   }
 );
 
-// get applied projects
+// Get applied projects
 connectRouter.get(
   "/applied",
   requirePermission(CONNECT_PERMISSIONS.APPLY_TO_PROJECTS),
   async (req, res) => {
     try {
-      // this would have logic to fetch applied projects
-      // for now, return a placeholder
+      const userId = req.user!.uid;
+      
+      // Get applied project IDs
+      const appliedProjectIds = await getAppliedProjects(userId);
+      
+      // Get project details
+      const appliedProjects = await getProjectsByIds(appliedProjectIds);
+
       return res.status(200).json({
+        success: true,
         message: "Applied projects retrieved successfully",
-        data: [],
+        data: appliedProjects
       });
     } catch (error) {
+      console.error("Error getting applied projects:", error);
       return res.status(500).json({
-        error: "Failed to get applied projects",
-        details: error instanceof Error ? error.message : "Unknown error",
+        success: false,
+        message: "Failed to get applied projects",
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   }

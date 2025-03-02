@@ -1,138 +1,323 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Project } from '@/types/project';
-import { getProjects, applyToProject, saveProject, removeProject } from '@/services/projectsService';
 import Sidebar from '@/components/dashboard/Sidebar';
 import ConnectNavigation from '@/components/connect/ConnectNavigation';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
 import AppliedTab from '@/components/connect/AppliedTab';
+import { 
+  getProjects, 
+  applyToProject, 
+  saveProject, 
+  getSavedProjects, 
+  getAppliedProjects,
+  declineProject,
+  removeProject
+} from '@/services/projectsService';
+import { toast } from 'react-hot-toast';
+import { isAuthenticated, signInWithGoogle, addAuthStateListener } from '@/services/authService';
+
+// Client-side only component to prevent hydration issues
+const ClientOnly = ({ children }: { children: React.ReactNode }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    // Delay setting isClient to true to allow auth to initialize
+    const timer = setTimeout(() => {
+      setIsClient(true);
+    }, 100); // Small delay to ensure auth has a chance to initialize
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center min-h-[600px]">
+        <div className="animate-pulse flex flex-col items-center w-full max-w-2xl">
+          <div className="h-10 w-full bg-gray-200 rounded-md mb-8"></div>
+          <div className="h-64 w-full bg-gray-200 rounded-md mb-6"></div>
+          <div className="flex justify-center space-x-4 w-full">
+            <div className="h-12 w-12 bg-gray-200 rounded-full"></div>
+            <div className="h-12 w-12 bg-gray-200 rounded-full"></div>
+            <div className="h-12 w-12 bg-gray-200 rounded-full"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
+// Define the tabs for the connect page
+type ConnectTab = 'discover' | 'saved' | 'applied';
 
 export default function ConnectPage() {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'discover' | 'saved' | 'applied'>('discover');
+  const [activeTab, setActiveTab] = useState<ConnectTab>('discover');
   const [projects, setProjects] = useState<Project[]>([]);
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
   const [appliedProjects, setAppliedProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Fetch projects on component mount
+  // Check authentication status immediately using the global flag
   useEffect(() => {
-    const fetchProjects = async () => {
+    if (typeof window !== 'undefined') {
+      // Check if auth has been initialized
+      if (window.authInitialized) {
+        console.log('ConnectPage: Auth already initialized, setting state');
+        setIsUserAuthenticated(!!window.isUserAuthenticated);
+        setAuthChecked(true);
+      } else {
+        console.log('ConnectPage: Auth not yet initialized');
+      }
+    }
+  }, []);
+
+  // Set up auth state listener
+  useEffect(() => {
+    const removeListener = addAuthStateListener((user) => {
+      console.log('Auth state listener triggered:', user ? 'User authenticated' : 'No user');
+      setIsUserAuthenticated(!!user);
+      setAuthChecked(true);
+    });
+
+    return () => removeListener();
+  }, []);
+
+  // Also check authentication status using the async method
+  useEffect(() => {
+    const checkAuth = async () => {
       try {
-        const projectsData = await getProjects();
-        setProjects(projectsData);
-        setIsLoading(false);
+        const authenticated = await isAuthenticated();
+        console.log('Async auth check result:', authenticated);
+        setIsUserAuthenticated(authenticated);
+        setAuthChecked(true);
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        setAuthChecked(true); // Still mark as checked even on error
+      }
+    };
+    
+    checkAuth();
+  }, []);
+
+  // Fetch projects when authentication state changes
+  useEffect(() => {
+    // Only fetch data if auth has been checked
+    if (!authChecked) {
+      return;
+    }
+
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Only fetch data if user is authenticated
+        if (isUserAuthenticated) {
+          console.log('Fetching projects for authenticated user');
+          // Fetch all types of projects in parallel
+          const [projectsData, savedProjectsData, appliedProjectsData] = await Promise.all([
+            getProjects(),
+            getSavedProjects(),
+            getAppliedProjects()
+          ]);
+          
+          setProjects(projectsData);
+          setSavedProjects(savedProjectsData);
+          setAppliedProjects(appliedProjectsData);
+        } else {
+          console.log('User not authenticated, clearing projects');
+          // Clear projects if not authenticated
+          setProjects([]);
+          setSavedProjects([]);
+          setAppliedProjects([]);
+        }
       } catch (error) {
         console.error('Error fetching projects:', error);
+        toast.error('Failed to load projects. Please try again later.');
+      } finally {
         setIsLoading(false);
       }
     };
 
-    fetchProjects();
-  }, []);
+    fetchData();
+  }, [isUserAuthenticated, authChecked]);
+
+  const handleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      const user = await signInWithGoogle();
+      if (user) {
+        toast.success('Successfully signed in!');
+        setIsUserAuthenticated(true);
+      } else {
+        toast.error('Sign in failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error signing in:', error);
+      toast.error('An error occurred during sign in.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle applying to a project
   const handleApplyProject = async (project: Project) => {
     try {
-      await applyToProject(project.id);
+      const success = await applyToProject(project.id);
       
-      // Add to applied projects if not already there
-      if (!appliedProjects.some(p => p.id === project.id)) {
-        setAppliedProjects(prev => [...prev, project]);
+      if (success) {
+        toast.success('Successfully applied to project!');
+        
+        // Update the projects list
+        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        
+        // Add to applied projects
+        setAppliedProjects(prev => [
+          ...prev, 
+          { ...project, id: `applied_${project.id}` }
+        ]);
+      } else {
+        toast.error('Failed to apply to project. Please try again.');
       }
-      
-      // Remove from saved projects if it was saved
-      setSavedProjects(prev => prev.filter(p => p.id !== project.id));
-      
-      // Show a success message or notification
-      console.log(`Applied to project: ${project.title}`);
     } catch (error) {
       console.error('Error applying to project:', error);
+      toast.error('An error occurred while applying to the project.');
     }
   };
 
   // Handle saving a project
   const handleSaveProject = async (project: Project) => {
     try {
-      await saveProject(project);
+      const success = await saveProject(project.id);
       
-      // Add to saved projects if not already there
-      if (!savedProjects.some(p => p.id === project.id)) {
-        setSavedProjects(prev => [...prev, project]);
+      if (success) {
+        toast.success('Project saved!');
+        
+        // Update the projects list
+        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        
+        // Add to saved projects
+        setSavedProjects(prev => [
+          ...prev, 
+          { ...project, id: `saved_${project.id}` }
+        ]);
+      } else {
+        toast.error('Failed to save project. Please try again.');
       }
-      
-      // Show a success message or notification
-      console.log(`Saved project: ${project.title}`);
     } catch (error) {
       console.error('Error saving project:', error);
+      toast.error('An error occurred while saving the project.');
     }
   };
 
-  // Handle removing a project from saved
-  const handleRemoveProject = async (project: Project) => {
+  // Handle declining a project
+  const handleDeclineProject = async (project: Project) => {
     try {
-      await removeProject(project.id);
+      const success = await declineProject(project.id);
       
-      // Remove from saved projects
-      setSavedProjects(prev => prev.filter(p => p.id !== project.id));
+      if (success) {
+        toast.success('Project declined');
+        
+        // Update the projects list
+        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+      } else {
+        toast.error('Failed to decline project. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error declining project:', error);
+      toast.error('An error occurred while declining the project.');
+    }
+  };
+
+  // Handle removing a saved project
+  const handleRemoveSavedProject = async (project: Project) => {
+    try {
+      // Extract the original project ID
+      const originalId = project.id.replace('saved_', '');
+      const success = await removeProject(originalId);
       
-      // Show a success message or notification
-      console.log(`Removed project: ${project.title}`);
+      if (success) {
+        toast.success('Project removed from saved');
+        
+        // Update the saved projects list
+        setSavedProjects(prev => prev.filter(p => p.id !== project.id));
+      } else {
+        toast.error('Failed to remove project. Please try again.');
+      }
     } catch (error) {
       console.error('Error removing project:', error);
+      toast.error('An error occurred while removing the project.');
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <div className="bg-yellow-100 p-4 text-yellow-800 text-center">
-        Development Environment
-      </div>
-      <div className="flex overflow-hidden bg-white border border-solid border-neutral-200">
-        <Sidebar />
-        <div className="flex flex-col grow shrink-0 self-start basis-0 w-fit max-md:max-w-full">
-          <ConnectNavigation 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
-            savedCount={savedProjects.length}
-            appliedCount={appliedProjects.length}
-          />
-          
-          <div className="flex flex-col items-start w-full max-md:max-w-full">
-            <div className="w-full px-4 mt-4">
-              {activeTab === 'discover' && (
-                <DiscoverTab 
-                  projects={projects} 
-                  onSaveProject={handleSaveProject} 
-                  onApplyProject={handleApplyProject} 
-                />
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
+          <div className="max-w-7xl mx-auto">
+            <h1 className="text-3xl font-bold text-gray-900 mb-6">Connect</h1>
+            
+            <ConnectNavigation 
+              activeTab={activeTab} 
+              onTabChange={setActiveTab} 
+              savedCount={savedProjects.length}
+              appliedCount={appliedProjects.length}
+            />
+            
+            <ClientOnly>
+              {!authChecked ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : !isUserAuthenticated ? (
+                <div className="flex flex-col items-center justify-center h-64">
+                  <p className="text-lg mb-6">Please sign in to view projects</p>
+                  <button 
+                    onClick={handleSignIn}
+                    className="px-6 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Signing in...' : 'Sign in with Google'}
+                  </button>
+                </div>
+              ) : isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : (
+                <>
+                  {activeTab === 'discover' && (
+                    <DiscoverTab 
+                      projects={projects} 
+                      onApplyProject={handleApplyProject}
+                      onSaveProject={handleSaveProject}
+                      onDeclineProject={handleDeclineProject}
+                    />
+                  )}
+                  
+                  {activeTab === 'saved' && (
+                    <SavedTab 
+                      projects={savedProjects} 
+                      onRemoveProject={handleRemoveSavedProject}
+                      onApplyProject={handleApplyProject}
+                    />
+                  )}
+                  
+                  {activeTab === 'applied' && (
+                    <AppliedTab projects={appliedProjects} />
+                  )}
+                </>
               )}
-              
-              {activeTab === 'saved' && (
-                <SavedTab 
-                  savedProjects={savedProjects} 
-                  onApplyProject={handleApplyProject} 
-                  onRemoveProject={handleRemoveProject} 
-                />
-              )}
-              
-              {activeTab === 'applied' && (
-                <AppliedTab appliedProjects={appliedProjects} />
-              )}
-            </div>
+            </ClientOnly>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

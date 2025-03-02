@@ -36,6 +36,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // userData collection for storing user-specific data like saved/applied projects
+    match /userData/{userId} {
+      // Users can read and write their own data
+      allow read, write: if isAuthenticated() && isOwner(userId);
+      
+      // Admins can read user data from their institution
+      allow read: if isAuthenticated() && (isResearchAdmin() || isSuperAdmin());
+    }
+
     // rules for joining the waitlist
     match /waitlist/{entryId} {
       // Anyone can create a waitlist entry
