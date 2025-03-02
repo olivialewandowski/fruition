@@ -133,7 +133,7 @@ const DiscoverTab = ({ projects, onSaveProject, onApplyProject, onDeclineProject
             <div className="bg-white rounded-xl shadow-md p-8 text-center w-full max-w-5xl">
               <h3 className="text-2xl font-semibold text-gray-800 mb-4">No More Projects</h3>
               <p className="text-gray-600 mb-6">
-                You've gone through all available projects. Check back later for more opportunities!
+                {"You've gone through all available projects. Check back later for more opportunities!"}
               </p>
               <button 
                 onClick={() => window.location.reload()}
