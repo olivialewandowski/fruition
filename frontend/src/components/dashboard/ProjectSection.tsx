@@ -9,22 +9,23 @@ interface Project {
 interface ProjectSectionProps {
   title: string;
   projects: Project[];
-  hideTitle?: boolean;  // Add this prop
+  hideTitle?: boolean;
 }
 
 const ProjectSection: React.FC<ProjectSectionProps> = ({ title, projects, hideTitle = false }) => {
   return (
-    <>
+    <div className="mb-10">
       {!hideTitle && (
-        <div className="mt-5 ml-3.5 text-3xl font-bold text-center text-black max-md:ml-2.5">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
           {title}
-        </div>
+        </h2>
       )}
-      {projects.map((project, index) => (
-        <ProjectCard key={index} title={project.title} description={project.description} />
-      ))}
-      <div className="shrink-0 self-stretch mt-8 h-px border border-solid border-zinc-300 max-md:max-w-full" />
-    </>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+        {projects.map((project, index) => (
+          <ProjectCard key={index} title={project.title} description={project.description} />
+        ))}
+      </div>
+    </div>
   );
 };
 

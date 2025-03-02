@@ -7,10 +7,17 @@ interface ProjectCardProps {
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ title, description }) => {
   return (
-    <div className="flex flex-col px-3 py-4 mt-5 ml-3.5 max-w-full text-black rounded-3xl border border-solid bg-zinc-100 border-zinc-300 shadow-[0px_4px_4px_rgba(0,0,0,0.25)] w-[369px] max-md:ml-2.5">
-      <div className="text-xl max-md:mr-2.5">{title}</div>
-      <div className="shrink-0 mt-2 h-px border border-solid border-neutral-500" />
-      <div className="mt-1.5 text-sm font-light max-md:mr-1">{description}</div>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden h-full">
+      <div className="p-6">
+        <h3 className="text-xl font-semibold text-gray-900 mb-3 line-clamp-2">{title}</h3>
+        <div className="w-full h-px bg-gray-200 mb-4"></div>
+        <p className="text-base text-gray-600 line-clamp-5 mb-4">{description}</p>
+      </div>
+      <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+        <button className="text-base text-violet-700 font-medium hover:text-violet-900 transition-colors">
+          View Details →
+        </button>
+      </div>
     </div>
   );
 };
