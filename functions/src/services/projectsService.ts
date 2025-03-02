@@ -647,3 +647,40 @@ export async function deleteProject(userId: string, projectId: string): Promise<
   // delete project document
   await db.collection("projects").doc(projectId).delete();
 }
+
+/**
+ * Get multiple projects by their IDs
+ * @param projectIds - Array of project IDs to retrieve
+ * @returns Array of projects with their IDs
+ */
+export async function getProjectsByIds(projectIds: string[]): Promise<ProjectWithId[]> {
+  if (!projectIds.length) {
+    return [];
+  }
+
+  try {
+    // Firestore doesn't support retrieving multiple documents by ID in a single query
+    // So we need to fetch them individually and combine the results
+    const projectPromises = projectIds.map(async (projectId) => {
+      const projectDoc = await db.collection("projects").doc(projectId).get();
+      
+      if (!projectDoc.exists) {
+        return null;
+      }
+      
+      const projectData = projectDoc.data() as Project;
+      return {
+        id: projectDoc.id,
+        ...projectData
+      };
+    });
+
+    const projects = await Promise.all(projectPromises);
+    
+    // Filter out any null values (projects that weren't found)
+    return projects.filter((project): project is ProjectWithId => project !== null);
+  } catch (error) {
+    console.error("Error getting projects by IDs:", error);
+    throw new Error("Failed to retrieve projects");
+  }
+}

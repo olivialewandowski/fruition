@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Project } from '@/types/project';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface ProjectCardProps {
   project: Project;
@@ -10,7 +10,7 @@ interface ProjectCardProps {
   swipeDirection: 'left' | 'right' | 'up' | null;
 }
 
-const ProjectCard = ({ project, swipeDirection }: ProjectCardProps) => {
+const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply }: ProjectCardProps) => {
   const [animateDirection, setAnimateDirection] = useState<'left' | 'right' | 'up' | null>(null);
   const [animationPhase, setAnimationPhase] = useState<'initial' | 'bounce' | 'exit'>('initial');
   const [mounted, setMounted] = useState(false);
@@ -22,15 +22,14 @@ const ProjectCard = ({ project, swipeDirection }: ProjectCardProps) => {
   
   // Reset animation when project changes
   useEffect(() => {
+    if (!project) return;
     setAnimateDirection(null);
     setAnimationPhase('initial');
   }, [project]);
   
   // Handle animation based on swipe direction
   useEffect(() => {
-    if (!swipeDirection) {
-      setAnimateDirection(null);
-      setAnimationPhase('initial');
+    if (!swipeDirection || !mounted) {
       return;
     }
     
@@ -44,7 +43,7 @@ const ProjectCard = ({ project, swipeDirection }: ProjectCardProps) => {
     }, 200);
     
     return () => clearTimeout(bounceTimer);
-  }, [swipeDirection]);
+  }, [swipeDirection, mounted]);
   
   // Variants for card animations
   const cardVariants = {
