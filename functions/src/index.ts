@@ -1,10 +1,30 @@
-import * as functions from "firebase-functions";
+import * as functions from 'firebase-functions/v1';
+import * as admin from 'firebase-admin';
 import express from "express";
 import cors from "cors";
 import router from "./routes";
 import { requestLogger } from "./middleware/auth";
 
 const app = express();
+
+// Initialize Firebase Admin SDK
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+// Export Firestore triggers
+export * from './triggers/firestoreTriggers';
+
+// Export HTTP API endpoints
+// export * from './api/projectApi';
+// export * from './api/userApi';
+// export * from './api/applicationApi';
+
+// Example HTTP function
+export const helloWorld = functions.https.onRequest((request, response) => {
+  functions.logger.info("Hello logs!", {structuredData: true});
+  response.json({ message: "Hello from Fruition Research Matching Platform!" });
+});
 
 // configuring CORS with specific origins
 const allowedOrigins = [
