@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Project } from '@/types/project';
-import Sidebar from '@/components/dashboard/Sidebar';
-import ConnectNavigation from '@/components/connect/ConnectNavigation';
+import BaseLayout from '@/components/layout/BaseLayout';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
 import AppliedTab from '@/components/connect/AppliedTab';
@@ -17,6 +16,7 @@ import {
   removeProject
 } from '@/services/projectsService';
 import { toast } from 'react-hot-toast';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';
@@ -27,6 +27,25 @@ export default function EmptyConnectTestPage() {
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
   const [appliedProjects, setAppliedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Define the tabs
+  const connectTabs = [
+    { 
+      id: 'discover', 
+      label: 'Discover',
+      isAvailable: (role?: string) => role === 'student'
+    },
+    { 
+      id: 'saved', 
+      label: 'Saved',
+      isAvailable: (role?: string) => role === 'student'
+    },
+    { 
+      id: 'applied', 
+      label: 'Applied',
+      isAvailable: (role?: string) => role === 'student'
+    }
+  ];
 
   // Fetch projects on component mount
   useEffect(() => {
@@ -121,55 +140,47 @@ export default function EmptyConnectTestPage() {
     }
   };
 
+  // Handle tab change
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId as ConnectTab);
+  };
+
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Connect - Empty Test</h1>
-            
-            <ConnectNavigation 
-              activeTab={activeTab} 
-              onTabChange={setActiveTab} 
-              savedCount={savedProjects.length}
-              appliedCount={appliedProjects.length}
+    <BaseLayout
+      title="Connect - Empty Test"
+      tabs={connectTabs}
+      defaultTab="discover"
+    >
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner size="large" />
+        </div>
+      ) : (
+        <>
+          {activeTab === 'discover' && (
+            <DiscoverTab 
+              projects={projects} 
+              onApplyProject={handleApplyProject} 
+              onSaveProject={handleSaveProject}
+              onDeclineProject={handleDeclineProject}
             />
-            
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
-              </div>
-            ) : (
-              <>
-                {activeTab === 'discover' && (
-                  <DiscoverTab 
-                    projects={projects} 
-                    onApplyProject={handleApplyProject} 
-                    onSaveProject={handleSaveProject}
-                    onDeclineProject={handleDeclineProject}
-                  />
-                )}
-                
-                {activeTab === 'saved' && (
-                  <SavedTab 
-                    savedProjects={savedProjects} 
-                    onApplyProject={handleApplyProject}
-                    onRemoveProject={handleRemoveSavedProject}
-                  />
-                )}
-                
-                {activeTab === 'applied' && (
-                  <AppliedTab 
-                    appliedProjects={appliedProjects} 
-                  />
-                )}
-              </>
-            )}
-          </div>
-        </main>
-      </div>
-    </div>
+          )}
+          
+          {activeTab === 'saved' && (
+            <SavedTab 
+              savedProjects={savedProjects} 
+              onApplyProject={handleApplyProject}
+              onRemoveProject={handleRemoveSavedProject}
+            />
+          )}
+          
+          {activeTab === 'applied' && (
+            <AppliedTab 
+              appliedProjects={appliedProjects} 
+            />
+          )}
+        </>
+      )}
+    </BaseLayout>
   );
-} 
+}

@@ -1,6 +1,6 @@
 import React from 'react';
-import Sidebar from './Sidebar';
-import TopNavigation from './TopNavigation';
+import Sidebar from '@/components/layout/Sidebar';
+import TopNavigation from '@/components/layout/TopNavigation';
 import ProjectSection from './ProjectSection';
 
 const ProjectsPage: React.FC = () => {

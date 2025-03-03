@@ -73,13 +73,17 @@ export interface Permission {
   // available features with their required permissions
   export const FEATURES: Feature[] = [
     {
-      id: 'projects',
-      name: 'projects',
-      displayName: 'Projects',
+      id: 'dashboard',
+      name: 'dashboard',
+      displayName: 'Dashboard',
       description: 'View and manage research projects',
-      icon: 'projects-icon',
-      path: '/projects',
-      requiredPermissions: [PERMISSIONS.CREATE_PROJECT],
+      icon: 'dashboard-icon',
+      path: '/development/dashboard',
+      requiredPermissions: [
+        PERMISSIONS.CREATE_PROJECT, 
+        PERMISSIONS.VIEW_APPLICATIONS,
+        PERMISSIONS.SWIPE_PROJECTS
+      ],  // All roles need at least one of these
       isActive: true
     },
     {
@@ -88,8 +92,8 @@ export interface Permission {
       displayName: 'Connect',
       description: 'Connect with researchers and mentors',
       icon: 'connect-icon',
-      path: '/connect',
-      requiredPermissions: [PERMISSIONS.SWIPE_PROJECTS],
+      path: '/development/connect',
+      requiredPermissions: [PERMISSIONS.SWIPE_PROJECTS],  // Student-only feature
       isActive: true
     }
   ];

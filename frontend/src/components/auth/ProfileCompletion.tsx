@@ -20,28 +20,8 @@ const ProfileCompletion = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
 
-  useEffect(() => {
-    // Create a local auth state listener to ensure we have the latest auth state
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (!currentUser) {
-        // Only redirect if we're sure the user is not authenticated
-        setTimeout(() => {
-          if (!auth.currentUser) {
-            router.replace('/development/login');
-          }
-        }, 1000); // Add a delay to prevent immediate redirect
-      } else {
-        // User is authenticated, check profile
-        checkUserProfile(currentUser.uid);
-      }
-      setPageLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
-  // Separate function to check user profile
-  const checkUserProfile = async (userId: string) => {
+  // Memoize the function to check user profile
+  const checkUserProfile = React.useCallback(async (userId: string) => {
     try {
       const userDoc = await getDoc(doc(db, 'users', userId));
       
@@ -72,7 +52,27 @@ const ProfileCompletion = () => {
     } catch (err) {
       console.error('Error checking user profile:', err);
     }
-  };
+  }, [router, setFormData]);
+
+  useEffect(() => {
+    // Create a local auth state listener to ensure we have the latest auth state
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        // Only redirect if we're sure the user is not authenticated
+        setTimeout(() => {
+          if (!auth.currentUser) {
+            router.replace('/development/login');
+          }
+        }, 1000); // Add a delay to prevent immediate redirect
+      } else {
+        // User is authenticated, check profile
+        checkUserProfile(currentUser.uid);
+      }
+      setPageLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router, checkUserProfile]);
 
   const handleRoleSelect = (selectedRole: string) => {
     setFormData({ ...formData, role: selectedRole });
@@ -254,4 +254,4 @@ const ProfileCompletion = () => {
   );
 };
 
-export default ProfileCompletion; 
+export default ProfileCompletion;

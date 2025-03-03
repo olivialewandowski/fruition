@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSidebarState } from '@/hooks/useSidebarState';
 import { auth } from '@/config/firebase';
+import { FEATURES } from '@/permissions';
 
 // Heroicons imports
 import { 
@@ -49,11 +50,33 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, label, isActive, isCollap
   );
 };
 
+// Map feature IDs to icons
+const featureIcons: Record<string, React.ReactNode> = {
+  dashboard: <HomeIcon className="w-5 h-5" />,
+  inbox: <InboxIcon className="w-5 h-5" />,
+  projects: <DocumentTextIcon className="w-5 h-5" />,
+  forums: <UserGroupIcon className="w-5 h-5" />,
+  grants: <CurrencyDollarIcon className="w-5 h-5" />,
+  publications: <BookOpenIcon className="w-5 h-5" />,
+  connect: <LinkIcon className="w-5 h-5" />,
+};
+
+// Map feature IDs to URLs
+const featureUrls: Record<string, string> = {
+  dashboard: '/development/dashboard',
+  inbox: '#',
+  projects: '#',
+  forums: '#',
+  grants: '#',
+  publications: '#',
+  connect: '/development/connect',
+};
+
 const Sidebar: React.FC = () => {
   const { isCollapsed, toggleSidebar, isMobileOpen, setMobileOpen } = useSidebarState();
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, userData, permissions } = useAuth();
   
   // Close mobile sidebar when route changes
   useEffect(() => {
@@ -83,15 +106,17 @@ const Sidebar: React.FC = () => {
     }
   };
 
-  const navItems = [
-    { href: '/development/dashboard', icon: <HomeIcon className="w-5 h-5" />, label: 'Dashboard' },
-    { href: '#', icon: <InboxIcon className="w-5 h-5" />, label: 'Inbox' },
-    { href: '#', icon: <DocumentTextIcon className="w-5 h-5" />, label: 'Projects' },
-    { href: '#', icon: <UserGroupIcon className="w-5 h-5" />, label: 'Forums' },
-    { href: '#', icon: <CurrencyDollarIcon className="w-5 h-5" />, label: 'Grants' },
-    { href: '#', icon: <BookOpenIcon className="w-5 h-5" />, label: 'Publications' },
-    { href: '/development/connect', icon: <LinkIcon className="w-5 h-5" />, label: 'Connect' },
-  ];
+  // Filter FEATURES based on user permissions
+  const userFeatures = FEATURES.filter(feature => {
+    return feature.requiredPermissions.some(permission => permissions.includes(permission));
+  });
+
+  // Create navigation items from available features
+  const navItems = userFeatures.map(feature => ({
+    href: featureUrls[feature.id] || '#',
+    icon: featureIcons[feature.id] || <DocumentTextIcon className="w-5 h-5" />,
+    label: feature.displayName
+  }));
 
   return (
     <>
@@ -171,7 +196,7 @@ const Sidebar: React.FC = () => {
                 href={item.href}
                 icon={item.icon}
                 label={item.label}
-                isActive={pathname === item.href}
+                isActive={pathname === item.href || pathname?.startsWith(item.href + '/')}
                 isCollapsed={isCollapsed}
                 isMobile={isMobileOpen}
               />
@@ -187,21 +212,28 @@ const Sidebar: React.FC = () => {
               {(!isCollapsed || isMobileOpen) && (
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-violet-200 flex items-center justify-center text-violet-800 font-semibold">
-                    {user?.displayName?.charAt(0) || 'O'}
+                    {userData?.firstName?.charAt(0) || user?.displayName?.charAt(0) || 'U'}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900">{user?.displayName || 'Olive Mountain'}</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {userData?.firstName 
+                        ? `${userData.firstName} ${userData.lastName || ''}` 
+                        : user?.displayName || 'User'}
+                    </span>
                     <span className="text-xs text-gray-500">View profile</span>
                   </div>
                 </div>
               )}
               {isCollapsed && !isMobileOpen && (
                 <div className="w-10 h-10 min-w-[2.5rem] rounded-full bg-violet-200 flex items-center justify-center text-violet-800 font-semibold">
-                  {user?.displayName?.charAt(0) || 'O'}
+                  {userData?.firstName?.charAt(0) || user?.displayName?.charAt(0) || 'U'}
                 </div>
               )}
               {(!isCollapsed || isMobileOpen) && (
-                <button className="p-1 rounded-md text-gray-500 hover:bg-gray-100">
+                <button 
+                  onClick={() => router.push('/development/profile')}
+                  className="p-1 rounded-md text-gray-500 hover:bg-gray-100"
+                >
                   <Cog6ToothIcon className="w-5 h-5" />
                 </button>
               )}
