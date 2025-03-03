@@ -258,7 +258,10 @@ async function testProjectCreateTrigger() {
   await db.collection("projects").doc(testProject.id).set(testProject);
 
   // Get the actual document snapshot as QueryDocumentSnapshot
-  const projectDoc = (await db.collection("projects").doc(testProject.id).get()) as admin.firestore.QueryDocumentSnapshot;
+  const projectDoc = (await db
+    .collection("projects")
+    .doc(testProject.id)
+    .get()) as admin.firestore.QueryDocumentSnapshot;
 
   // Wrap the function
   const wrappedOnProjectCreate = testEnv.wrap(onProjectCreate);
