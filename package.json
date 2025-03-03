@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "@heroicons/react": "^2.2.0",
+    "axios": "^1.8.1",
+    "react-beautiful-dnd": "^13.1.1",
+    "react-hot-toast": "^2.5.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14"
+  }
+}
