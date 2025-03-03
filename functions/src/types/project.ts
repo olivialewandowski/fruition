@@ -33,6 +33,9 @@ export interface Project {
 
   // Team members (hired students)
   teamMembers: TeamMember[];
+
+  // Project keywords for search and matching
+  keywords?: string[];
 }
 
 export interface ProjectWithId extends Project {

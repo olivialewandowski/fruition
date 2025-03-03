@@ -28,4 +28,4 @@ export interface ApplicationWithId extends Application {
   id: string;
   projectId: string;
   positionId: string;
-} 
+}

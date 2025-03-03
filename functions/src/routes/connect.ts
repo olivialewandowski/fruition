@@ -1,12 +1,12 @@
 import express from "express";
 import { validateAuthToken, requirePermission } from "../middleware/auth";
 import { CONNECT_PERMISSIONS } from "../types/permissions";
-import { 
-  saveProject, 
-  removeSavedProject, 
-  declineProject, 
+import {
+  saveProject,
+  removeSavedProject,
+  declineProject,
   getSavedProjects,
-  getAppliedProjects
+  getAppliedProjects,
 } from "../services/connectService";
 import { getProjectsByIds } from "../services/projectsService";
 
@@ -26,14 +26,14 @@ connectRouter.get(
       return res.status(200).json({
         success: true,
         message: "Recommended projects retrieved successfully",
-        data: []
+        data: [],
       });
     } catch (error) {
       console.error("Error getting recommended projects:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to get recommended projects",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -52,14 +52,14 @@ connectRouter.post(
 
       return res.status(200).json({
         success: true,
-        message: "Project saved successfully"
+        message: "Project saved successfully",
       });
     } catch (error) {
       console.error("Error saving project:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to save project",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -78,14 +78,14 @@ connectRouter.post(
 
       return res.status(200).json({
         success: true,
-        message: "Project declined successfully"
+        message: "Project declined successfully",
       });
     } catch (error) {
       console.error("Error declining project:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to decline project",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -98,24 +98,24 @@ connectRouter.get(
   async (req, res) => {
     try {
       const userId = req.user!.uid;
-      
+
       // Get saved project IDs
       const savedProjectIds = await getSavedProjects(userId);
-      
+
       // Get project details
       const savedProjects = await getProjectsByIds(savedProjectIds);
 
       return res.status(200).json({
         success: true,
         message: "Saved projects retrieved successfully",
-        data: savedProjects
+        data: savedProjects,
       });
     } catch (error) {
       console.error("Error getting saved projects:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to get saved projects",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -134,14 +134,14 @@ connectRouter.delete(
 
       return res.status(200).json({
         success: true,
-        message: "Project removed from saved successfully"
+        message: "Project removed from saved successfully",
       });
     } catch (error) {
       console.error("Error removing saved project:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to remove saved project",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -154,24 +154,24 @@ connectRouter.get(
   async (req, res) => {
     try {
       const userId = req.user!.uid;
-      
+
       // Get applied project IDs
       const appliedProjectIds = await getAppliedProjects(userId);
-      
+
       // Get project details
       const appliedProjects = await getProjectsByIds(appliedProjectIds);
 
       return res.status(200).json({
         success: true,
         message: "Applied projects retrieved successfully",
-        data: appliedProjects
+        data: appliedProjects,
       });
     } catch (error) {
       console.error("Error getting applied projects:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to get applied projects",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }

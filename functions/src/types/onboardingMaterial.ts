@@ -26,4 +26,4 @@ export interface MaterialFile {
 export interface MaterialFileWithId extends MaterialFile {
   id: string;
   projectId: string;
-} 
+}
