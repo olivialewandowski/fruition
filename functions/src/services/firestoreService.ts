@@ -1,9 +1,9 @@
 import { db } from "../config/firebase";
 import { User, UserWithId } from "../types/user";
 import { Project, ProjectWithId } from "../types/project";
-import { 
+import {
   Position, PositionWithId,
-  Application, ApplicationWithId
+  Application, ApplicationWithId,
 } from "../types/position";
 import { University, UniversityWithId, Department, DepartmentWithId } from "../types/university";
 import { UserAction, UserActionWithId } from "../types/userAction";
@@ -27,7 +27,7 @@ function convertDoc<T>(doc: FirebaseFirestore.DocumentSnapshot): WithId<T> | nul
  * Generic function to convert Firestore query snapshot to array of typed objects with ID
  */
 function convertCollection<T>(snapshot: FirebaseFirestore.QuerySnapshot): WithId<T>[] {
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WithId<T>));
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as WithId<T>));
 }
 
 // ==================== USER OPERATIONS ====================
@@ -35,15 +35,15 @@ function convertCollection<T>(snapshot: FirebaseFirestore.QuerySnapshot): WithId
 /**
  * Create a new user
  */
-export async function createUser(userId: string, userData: Omit<User, 'createdAt' | 'lastActive'>): Promise<void> {
+export async function createUser(userId: string, userData: Omit<User, "createdAt" | "lastActive">): Promise<void> {
   const now = Timestamp.now();
-  
+
   await db.collection("users").doc(userId).set({
     ...userData,
     createdAt: now,
     lastActive: now,
     activeProjects: [],
-    archivedProjects: []
+    archivedProjects: [],
   });
 }
 
@@ -61,7 +61,7 @@ export async function getUserById(userId: string): Promise<UserWithId | null> {
 export async function updateUser(userId: string, userData: Partial<User>): Promise<void> {
   await db.collection("users").doc(userId).update({
     ...userData,
-    lastActive: Timestamp.now()
+    lastActive: Timestamp.now(),
   });
 }
 
@@ -77,11 +77,11 @@ export async function deleteUser(userId: string): Promise<void> {
  */
 export async function getUsersByUniversity(universityId: string, role?: string): Promise<UserWithId[]> {
   let query = db.collection("users").where("university", "==", universityId);
-  
+
   if (role) {
     query = query.where("role", "==", role);
   }
-  
+
   const snapshot = await query.get();
   return convertCollection<User>(snapshot);
 }
@@ -91,15 +91,15 @@ export async function getUsersByUniversity(universityId: string, role?: string):
 /**
  * Create a new university
  */
-export async function createUniversity(universityData: Omit<University, 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function createUniversity(universityData: Omit<University, "createdAt" | "updatedAt">): Promise<string> {
   const now = Timestamp.now();
-  
+
   const docRef = await db.collection("universities").add({
     ...universityData,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   });
-  
+
   return docRef.id;
 }
 
@@ -117,7 +117,7 @@ export async function getUniversityById(universityId: string): Promise<Universit
 export async function updateUniversity(universityId: string, universityData: Partial<University>): Promise<void> {
   await db.collection("universities").doc(universityId).update({
     ...universityData,
-    updatedAt: Timestamp.now()
+    updatedAt: Timestamp.now(),
   });
 }
 
@@ -134,25 +134,25 @@ export async function deleteUniversity(universityId: string): Promise<void> {
 export async function addUserToUniversity(universityId: string, userId: string, role: string): Promise<void> {
   const userRef = db.collection("users").doc(userId);
   const universityRef = db.collection("universities").doc(universityId);
-  
+
   // Update user's university
   await userRef.update({
     university: universityId,
-    role: role
+    role: role,
   });
-  
+
   // Add user to appropriate university field based on role
   if (role === "student") {
     await universityRef.update({
-      studentIds: FieldValue.arrayUnion(userId)
+      studentIds: FieldValue.arrayUnion(userId),
     });
   } else if (role === "faculty") {
     await universityRef.update({
-      facultyIds: FieldValue.arrayUnion(userId)
+      facultyIds: FieldValue.arrayUnion(userId),
     });
   } else if (role === "admin") {
     await universityRef.update({
-      adminIds: FieldValue.arrayUnion(userId)
+      adminIds: FieldValue.arrayUnion(userId),
     });
   }
 }
@@ -163,11 +163,11 @@ export async function addUserToUniversity(universityId: string, userId: string, 
  * Create a new department
  */
 export async function createDepartment(
-  universityId: string, 
-  departmentData: Omit<Department, 'createdAt' | 'updatedAt' | 'facultyCount'>
+  universityId: string,
+  departmentData: Omit<Department, "createdAt" | "updatedAt" | "facultyCount">
 ): Promise<string> {
   const now = Timestamp.now();
-  
+
   const docRef = await db.collection("universities")
     .doc(universityId)
     .collection("departments")
@@ -175,9 +175,9 @@ export async function createDepartment(
       ...departmentData,
       facultyCount: 0,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     });
-  
+
   return docRef.id;
 }
 
@@ -185,7 +185,7 @@ export async function createDepartment(
  * Get department by ID
  */
 export async function getDepartmentById(
-  universityId: string, 
+  universityId: string,
   departmentId: string
 ): Promise<DepartmentWithId | null> {
   const doc = await db.collection("universities")
@@ -193,7 +193,7 @@ export async function getDepartmentById(
     .collection("departments")
     .doc(departmentId)
     .get();
-  
+
   return convertDoc<Department>(doc);
 }
 
@@ -205,7 +205,7 @@ export async function getDepartmentsByUniversity(universityId: string): Promise<
     .doc(universityId)
     .collection("departments")
     .get();
-  
+
   return convertCollection<Department>(snapshot);
 }
 
@@ -214,21 +214,21 @@ export async function getDepartmentsByUniversity(universityId: string): Promise<
 /**
  * Create a new project
  */
-export async function createProject(projectData: Omit<Project, 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function createProject(projectData: Omit<Project, "createdAt" | "updatedAt">): Promise<string> {
   const now = Timestamp.now();
-  
+
   const docRef = await db.collection("projects").add({
     ...projectData,
     createdAt: now,
     updatedAt: now,
-    teamMembers: []
+    teamMembers: [],
   });
-  
+
   // Add project to mentor's activeProjects
   await db.collection("users").doc(projectData.mentorId).update({
-    activeProjects: FieldValue.arrayUnion(docRef.id)
+    activeProjects: FieldValue.arrayUnion(docRef.id),
   });
-  
+
   return docRef.id;
 }
 
@@ -246,7 +246,7 @@ export async function getProjectById(projectId: string): Promise<ProjectWithId |
 export async function updateProject(projectId: string, projectData: Partial<Project>): Promise<void> {
   await db.collection("projects").doc(projectId).update({
     ...projectData,
-    updatedAt: Timestamp.now()
+    updatedAt: Timestamp.now(),
   });
 }
 
@@ -256,14 +256,14 @@ export async function updateProject(projectId: string, projectData: Partial<Proj
 export async function deleteProject(projectId: string): Promise<void> {
   const projectDoc = await db.collection("projects").doc(projectId).get();
   const projectData = projectDoc.data() as Project;
-  
+
   if (projectData) {
     // Remove project from mentor's activeProjects
     await db.collection("users").doc(projectData.mentorId).update({
-      activeProjects: FieldValue.arrayRemove(projectId)
+      activeProjects: FieldValue.arrayRemove(projectId),
     });
   }
-  
+
   await db.collection("projects").doc(projectId).delete();
 }
 
@@ -274,7 +274,7 @@ export async function getProjectsByMentor(mentorId: string): Promise<ProjectWith
   const snapshot = await db.collection("projects")
     .where("mentorId", "==", mentorId)
     .get();
-  
+
   return convertCollection<Project>(snapshot);
 }
 
@@ -285,7 +285,7 @@ export async function getActiveProjects(): Promise<ProjectWithId[]> {
   const snapshot = await db.collection("projects")
     .where("isActive", "==", true)
     .get();
-  
+
   return convertCollection<Project>(snapshot);
 }
 
@@ -293,26 +293,26 @@ export async function getActiveProjects(): Promise<ProjectWithId[]> {
  * Add user to project team
  */
 export async function addUserToProject(
-  projectId: string, 
-  userId: string, 
-  name: string, 
+  projectId: string,
+  userId: string,
+  name: string,
   title: string
 ): Promise<void> {
   const now = Timestamp.now();
-  
+
   // Add user to project's teamMembers
   await db.collection("projects").doc(projectId).update({
     teamMembers: FieldValue.arrayUnion({
       userId,
       name,
       title,
-      joinedDate: now
-    })
+      joinedDate: now,
+    }),
   });
-  
+
   // Add project to user's activeProjects
   await db.collection("users").doc(userId).update({
-    activeProjects: FieldValue.arrayUnion(projectId)
+    activeProjects: FieldValue.arrayUnion(projectId),
   });
 }
 
@@ -322,22 +322,22 @@ export async function addUserToProject(
 export async function removeUserFromProject(projectId: string, userId: string): Promise<void> {
   const projectDoc = await db.collection("projects").doc(projectId).get();
   const projectData = projectDoc.data() as Project;
-  
+
   if (projectData && projectData.teamMembers) {
     // Find and remove the team member
     const updatedTeamMembers = projectData.teamMembers.filter(
-      member => member.userId !== userId
+      (member) => member.userId !== userId
     );
-    
+
     // Update the project
     await db.collection("projects").doc(projectId).update({
-      teamMembers: updatedTeamMembers
+      teamMembers: updatedTeamMembers,
     });
-    
+
     // Remove project from user's activeProjects and add to archivedProjects
     await db.collection("users").doc(userId).update({
       activeProjects: FieldValue.arrayRemove(projectId),
-      archivedProjects: FieldValue.arrayUnion(projectId)
+      archivedProjects: FieldValue.arrayUnion(projectId),
     });
   }
 }
@@ -348,20 +348,20 @@ export async function removeUserFromProject(projectId: string, userId: string): 
  * Create a new position
  */
 export async function createPosition(
-  projectId: string, 
-  positionData: Omit<Position, 'projectId' | 'filledPositions'>
+  projectId: string,
+  positionData: Omit<Position, "projectId" | "filledPositions">
 ): Promise<string> {
   const positionWithProject = {
     ...positionData,
     projectId,
-    filledPositions: 0
+    filledPositions: 0,
   };
-  
+
   const docRef = await db.collection("projects")
     .doc(projectId)
     .collection("positions")
     .add(positionWithProject);
-  
+
   return docRef.id;
 }
 
@@ -369,7 +369,7 @@ export async function createPosition(
  * Get position by ID
  */
 export async function getPositionById(
-  projectId: string, 
+  projectId: string,
   positionId: string
 ): Promise<PositionWithId | null> {
   const doc = await db.collection("projects")
@@ -377,7 +377,7 @@ export async function getPositionById(
     .collection("positions")
     .doc(positionId)
     .get();
-  
+
   return convertDoc<Position>(doc);
 }
 
@@ -389,7 +389,7 @@ export async function getPositionsByProject(projectId: string): Promise<Position
     .doc(projectId)
     .collection("positions")
     .get();
-  
+
   return convertCollection<Position>(snapshot);
 }
 
@@ -397,8 +397,8 @@ export async function getPositionsByProject(projectId: string): Promise<Position
  * Update position data
  */
 export async function updatePosition(
-  projectId: string, 
-  positionId: string, 
+  projectId: string,
+  positionId: string,
   positionData: Partial<Position>
 ): Promise<void> {
   await db.collection("projects")
@@ -425,39 +425,39 @@ export async function deletePosition(projectId: string, positionId: string): Pro
  * Create a new application
  */
 export async function createApplication(
-  projectId: string, 
-  positionId: string, 
-  applicationData: Omit<Application, 'submittedAt' | 'updatedAt' | 'status'>
+  projectId: string,
+  positionId: string,
+  applicationData: Omit<Application, "submittedAt" | "updatedAt" | "status">
 ): Promise<string> {
   const now = Timestamp.now();
-  
+
   const applicationWithDefaults = {
     ...applicationData,
     status: "pending",
     submittedAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
-  
+
   const docRef = await db.collection("projects")
     .doc(projectId)
     .collection("positions")
     .doc(positionId)
     .collection("applications")
     .add(applicationWithDefaults);
-  
+
   // Add to user's applied projects
   await db.collection("users").doc(applicationData.studentId).update({
-    "projectPreferences.appliedProjects": FieldValue.arrayUnion(projectId)
+    "projectPreferences.appliedProjects": FieldValue.arrayUnion(projectId),
   });
-  
+
   // Create a user action for this application
   await createUserAction({
     userId: applicationData.studentId,
     projectId,
     action: "apply",
-    timestamp: now
+    timestamp: now,
   });
-  
+
   return docRef.id;
 }
 
@@ -465,8 +465,8 @@ export async function createApplication(
  * Get application by ID
  */
 export async function getApplicationById(
-  projectId: string, 
-  positionId: string, 
+  projectId: string,
+  positionId: string,
   applicationId: string
 ): Promise<ApplicationWithId | null> {
   const doc = await db.collection("projects")
@@ -476,14 +476,14 @@ export async function getApplicationById(
     .collection("applications")
     .doc(applicationId)
     .get();
-  
+
   if (!doc.exists) return null;
-  
+
   return {
     ...(doc.data() as Application),
     id: doc.id,
     projectId,
-    positionId
+    positionId,
   } as ApplicationWithId;
 }
 
@@ -491,7 +491,7 @@ export async function getApplicationById(
  * Get applications by position
  */
 export async function getApplicationsByPosition(
-  projectId: string, 
+  projectId: string,
   positionId: string
 ): Promise<ApplicationWithId[]> {
   const snapshot = await db.collection("projects")
@@ -500,12 +500,12 @@ export async function getApplicationsByPosition(
     .doc(positionId)
     .collection("applications")
     .get();
-  
-  return snapshot.docs.map(doc => ({
+
+  return snapshot.docs.map((doc) => ({
     ...(doc.data() as Application),
     id: doc.id,
     projectId,
-    positionId
+    positionId,
   } as ApplicationWithId));
 }
 
@@ -515,33 +515,33 @@ export async function getApplicationsByPosition(
 export async function getApplicationsByStudent(studentId: string): Promise<ApplicationWithId[]> {
   // This requires a custom index on applications subcollection
   const applications: ApplicationWithId[] = [];
-  
+
   // Get all projects
   const projectsSnapshot = await db.collection("projects").get();
-  
+
   // For each project, get positions and applications
   for (const projectDoc of projectsSnapshot.docs) {
     const projectId = projectDoc.id;
     const positionsSnapshot = await projectDoc.ref.collection("positions").get();
-    
+
     for (const positionDoc of positionsSnapshot.docs) {
       const positionId = positionDoc.id;
       const applicationsSnapshot = await positionDoc.ref
         .collection("applications")
         .where("studentId", "==", studentId)
         .get();
-      
-      applicationsSnapshot.docs.forEach(appDoc => {
+
+      applicationsSnapshot.docs.forEach((appDoc) => {
         applications.push({
           ...(appDoc.data() as Application),
           id: appDoc.id,
           projectId,
-          positionId
+          positionId,
         } as ApplicationWithId);
       });
     }
   }
-  
+
   return applications;
 }
 
@@ -549,22 +549,22 @@ export async function getApplicationsByStudent(studentId: string): Promise<Appli
  * Update application status
  */
 export async function updateApplicationStatus(
-  projectId: string, 
-  positionId: string, 
-  applicationId: string, 
+  projectId: string,
+  positionId: string,
+  applicationId: string,
   status: Application["status"],
   notes?: string
 ): Promise<void> {
   const now = Timestamp.now();
-  const updateData: any = {
+  const updateData: Partial<Application> = {
     status,
-    updatedAt: now
+    updatedAt: now,
   };
-  
+
   if (notes) {
     updateData.notes = notes;
   }
-  
+
   await db.collection("projects")
     .doc(projectId)
     .collection("positions")
@@ -572,7 +572,7 @@ export async function updateApplicationStatus(
     .collection("applications")
     .doc(applicationId)
     .update(updateData);
-  
+
   // If accepted, increment filledPositions
   if (status === "accepted") {
     await db.collection("projects")
@@ -580,7 +580,7 @@ export async function updateApplicationStatus(
       .collection("positions")
       .doc(positionId)
       .update({
-        filledPositions: FieldValue.increment(1)
+        filledPositions: FieldValue.increment(1),
       });
   }
 }
@@ -592,7 +592,7 @@ export async function updateApplicationStatus(
  */
 export async function createUserAction(actionData: UserAction): Promise<string> {
   const docRef = await db.collection("userActions").add(actionData);
-  
+
   return docRef.id;
 }
 
@@ -604,7 +604,7 @@ export async function getUserActionsByUser(userId: string): Promise<UserActionWi
     .where("userId", "==", userId)
     .orderBy("timestamp", "desc")
     .get();
-  
+
   return convertCollection<UserAction>(snapshot);
 }
 
@@ -616,7 +616,7 @@ export async function getUserActionsByProject(projectId: string): Promise<UserAc
     .where("projectId", "==", projectId)
     .orderBy("timestamp", "desc")
     .get();
-  
+
   return convertCollection<UserAction>(snapshot);
 }
 
@@ -626,24 +626,24 @@ export async function getUserActionsByProject(projectId: string): Promise<UserAc
  * Add onboarding material
  */
 export async function addOnboardingMaterial(
-  projectId: string, 
-  materialData: Omit<MaterialFile, 'materialId' | 'uploadedAt'>
+  projectId: string,
+  materialData: Omit<MaterialFile, "materialId" | "uploadedAt">
 ): Promise<string> {
   const now = Timestamp.now();
-  
+
   const docRef = await db.collection("projects")
     .doc(projectId)
     .collection("onboardingMaterials")
     .add({
       ...materialData,
-      uploadedAt: now
+      uploadedAt: now,
     });
-  
+
   // Update the document with its own ID
   await docRef.update({
-    materialId: docRef.id
+    materialId: docRef.id,
   });
-  
+
   return docRef.id;
 }
 
@@ -655,8 +655,8 @@ export async function getOnboardingMaterialsByProject(projectId: string): Promis
     .doc(projectId)
     .collection("onboardingMaterials")
     .get();
-  
-  return snapshot.docs.map(doc => doc.data() as MaterialFile);
+
+  return snapshot.docs.map((doc) => doc.data() as MaterialFile);
 }
 
 /**
@@ -668,4 +668,4 @@ export async function deleteOnboardingMaterial(projectId: string, materialId: st
     .collection("onboardingMaterials")
     .doc(materialId)
     .delete();
-} 
+}

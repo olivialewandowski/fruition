@@ -1,6 +1,5 @@
 import { db } from "../config/firebase";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
-import { UserAction } from "../types/userAction";
 import { hasPermission } from "../models/permissions";
 import { CONNECT_PERMISSIONS } from "../types/permissions";
 import { Application } from "../types/application";
@@ -71,7 +70,7 @@ export async function declineProject(userId: string, projectId: string): Promise
     userId,
     projectId,
     action: "decline",
-    timestamp: Timestamp.now()
+    timestamp: Timestamp.now(),
   });
 }
 
@@ -157,7 +156,7 @@ export async function applyToProject(
   // Add project to student's applied projects
   await db.collection("users").doc(userId).update({
     "projectPreferences.appliedProjects": FieldValue.arrayUnion(projectId),
-    "updatedAt": now
+    "updatedAt": now,
   });
 
   // Create a user action for applying to the project
@@ -165,7 +164,7 @@ export async function applyToProject(
     userId,
     projectId,
     action: "apply",
-    timestamp: now
+    timestamp: now,
   });
 
   return applicationRef.id;
@@ -223,4 +222,4 @@ export async function getAppliedProjects(userId: string): Promise<string[]> {
 
   // Return applied projects
   return userData.projectPreferences?.appliedProjects || [];
-} 
+}

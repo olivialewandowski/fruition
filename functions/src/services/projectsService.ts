@@ -663,20 +663,20 @@ export async function getProjectsByIds(projectIds: string[]): Promise<ProjectWit
     // So we need to fetch them individually and combine the results
     const projectPromises = projectIds.map(async (projectId) => {
       const projectDoc = await db.collection("projects").doc(projectId).get();
-      
+
       if (!projectDoc.exists) {
         return null;
       }
-      
+
       const projectData = projectDoc.data() as Project;
       return {
         id: projectDoc.id,
-        ...projectData
+        ...projectData,
       };
     });
 
     const projects = await Promise.all(projectPromises);
-    
+
     // Filter out any null values (projects that weren't found)
     return projects.filter((project): project is ProjectWithId => project !== null);
   } catch (error) {

@@ -72,4 +72,10 @@ export interface Position {
 
 export interface PositionWithId extends Position {
   id: string;
+  applications?: {
+    id: string;
+    studentName: string;
+    status: string;
+    submittedAt: Timestamp;
+  }[];
 }

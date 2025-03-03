@@ -57,4 +57,4 @@ export interface FacultyDirectory {
 export interface UniversityData {
   departments: Record<string, string[]>; // departmentId -> array of faculty IDs
   facultyDirectory: Record<string, FacultyDirectory>; // facultyId -> faculty info
-} 
+}

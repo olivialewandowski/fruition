@@ -1,5 +1,5 @@
-import { db } from '../config/firebase';
-import { FieldValue } from 'firebase-admin/firestore';
+import { db } from "../config/firebase";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Add an item to an array field in a document
@@ -8,14 +8,14 @@ import { FieldValue } from 'firebase-admin/firestore';
  * @param arrayField - The array field name
  * @param item - The item to add
  */
-export async function addToArray(
+export async function addToArray<T>(
   collectionPath: string,
   docId: string,
   arrayField: string,
-  item: any
+  item: T
 ): Promise<void> {
   await db.collection(collectionPath).doc(docId).update({
-    [arrayField]: FieldValue.arrayUnion(item)
+    [arrayField]: FieldValue.arrayUnion(item),
   });
 }
 
@@ -26,14 +26,14 @@ export async function addToArray(
  * @param arrayField - The array field name
  * @param item - The item to remove
  */
-export async function removeFromArray(
+export async function removeFromArray<T>(
   collectionPath: string,
   docId: string,
   arrayField: string,
-  item: any
+  item: T
 ): Promise<void> {
   await db.collection(collectionPath).doc(docId).update({
-    [arrayField]: FieldValue.arrayRemove(item)
+    [arrayField]: FieldValue.arrayRemove(item),
   });
 }
 
@@ -54,16 +54,16 @@ export async function addUserToProjectTeam(
 ): Promise<void> {
   const teamMember = {
     userId,
-    ...userData
+    ...userData,
   };
-  
-  await db.collection('projects').doc(projectId).update({
-    teamMembers: FieldValue.arrayUnion(teamMember)
+
+  await db.collection("projects").doc(projectId).update({
+    teamMembers: FieldValue.arrayUnion(teamMember),
   });
-  
+
   // Also add project to user's active projects
-  await db.collection('users').doc(userId).update({
-    activeProjects: FieldValue.arrayUnion(projectId)
+  await db.collection("users").doc(userId).update({
+    activeProjects: FieldValue.arrayUnion(projectId),
   });
 }
 
@@ -77,31 +77,31 @@ export async function removeUserFromProjectTeam(
   userId: string
 ): Promise<void> {
   // Get the project document
-  const projectDoc = await db.collection('projects').doc(projectId).get();
+  const projectDoc = await db.collection("projects").doc(projectId).get();
   if (!projectDoc.exists) {
-    throw new Error('Project not found');
+    throw new Error("Project not found");
   }
-  
+
   const projectData = projectDoc.data();
   if (!projectData) {
-    throw new Error('Project data is empty');
+    throw new Error("Project data is empty");
   }
-  
+
   // Find the team member to remove
   const teamMembers = projectData.teamMembers || [];
   const updatedTeamMembers = teamMembers.filter(
     (member: { userId: string }) => member.userId !== userId
   );
-  
+
   // Update the project with the new team members array
-  await db.collection('projects').doc(projectId).update({
-    teamMembers: updatedTeamMembers
+  await db.collection("projects").doc(projectId).update({
+    teamMembers: updatedTeamMembers,
   });
-  
+
   // Remove project from user's active projects and add to archived projects
-  await db.collection('users').doc(userId).update({
+  await db.collection("users").doc(userId).update({
     activeProjects: FieldValue.arrayRemove(projectId),
-    archivedProjects: FieldValue.arrayUnion(projectId)
+    archivedProjects: FieldValue.arrayUnion(projectId),
   });
 }
 
@@ -114,16 +114,16 @@ export async function saveProjectForStudent(
   studentId: string,
   projectId: string
 ): Promise<void> {
-  await db.collection('users').doc(studentId).update({
-    'projectPreferences.savedProjects': FieldValue.arrayUnion(projectId)
+  await db.collection("users").doc(studentId).update({
+    "projectPreferences.savedProjects": FieldValue.arrayUnion(projectId),
   });
-  
+
   // Also log this action
-  await db.collection('userActions').add({
+  await db.collection("userActions").add({
     userId: studentId,
     projectId,
-    action: 'save',
-    timestamp: new Date()
+    action: "save",
+    timestamp: new Date(),
   });
 }
 
@@ -136,16 +136,16 @@ export async function removeSavedProjectForStudent(
   studentId: string,
   projectId: string
 ): Promise<void> {
-  await db.collection('users').doc(studentId).update({
-    'projectPreferences.savedProjects': FieldValue.arrayRemove(projectId)
+  await db.collection("users").doc(studentId).update({
+    "projectPreferences.savedProjects": FieldValue.arrayRemove(projectId),
   });
-  
+
   // Also log this action
-  await db.collection('userActions').add({
+  await db.collection("userActions").add({
     userId: studentId,
     projectId,
-    action: 'remove_save',
-    timestamp: new Date()
+    action: "remove_save",
+    timestamp: new Date(),
   });
 }
 
@@ -161,18 +161,18 @@ export async function addFacultyToDepartment(
   facultyId: string
 ): Promise<void> {
   // Add faculty to department
-  await db.collection('universities')
+  await db.collection("universities")
     .doc(universityId)
-    .collection('departments')
+    .collection("departments")
     .doc(departmentId)
     .update({
       facultyIds: FieldValue.arrayUnion(facultyId),
-      facultyCount: FieldValue.increment(1)
+      facultyCount: FieldValue.increment(1),
     });
-  
+
   // Update faculty's department
-  await db.collection('users').doc(facultyId).update({
-    department: departmentId
+  await db.collection("users").doc(facultyId).update({
+    department: departmentId,
   });
 }
 
@@ -188,17 +188,17 @@ export async function removeFacultyFromDepartment(
   facultyId: string
 ): Promise<void> {
   // Remove faculty from department
-  await db.collection('universities')
+  await db.collection("universities")
     .doc(universityId)
-    .collection('departments')
+    .collection("departments")
     .doc(departmentId)
     .update({
       facultyIds: FieldValue.arrayRemove(facultyId),
-      facultyCount: FieldValue.increment(-1)
+      facultyCount: FieldValue.increment(-1),
     });
-  
+
   // Clear faculty's department
-  await db.collection('users').doc(facultyId).update({
-    department: null
+  await db.collection("users").doc(facultyId).update({
+    department: null,
   });
-} 
+}

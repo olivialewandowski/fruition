@@ -1,13 +1,12 @@
-import * as admin from 'firebase-admin';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * Generate Firestore security rules
  * @param outputPath - The output path for the rules file
  */
 export async function generateFirestoreRules(
-  outputPath: string = path.join(__dirname, '../../firestore.rules')
+  outputPath: string = path.join(__dirname, "../../firestore.rules")
 ): Promise<void> {
   const rules = `
 rules_version = '2';
@@ -97,13 +96,19 @@ service cloud.firestore {
     // Applications collection
     match /applications/{applicationId} {
       allow read: if isAdmin() || 
-        (isFaculty() && resource.data.projectId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects) || 
+        (isFaculty() && 
+         resource.data.projectId in 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects) || 
         (isStudent() && resource.data.studentId == request.auth.uid);
       allow create: if isStudent();
       allow update: if isAdmin() || 
-        (isFaculty() && resource.data.projectId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects) || 
-        (isStudent() && resource.data.studentId == request.auth.uid && 
-         resource.data.status == 'pending' && request.resource.data.status == 'pending');
+        (isFaculty() && 
+         resource.data.projectId in 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects) || 
+        (isStudent() && 
+         resource.data.studentId == request.auth.uid && 
+         resource.data.status == 'pending' && 
+         request.resource.data.status == 'pending');
       allow delete: if isAdmin();
     }
     
@@ -111,7 +116,9 @@ service cloud.firestore {
     match /userActions/{actionId} {
       allow read: if isAdmin() || 
         (isSignedIn() && resource.data.userId == request.auth.uid) || 
-        (isFaculty() && resource.data.projectId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects);
+        (isFaculty() && 
+         resource.data.projectId in 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false; // Immutable
     }
@@ -140,25 +147,25 @@ service cloud.firestore {
  * @param rulesFilePath - The path to the rules file
  */
 export async function deployFirestoreRules(
-  rulesFilePath: string = path.join(__dirname, '../../firestore.rules')
+  rulesFilePath: string = path.join(__dirname, "../../firestore.rules")
 ): Promise<void> {
   try {
     // This function would use the Firebase Admin SDK to deploy rules
     // Note: In a real implementation, you would use the Firebase CLI or REST API
     // as the Admin SDK doesn't directly support rules deployment
     console.log(`Deploying Firestore rules from ${rulesFilePath}`);
-    console.log('Note: In a production environment, use the Firebase CLI to deploy rules:');
-    console.log('firebase deploy --only firestore:rules');
-    
+    console.log("Note: In a production environment, use the Firebase CLI to deploy rules:");
+    console.log("firebase deploy --only firestore:rules");
+
     // Read the rules file
-    const rules = fs.readFileSync(rulesFilePath, 'utf8');
-    console.log('Rules to deploy:');
+    const rules = fs.readFileSync(rulesFilePath, "utf8");
+    console.log("Rules to deploy:");
     console.log(rules);
-    
+
     // In a real implementation, you would use the Firebase Management API
     // or execute a child process to run the Firebase CLI
   } catch (error) {
-    console.error('Error deploying Firestore rules:', error);
+    console.error("Error deploying Firestore rules:", error);
     throw error;
   }
 }
@@ -169,40 +176,40 @@ export async function deployFirestoreRules(
  * @returns Whether the rules are valid
  */
 export async function validateFirestoreRules(
-  rulesFilePath: string = path.join(__dirname, '../../firestore.rules')
+  rulesFilePath: string = path.join(__dirname, "../../firestore.rules")
 ): Promise<boolean> {
   try {
     // This function would validate the rules syntax
     // Note: In a real implementation, you would use the Firebase CLI or REST API
     console.log(`Validating Firestore rules from ${rulesFilePath}`);
-    
+
     // Read the rules file
-    const rules = fs.readFileSync(rulesFilePath, 'utf8');
-    
+    const rules = fs.readFileSync(rulesFilePath, "utf8");
+
     // Basic validation - check for matching braces
     const openBraces = (rules.match(/{/g) || []).length;
     const closeBraces = (rules.match(/}/g) || []).length;
-    
+
     if (openBraces !== closeBraces) {
-      console.error('Rules validation failed: Mismatched braces');
+      console.error("Rules validation failed: Mismatched braces");
       return false;
     }
-    
+
     // Check for required sections
-    if (!rules.includes('service cloud.firestore')) {
-      console.error('Rules validation failed: Missing service declaration');
+    if (!rules.includes("service cloud.firestore")) {
+      console.error("Rules validation failed: Missing service declaration");
       return false;
     }
-    
-    if (!rules.includes('match /databases/{database}/documents')) {
-      console.error('Rules validation failed: Missing root match statement');
+
+    if (!rules.includes("match /databases/{database}/documents")) {
+      console.error("Rules validation failed: Missing root match statement");
       return false;
     }
-    
-    console.log('Rules validation passed');
+
+    console.log("Rules validation passed");
     return true;
   } catch (error) {
-    console.error('Error validating Firestore rules:', error);
+    console.error("Error validating Firestore rules:", error);
     return false;
   }
-} 
+}

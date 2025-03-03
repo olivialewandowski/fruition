@@ -1,10 +1,10 @@
-import { db } from '../config/firebase';
-import { 
-  DocumentData, 
-  WriteBatch, 
+import { db } from "../config/firebase";
+import {
+  DocumentData,
+  WriteBatch,
   DocumentReference,
-  SetOptions
-} from 'firebase-admin/firestore';
+  SetOptions,
+} from "firebase-admin/firestore";
 
 /**
  * A utility class for handling Firestore batch operations
@@ -129,7 +129,7 @@ async function deleteQueryBatch(
   query: FirebaseFirestore.Query,
   batchSize: number,
   resolve: (value: void | PromiseLike<void>) => void,
-  reject: (reason?: any) => void
+  reject: (reason?: Error) => void
 ): Promise<void> {
   try {
     const snapshot = await query.get();
@@ -154,7 +154,7 @@ async function deleteQueryBatch(
       deleteQueryBatch(query, batchSize, resolve, reject);
     });
   } catch (err) {
-    reject(err);
+    reject(err instanceof Error ? err : new Error(String(err)));
   }
 }
 
@@ -173,34 +173,36 @@ export async function migrateCollection(
   let query = collectionRef.limit(batchSize);
   let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
   let docsProcessed = 0;
+  let hasMoreDocs = true;
 
-  while (true) {
+  while (hasMoreDocs) {
     if (lastDoc) {
       query = query.startAfter(lastDoc);
     }
 
     const snapshot = await query.get();
     if (snapshot.empty) {
+      hasMoreDocs = false;
       break;
     }
 
     const batchManager = createBatchManager();
-    
+
     for (const doc of snapshot.docs) {
       const oldData = doc.data();
       const newData = migrationFn(oldData);
-      
+
       batchManager.update(doc.ref, newData);
       lastDoc = doc;
       docsProcessed++;
     }
 
     await batchManager.commit();
-    
+
     if (snapshot.size < batchSize) {
       break;
     }
   }
 
   console.log(`Migration complete. Processed ${docsProcessed} documents.`);
-} 
+}
