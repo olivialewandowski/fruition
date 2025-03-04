@@ -13,7 +13,9 @@ import {
   getSavedProjects, 
   getAppliedProjects,
   declineProject,
-  removeProject
+  removeProject,
+  undoLastAction,
+  getSampleProjects
 } from '@/services/projectsService';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -173,54 +175,116 @@ export default function ConnectPage() {
     }
   };
 
-  // If user is not a student, they shouldn't have access to Connect
-  if (userData && userData.role !== 'student') {
-    return (
-      <BaseLayout title="Connect">
-        <div className="flex flex-col items-center justify-center h-64 bg-white rounded-xl shadow-md">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-          <p className="text-gray-700 mb-6">
-            The Connect feature is only available to students.
-          </p>
-        </div>
-      </BaseLayout>
-    );
-  }
+  // Handle undoing the last action
+  const handleUndoAction = async () => {
+    try {
+      const result = await undoLastAction();
+      
+      if (result.success) {
+        toast.success('Action undone successfully');
+        
+        // Refresh all project lists to reflect the changes
+        const [projectsData, savedProjectsData, appliedProjectsData] = await Promise.all([
+          getProjects(),
+          getSavedProjects(),
+          getAppliedProjects()
+        ]);
+        
+        // If we have an undone project ID, find that project in the sample data
+        // and add it to the top of the projects list
+        if (result.undoneProjectId) {
+          // Get the sample projects to find the undone project
+          const sampleProjects = getSampleProjects();
+          const undoneProject = sampleProjects.find((p: Project) => p.id === result.undoneProjectId);
+          
+          if (undoneProject) {
+            // Add the undone project to the top of the list
+            setProjects([undoneProject, ...projectsData.filter(p => p.id !== result.undoneProjectId)]);
+          } else {
+            // If we can't find the undone project, just use the fetched projects
+            setProjects(projectsData);
+          }
+        } else {
+          // If no undone project ID, just use the fetched projects
+          setProjects(projectsData);
+        }
+        
+        setSavedProjects(savedProjectsData);
+        setAppliedProjects(appliedProjectsData);
+      } else {
+        toast.error(result.message || 'Failed to undo action. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      toast.error('An error occurred while undoing the action.');
+    }
+  };
 
   return (
-    <BaseLayout 
-      title="Connect"
-      tabs={connectTabs}
-      defaultTab="discover"
-    >
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <LoadingSpinner size="large" />
-        </div>
-      ) : (
-        <>
-          {activeTab === 'discover' && (
-            <DiscoverTab 
-              projects={projects} 
-              onApplyProject={handleApplyProject}
-              onSaveProject={handleSaveProject}
-              onDeclineProject={handleDeclineProject}
+    <div className="flex h-screen bg-gray-50">
+      <div className="h-screen pl-3 pt-3 pb-3 shadow-lg">
+        <Sidebar />
+      </div>
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
+          <div className="max-w-7xl mx-auto">
+            <ConnectNavigation 
+              activeTab={activeTab} 
+              onTabChange={setActiveTab} 
+              savedCount={savedProjects.length}
+              appliedCount={appliedProjects.length}
             />
-          )}
-          
-          {activeTab === 'saved' && (
-            <SavedTab 
-              projects={savedProjects} 
-              onRemoveProject={handleRemoveSavedProject}
-              onApplyProject={handleApplyProject}
-            />
-          )}
-          
-          {activeTab === 'applied' && (
-            <AppliedTab projects={appliedProjects} />
-          )}
-        </>
-      )}
-    </BaseLayout>
+            
+            <ClientOnly>
+              {!authChecked ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : !isUserAuthenticated ? (
+                <div className="flex flex-col items-center justify-center h-64">
+                  <p className="text-lg mb-6">Please sign in to view projects</p>
+                  <button 
+                    onClick={handleSignIn}
+                    className="px-6 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Signing in...' : 'Sign in with Google'}
+                  </button>
+                </div>
+              ) : isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : (
+                <>
+                  {activeTab === 'discover' && (
+                    <DiscoverTab 
+                      projects={projects} 
+                      onApplyProject={handleApplyProject}
+                      onSaveProject={handleSaveProject}
+                      onDeclineProject={handleDeclineProject}
+                      onUndoAction={handleUndoAction}
+                    />
+                  )}
+                  
+                  {activeTab === 'saved' && (
+                    <SavedTab 
+                      projects={savedProjects} 
+                      onRemoveProject={handleRemoveSavedProject}
+                      onApplyProject={handleApplyProject}
+                    />
+                  )}
+                  
+                  {activeTab === 'applied' && (
+                    <AppliedTab projects={appliedProjects} />
+                  )}
+                </>
+              )}
+            </ClientOnly>
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }

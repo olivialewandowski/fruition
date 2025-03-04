@@ -104,8 +104,8 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply }: Pr
   return (
     <motion.div
       key={`card-motion-${project.id}`}
-      className="bg-white rounded-xl shadow-lg p-8 w-full max-w-5xl mb-8"
-      style={{ minHeight: '500px', display: 'flex', flexDirection: 'column' }}
+      className="bg-white rounded-2xl shadow-md border border-solid border-neutral-200 p-8 w-full max-w-[90%] mx-auto mb-8"
+      style={{ minHeight: '620px', display: 'flex', flexDirection: 'column' }}
       variants={cardVariants}
       initial="initial"
       animate={animationPhase}
@@ -121,29 +121,36 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply }: Pr
         
         {/* Project description */}
         <div className="mb-8">
-          <h3 className="text-xl font-semibold text-gray-700 mb-3">Project Description</h3>
+          <h3 className="text-xl font-semibold text-gray-700 mt-6 mb-3">Project Description</h3>
           <p className="text-gray-600 text-lg leading-relaxed">
             {project.description || 'No description provided.'}
           </p>
-        </div>
-      </div>
-      
-      {/* Skills required - moved to bottom */}
-      <div className="mt-auto">
-        <h3 className="text-xl font-semibold text-gray-700 mb-3">Skills Required</h3>
-        <div className="flex flex-wrap gap-3">
-          {project.skills && project.skills.length > 0 ? (
-            project.skills.map((skill, index) => (
-              <span 
-                key={`skill-${index}-${skill}`}
-                className="bg-violet-100 text-violet-800 px-4 py-2 rounded-full text-lg font-medium"
-              >
-                {skill}
-              </span>
-            ))
-          ) : (
-            <span className="text-gray-500 italic">No specific skills listed</span>
-          )}
+
+          <h3 className="text-xl font-semibold text-gray-700 mt-6 mb-3">Duration:</h3>
+          <p className="text-gray-600 text-lg leading-relaxed mb-4">
+            {project.duration || 'Duration not specified.'}
+          </p>
+
+          <h3 className="text-xl font-semibold text-gray-700 mt-6 mb-3">Commitment:</h3>
+          <p className="text-gray-600 text-lg leading-relaxed mb-4">
+            {project.commitment || 'Commitment not specified.'}
+          </p>
+
+          <h3 className="text-xl font-semibold text-gray-700 mt-6 mb-3">Skills:</h3>
+          <div className="flex flex-wrap gap-3">
+            {project.skills && project.skills.length > 0 ? (
+              project.skills.map((skill, index) => (
+                <span 
+                  key={`skill-${index}-${skill}`}
+                  className="bg-violet-100 text-violet-800 px-4 py-2 rounded-full text-lg font-medium"
+                >
+                  {skill}
+                </span>
+              ))
+            ) : (
+              <span className="text-gray-500 italic">No specific skills listed</span>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
