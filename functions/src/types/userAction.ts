@@ -6,11 +6,12 @@ import { Timestamp } from "firebase-admin/firestore";
 export interface UserAction {
   userId: string;
   projectId: string;
-  action: "view" | "save" | "apply" | "decline" | "remove_save";
+  action: "view" | "save" | "apply" | "decline" | "remove_save" | "undo";
   timestamp: Timestamp;
   sessionId?: string;
   timeSpentViewingSeconds?: number;
   sourceFeature?: string;
+  undoneActionId?: string; // Reference to the action being undone
 }
 
 /**
