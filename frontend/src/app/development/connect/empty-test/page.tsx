@@ -14,7 +14,9 @@ import {
   getSavedProjects, 
   getAppliedProjects,
   declineProject,
-  removeProject
+  removeProject,
+  undoLastAction,
+  getSampleProjects
 } from '@/services/projectsService';
 import { toast } from 'react-hot-toast';
 
@@ -105,6 +107,50 @@ export default function EmptyConnectTestPage() {
     }
   };
 
+  // Handle undoing the last action
+  const handleUndoAction = async () => {
+    try {
+      const result = await undoLastAction();
+      
+      if (result.success) {
+        toast.success('Action undone successfully');
+        
+        // If we have an undone project ID, find that project in the sample data
+        // and add it to the projects list
+        if (result.undoneProjectId) {
+          // Get the sample projects to find the undone project
+          const sampleProjects = getSampleProjects();
+          const undoneProject = sampleProjects.find(p => p.id === result.undoneProjectId);
+          
+          if (undoneProject) {
+            // Add the undone project to the list
+            setProjects([undoneProject]);
+          } else {
+            // If we can't find the undone project, keep the empty list
+            setProjects([]);
+          }
+        } else {
+          // If no undone project ID, keep the empty list
+          setProjects([]);
+        }
+        
+        // Fetch saved and applied projects
+        const [savedProjectsData, appliedProjectsData] = await Promise.all([
+          getSavedProjects(),
+          getAppliedProjects()
+        ]);
+        
+        setSavedProjects(savedProjectsData);
+        setAppliedProjects(appliedProjectsData);
+      } else {
+        toast.error(result.message || 'Failed to undo action. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      toast.error('An error occurred while undoing the action.');
+    }
+  };
+
   // Handle removing a saved project
   const handleRemoveSavedProject = async (project: Project) => {
     try {
@@ -149,6 +195,7 @@ export default function EmptyConnectTestPage() {
                     onApplyProject={handleApplyProject} 
                     onSaveProject={handleSaveProject}
                     onDeclineProject={handleDeclineProject}
+                    onUndoAction={handleUndoAction}
                   />
                 )}
                 

@@ -14,7 +14,9 @@ import {
   getSavedProjects, 
   getAppliedProjects,
   declineProject,
-  removeProject
+  removeProject,
+  undoLastAction,
+  getSampleProjects
 } from '@/services/projectsService';
 import { toast } from 'react-hot-toast';
 import { isAuthenticated, signInWithGoogle, addAuthStateListener } from '@/services/authService';
@@ -255,6 +257,51 @@ export default function ConnectPage() {
     }
   };
 
+  // Handle undoing the last action
+  const handleUndoAction = async () => {
+    try {
+      const result = await undoLastAction();
+      
+      if (result.success) {
+        toast.success('Action undone successfully');
+        
+        // Refresh all project lists to reflect the changes
+        const [projectsData, savedProjectsData, appliedProjectsData] = await Promise.all([
+          getProjects(),
+          getSavedProjects(),
+          getAppliedProjects()
+        ]);
+        
+        // If we have an undone project ID, find that project in the sample data
+        // and add it to the top of the projects list
+        if (result.undoneProjectId) {
+          // Get the sample projects to find the undone project
+          const sampleProjects = getSampleProjects();
+          const undoneProject = sampleProjects.find((p: Project) => p.id === result.undoneProjectId);
+          
+          if (undoneProject) {
+            // Add the undone project to the top of the list
+            setProjects([undoneProject, ...projectsData.filter(p => p.id !== result.undoneProjectId)]);
+          } else {
+            // If we can't find the undone project, just use the fetched projects
+            setProjects(projectsData);
+          }
+        } else {
+          // If no undone project ID, just use the fetched projects
+          setProjects(projectsData);
+        }
+        
+        setSavedProjects(savedProjectsData);
+        setAppliedProjects(appliedProjectsData);
+      } else {
+        toast.error(result.message || 'Failed to undo action. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      toast.error('An error occurred while undoing the action.');
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -299,6 +346,7 @@ export default function ConnectPage() {
                       onApplyProject={handleApplyProject}
                       onSaveProject={handleSaveProject}
                       onDeclineProject={handleDeclineProject}
+                      onUndoAction={handleUndoAction}
                     />
                   )}
                   

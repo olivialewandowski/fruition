@@ -13,7 +13,8 @@ import {
   getSavedProjects, 
   getAppliedProjects,
   declineProject,
-  removeProject
+  removeProject,
+  undoLastAction
 } from '@/services/projectsService';
 import { toast } from 'react-hot-toast';
 
@@ -114,6 +115,40 @@ export default function SingleProjectTestPage() {
     }
   };
 
+  // Handle undoing the last action
+  const handleUndoAction = async () => {
+    try {
+      const result = await undoLastAction();
+      
+      if (result.success) {
+        toast.success('Action undone successfully');
+        
+        // If we have an undone project ID, set it as the current project
+        if (result.undoneProjectId) {
+          // Set the single project with the undone project ID
+          setProjects([singleProject]);
+        } else {
+          // If no undone project ID, just reset to the single project
+          setProjects([singleProject]);
+        }
+        
+        // Fetch saved and applied projects
+        const [savedProjectsData, appliedProjectsData] = await Promise.all([
+          getSavedProjects(),
+          getAppliedProjects()
+        ]);
+        
+        setSavedProjects(savedProjectsData);
+        setAppliedProjects(appliedProjectsData);
+      } else {
+        toast.error(result.message || 'Failed to undo action. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      toast.error('An error occurred while undoing the action.');
+    }
+  };
+
   // Handle removing a saved project
   const handleRemoveSavedProject = async (project: Project) => {
     try {
@@ -158,6 +193,7 @@ export default function SingleProjectTestPage() {
                     onApplyProject={handleApplyProject} 
                     onSaveProject={handleSaveProject}
                     onDeclineProject={handleDeclineProject}
+                    onUndoAction={handleUndoAction}
                   />
                 )}
                 

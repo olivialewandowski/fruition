@@ -9,7 +9,10 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  orderBy,
+  limit,
+  addDoc
 } from 'firebase/firestore';
 import { getCurrentUser, isAuthenticated } from '@/services/authService';
 
@@ -277,6 +280,16 @@ export const applyToProject = async (projectId: string): Promise<boolean> => {
         
         // Store in Firestore
         await storeUserDataInFirestore(currentUser.uid, 'appliedProjects', updatedAppliedProjects);
+        
+        // Store timestamp for this action
+        const timestamp = new Date().toISOString();
+        const appliedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+          currentUser.uid, 
+          'appliedProjectsTimestamps', 
+          {}
+        );
+        appliedTimestamps[projectId] = timestamp;
+        await storeUserDataInFirestore(currentUser.uid, 'appliedProjectsTimestamps', appliedTimestamps);
       }
       
       return true;
@@ -287,7 +300,7 @@ export const applyToProject = async (projectId: string): Promise<boolean> => {
   }
 
   try {
-    const response = await axios.post(`${API_URL}/projects/${projectId}/apply`, {}, {
+    const response = await axios.post(`${API_URL}/connect/apply/${projectId}`, {}, {
       headers: getAuthHeaders()
     });
     
@@ -320,6 +333,16 @@ export const saveProject = async (projectId: string): Promise<boolean> => {
         
         // Store in Firestore
         await storeUserDataInFirestore(currentUser.uid, 'savedProjects', updatedSavedProjects);
+        
+        // Store timestamp for this action
+        const timestamp = new Date().toISOString();
+        const savedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+          currentUser.uid, 
+          'savedProjectsTimestamps', 
+          {}
+        );
+        savedTimestamps[projectId] = timestamp;
+        await storeUserDataInFirestore(currentUser.uid, 'savedProjectsTimestamps', savedTimestamps);
       }
       
       return true;
@@ -363,6 +386,16 @@ export const declineProject = async (projectId: string): Promise<boolean> => {
         
         // Store in Firestore
         await storeUserDataInFirestore(currentUser.uid, 'declinedProjects', updatedDeclinedProjects);
+        
+        // Store timestamp for this action
+        const timestamp = new Date().toISOString();
+        const declinedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+          currentUser.uid, 
+          'declinedProjectsTimestamps', 
+          {}
+        );
+        declinedTimestamps[projectId] = timestamp;
+        await storeUserDataInFirestore(currentUser.uid, 'declinedProjectsTimestamps', declinedTimestamps);
       }
       
       return true;
@@ -400,11 +433,22 @@ export const removeProject = async (projectId: string): Promise<boolean> => {
       // Get current saved projects
       const savedProjectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'savedProjects', []);
       
-      // Remove the project ID from the list
-      const updatedSavedProjects = savedProjectIds.filter(id => id !== projectId.replace('saved_', ''));
-      
-      // Store in Firestore
-      await storeUserDataInFirestore(currentUser.uid, 'savedProjects', updatedSavedProjects);
+      // Only remove if in the list
+      if (savedProjectIds.includes(projectId)) {
+        const updatedSavedProjects = savedProjectIds.filter(id => id !== projectId);
+        
+        // Store in Firestore
+        await storeUserDataInFirestore(currentUser.uid, 'savedProjects', updatedSavedProjects);
+        
+        // Remove from timestamps
+        const savedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+          currentUser.uid, 
+          'savedProjectsTimestamps', 
+          {}
+        );
+        delete savedTimestamps[projectId];
+        await storeUserDataInFirestore(currentUser.uid, 'savedProjectsTimestamps', savedTimestamps);
+      }
       
       return true;
     } catch (error) {
@@ -414,7 +458,7 @@ export const removeProject = async (projectId: string): Promise<boolean> => {
   }
 
   try {
-    const response = await axios.delete(`${API_URL}/connect/saved/${projectId}`, {
+    const response = await axios.post(`${API_URL}/connect/remove/${projectId}`, {}, {
       headers: getAuthHeaders()
     });
     
@@ -432,7 +476,7 @@ export const getEmptyProjects = async (): Promise<Project[]> => {
 };
 
 // Sample projects data for fallback
-const getSampleProjects = (): Project[] => {
+export const getSampleProjects = (): Project[] => {
   return [
     {
       id: '1',
@@ -503,5 +547,162 @@ export const purgeUserData = async (userId: string): Promise<void> => {
     console.log(`Purged all data for user: ${userId} in Firestore`);
   } catch (error) {
     console.error(`Error purging data for user ${userId}:`, error);
+  }
+};
+
+// Undo last action
+export const undoLastAction = async (): Promise<{ success: boolean; message: string; undoneProjectId?: string }> => {
+  // In development, immediately return success
+  if (IS_DEV) {
+    console.log(`Development mode: Simulating undo last action`);
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error('Cannot undo last action: No authenticated user');
+      return { success: false, message: 'No authenticated user' };
+    }
+    
+    try {
+      // Instead of querying userActions collection which might not exist,
+      // we'll use a simpler approach for development mode
+      
+      // Get all user action lists
+      const [savedProjectIds, appliedProjectIds, declinedProjectIds] = await Promise.all([
+        getUserDataFromFirestore<string[]>(currentUser.uid, 'savedProjects', []),
+        getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []),
+        getUserDataFromFirestore<string[]>(currentUser.uid, 'declinedProjects', [])
+      ]);
+      
+      // Get timestamps for the most recent actions (if they exist)
+      const [savedTimestamps, appliedTimestamps, declinedTimestamps] = await Promise.all([
+        getUserDataFromFirestore<Record<string, string>>(currentUser.uid, 'savedProjectsTimestamps', {}),
+        getUserDataFromFirestore<Record<string, string>>(currentUser.uid, 'appliedProjectsTimestamps', {}),
+        getUserDataFromFirestore<Record<string, string>>(currentUser.uid, 'declinedProjectsTimestamps', {})
+      ]);
+      
+      // Create a list of all actions with their timestamps
+      const actions: Array<{type: 'save' | 'apply' | 'decline', projectId: string, timestamp: string}> = [];
+      
+      // Add saved projects with timestamps
+      if (savedProjectIds.length > 0) {
+        const lastSavedId = savedProjectIds[savedProjectIds.length - 1];
+        const timestamp = savedTimestamps[lastSavedId] || new Date().toISOString(); // Fallback if no timestamp
+        actions.push({
+          type: 'save',
+          projectId: lastSavedId,
+          timestamp
+        });
+      }
+      
+      // Add applied projects with timestamps
+      if (appliedProjectIds.length > 0) {
+        const lastAppliedId = appliedProjectIds[appliedProjectIds.length - 1];
+        const timestamp = appliedTimestamps[lastAppliedId] || new Date().toISOString(); // Fallback if no timestamp
+        actions.push({
+          type: 'apply',
+          projectId: lastAppliedId,
+          timestamp
+        });
+      }
+      
+      // Add declined projects with timestamps
+      if (declinedProjectIds.length > 0) {
+        const lastDeclinedId = declinedProjectIds[declinedProjectIds.length - 1];
+        const timestamp = declinedTimestamps[lastDeclinedId] || new Date().toISOString(); // Fallback if no timestamp
+        actions.push({
+          type: 'decline',
+          projectId: lastDeclinedId,
+          timestamp
+        });
+      }
+      
+      // If no actions to undo
+      if (actions.length === 0) {
+        return { success: false, message: 'No actions to undo' };
+      }
+      
+      // Sort actions by timestamp (most recent first)
+      actions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      // Get the most recent action
+      const mostRecentAction = actions[0];
+      
+      // Undo the most recent action based on its type
+      switch (mostRecentAction.type) {
+        case 'save':
+          // Remove from saved projects
+          const updatedSavedProjects = savedProjectIds.filter(id => id !== mostRecentAction.projectId);
+          await storeUserDataInFirestore(currentUser.uid, 'savedProjects', updatedSavedProjects);
+          
+          // Remove from timestamps
+          const updatedSavedTimestamps = { ...savedTimestamps };
+          delete updatedSavedTimestamps[mostRecentAction.projectId];
+          await storeUserDataInFirestore(currentUser.uid, 'savedProjectsTimestamps', updatedSavedTimestamps);
+          
+          console.log(`Undid save action for project ${mostRecentAction.projectId}`);
+          return { 
+            success: true, 
+            message: `Successfully undid save action for project ${mostRecentAction.projectId}`,
+            undoneProjectId: mostRecentAction.projectId
+          };
+          
+        case 'apply':
+          // Remove from applied projects
+          const updatedAppliedProjects = appliedProjectIds.filter(id => id !== mostRecentAction.projectId);
+          await storeUserDataInFirestore(currentUser.uid, 'appliedProjects', updatedAppliedProjects);
+          
+          // Remove from timestamps
+          const updatedAppliedTimestamps = { ...appliedTimestamps };
+          delete updatedAppliedTimestamps[mostRecentAction.projectId];
+          await storeUserDataInFirestore(currentUser.uid, 'appliedProjectsTimestamps', updatedAppliedTimestamps);
+          
+          console.log(`Undid apply action for project ${mostRecentAction.projectId}`);
+          return { 
+            success: true, 
+            message: `Successfully undid apply action for project ${mostRecentAction.projectId}`,
+            undoneProjectId: mostRecentAction.projectId
+          };
+          
+        case 'decline':
+          // Remove from declined projects
+          const updatedDeclinedProjects = declinedProjectIds.filter(id => id !== mostRecentAction.projectId);
+          await storeUserDataInFirestore(currentUser.uid, 'declinedProjects', updatedDeclinedProjects);
+          
+          // Remove from timestamps
+          const updatedDeclinedTimestamps = { ...declinedTimestamps };
+          delete updatedDeclinedTimestamps[mostRecentAction.projectId];
+          await storeUserDataInFirestore(currentUser.uid, 'declinedProjectsTimestamps', updatedDeclinedTimestamps);
+          
+          console.log(`Undid decline action for project ${mostRecentAction.projectId}`);
+          return { 
+            success: true, 
+            message: `Successfully undid decline action for project ${mostRecentAction.projectId}`,
+            undoneProjectId: mostRecentAction.projectId
+          };
+          
+        default:
+          return { success: false, message: 'Unknown action type' };
+      }
+    } catch (error) {
+      console.error(`Error undoing last action:`, error);
+      return { success: false, message: 'Error undoing last action' };
+    }
+  }
+
+  try {
+    const response = await axios.post(`${API_URL}/connect/undo`, {}, {
+      headers: getAuthHeaders()
+    });
+    
+    return {
+      ...response.data,
+      undoneProjectId: response.data.undoneProjectId || undefined
+    };
+  } catch (error) {
+    console.error(`Error undoing last action:`, error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 }; 
