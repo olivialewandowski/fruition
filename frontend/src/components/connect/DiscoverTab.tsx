@@ -188,50 +188,57 @@ const DiscoverTab = ({
                 )}
               </AnimatePresence>
               
-              <div className="flex space-x-4 mt-4">
-                <button
-                  onClick={handleDecline}
-                  disabled={isTransitioning}
-                  className="w-14 h-14 flex items-center justify-center bg-white text-red-500 rounded-full shadow-md hover:bg-red-50 transition-colors disabled:opacity-50"
-                  aria-label="Decline project"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                
-                <button
-                  onClick={handleSave}
-                  disabled={isTransitioning}
-                  className="w-14 h-14 flex items-center justify-center bg-white text-blue-500 rounded-full shadow-md hover:bg-blue-50 transition-colors disabled:opacity-50"
-                  aria-label="Save project"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                </button>
-                
-                <button
-                  onClick={handleApply}
-                  disabled={isTransitioning}
-                  className="w-14 h-14 flex items-center justify-center bg-white text-green-500 rounded-full shadow-md hover:bg-green-50 transition-colors disabled:opacity-50"
-                  aria-label="Apply to project"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </button>
-                
+              <div className="flex space-x-4 mt-2">
                 {/* Undo button */}
                 <button
                   onClick={handleUndo}
                   disabled={isTransitioning || !onUndoAction}
-                  className="w-14 h-14 flex items-center justify-center bg-white text-purple-500 rounded-full shadow-md hover:bg-purple-50 transition-colors disabled:opacity-50"
+                  className="flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 px-8 py-4"
                   aria-label="Undo last action"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                   </svg>
+                  Undo
+                </button>
+                
+                {/* Save button */}
+                <button
+                  onClick={handleSave}
+                  disabled={isTransitioning}
+                  className="flex items-center justify-center text-gray-600 border border-gray-300 hover:text-gray-800 transition-colors disabled:opacity-50 px-8 py-4 rounded-md"
+                  aria-label="Save project"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  Save for later
+                </button>
+                
+                {/* Decline button */}
+                <button
+                  onClick={handleDecline}
+                  disabled={isTransitioning}
+                  className="flex items-center justify-center border border-red-500 text-red-500 rounded-md px-8 py-4 hover:bg-red-100 transition-colors disabled:opacity-50"
+                  aria-label="Decline project"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Decline
+                </button>
+                
+                {/* Apply button */}
+                <button
+                  onClick={handleApply}
+                  disabled={isTransitioning}
+                  className="flex items-center justify-center bg-green-500 text-white rounded-md px-8 py-4 hover:bg-green-600 transition-colors disabled:opacity-50"
+                  aria-label="Apply to project"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Apply now
                 </button>
               </div>
             </>
