@@ -20,6 +20,32 @@ import {
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { signInWithGoogle } from '@/services/authService';
+import ConnectNavigation from '@/components/connect/ConnectNavigation';
+import Sidebar from '@/components/layout/Sidebar';
+
+// Improved ClientOnly component with loading state
+const ClientOnly = ({ children }: { children: React.ReactNode }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-32 w-full bg-gray-200 rounded-md mb-4"></div>
+          <div className="h-4 w-3/4 bg-gray-200 rounded-md mb-2"></div>
+          <div className="h-4 w-1/2 bg-gray-200 rounded-md"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';
@@ -220,6 +246,15 @@ export default function ConnectPage() {
     }
   };
 
+  const handleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('Error signing in:', error);
+      toast.error('Failed to sign in. Please try again.');
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       <div className="h-screen pl-3 pt-3 pb-3 shadow-lg">
@@ -237,11 +272,11 @@ export default function ConnectPage() {
             />
             
             <ClientOnly>
-              {!authChecked ? (
+              {isLoading ? (
                 <div className="flex justify-center items-center h-64">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
-              ) : !isUserAuthenticated ? (
+              ) : !user ? (
                 <div className="flex flex-col items-center justify-center h-64">
                   <p className="text-lg mb-6">Please sign in to view projects</p>
                   <button 
@@ -251,10 +286,6 @@ export default function ConnectPage() {
                   >
                     {isLoading ? 'Signing in...' : 'Sign in with Google'}
                   </button>
-                </div>
-              ) : isLoading ? (
-                <div className="flex justify-center items-center h-64">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
               ) : (
                 <>
