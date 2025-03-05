@@ -5,6 +5,7 @@ import "./globals.css";
 import * as React from 'react';
 import { Toaster } from "react-hot-toast";
 import AuthInitializer from "@/components/auth/AuthInitializer";
+import Providers from "./Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,7 +48,9 @@ export default function RootLayout({
       >
         <AuthInitializer />
         <Toaster position="top-right" />
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
