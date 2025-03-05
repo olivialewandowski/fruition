@@ -1,7 +1,15 @@
 {
-  "/page": "app/page.js",
-  "/development/dashboard/page": "app/development/dashboard/page.js",
-  "/development/login/page": "app/development/login/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/development/connect/empty-test/page": "app/development/connect/empty-test/page.js",
   "/development/connect/page": "app/development/connect/page.js",
-  "/development/signup/page": "app/development/signup/page.js"
+  "/development/login/page": "app/development/login/page.js",
+  "/development/complete-profile/page": "app/development/complete-profile/page.js",
+  "/development/dashboard/page": "app/development/dashboard/page.js",
+  "/development/connect/single-project/page": "app/development/connect/single-project/page.js",
+  "/page": "app/page.js",
+  "/development/signup/page": "app/development/signup/page.js",
+  "/students/page": "app/students/page.js",
+  "/development/profile/page": "app/development/profile/page.js",
+  "/all/page": "app/all/page.js"
 }

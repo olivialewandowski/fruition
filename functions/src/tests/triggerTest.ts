@@ -11,8 +11,9 @@
  */
 
 import * as admin from "firebase-admin";
-// Import firebase-functions-test correctly
-import functionsTest from "firebase-functions-test";
+// Import firebase-functions-test with dynamic import to avoid namespace issues
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const functionsTest = require("firebase-functions-test");
 import { TeamMember } from "../types/project";
 
 console.log("Starting Firestore triggers test...");
@@ -30,7 +31,7 @@ const app = admin.initializeApp({
 
 const db = admin.firestore();
 
-// Initialize Firebase Functions Test SDK
+// Initialize Firebase Functions Test SDK for v2
 const testEnv = functionsTest({
   projectId: "fruition-test",
 });
@@ -212,14 +213,19 @@ async function testUserCreateTrigger() {
   // Create the actual document first
   await db.collection("users").doc(testUser.id).set(testUser);
 
-  // Get the actual document snapshot as QueryDocumentSnapshot
-  const userDoc = (await db.collection("users").doc(testUser.id).get()) as admin.firestore.QueryDocumentSnapshot;
-
-  // Wrap the function
+  // For v2 Firestore triggers, we need to use the v2 test SDK
+  // The onDocumentCreated function is called with a single event object
   const wrappedOnUserCreate = testEnv.wrap(onUserCreate);
 
-  // Call the function with the actual document snapshot and context
-  await wrappedOnUserCreate(userDoc, { params: { userId: testUser.id } });
+  // Create the test event with the right structure for v2
+  const testDocSnapshot = await db.collection("users").doc(testUser.id).get();
+  const testEvent = {
+    data: testDocSnapshot,
+    params: { userId: testUser.id },
+  };
+
+  // Call the function with the event object
+  await wrappedOnUserCreate(testEvent);
 
   // Wait a moment for async operations to complete
   await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -257,17 +263,18 @@ async function testProjectCreateTrigger() {
   // Create the actual document first
   await db.collection("projects").doc(testProject.id).set(testProject);
 
-  // Get the actual document snapshot as QueryDocumentSnapshot
-  const projectDoc = (await db
-    .collection("projects")
-    .doc(testProject.id)
-    .get()) as admin.firestore.QueryDocumentSnapshot;
-
   // Wrap the function
   const wrappedOnProjectCreate = testEnv.wrap(onProjectCreate);
 
-  // Call the function with the actual document snapshot and context
-  await wrappedOnProjectCreate(projectDoc, { params: { projectId: testProject.id } });
+  // Create the test event with the right structure for v2
+  const testDocSnapshot = await db.collection("projects").doc(testProject.id).get();
+  const testEvent = {
+    data: testDocSnapshot,
+    params: { projectId: testProject.id },
+  };
+
+  // Call the function with the event object
+  await wrappedOnProjectCreate(testEvent);
 
   // Wait a moment for async operations to complete
   await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -314,7 +321,7 @@ async function testProjectCreateTrigger() {
 async function testApplicationUpdateTrigger() {
   console.log("\nTesting onApplicationUpdate trigger...");
 
-  // Create an application
+  // Application path
   const applicationRef = db.collection("projects")
     .doc(testProject.id)
     .collection("positions")
@@ -322,31 +329,36 @@ async function testApplicationUpdateTrigger() {
     .collection("applications")
     .doc("application1");
 
+  // Create an application
   await applicationRef.set(testApplication);
 
-  // Get the actual document snapshot for before state
-  const beforeDoc = (await applicationRef.get()) as admin.firestore.QueryDocumentSnapshot;
+  // Get the "before" snapshot
+  const beforeSnapshot = await applicationRef.get();
 
   // Update the application status
   await applicationRef.update({ status: "reviewing" });
 
-  // Get the actual document snapshot for after state
-  const afterDoc = (await applicationRef.get()) as admin.firestore.QueryDocumentSnapshot;
+  // Get the "after" snapshot
+  const afterSnapshot = await applicationRef.get();
 
   // Wrap the function
   const wrappedOnApplicationUpdate = testEnv.wrap(onApplicationUpdate);
 
-  // Create a change object with the actual document snapshots
-  const change = testEnv.makeChange(beforeDoc, afterDoc);
-
-  // Call the function with the change object
-  await wrappedOnApplicationUpdate(change, {
+  // Create the test event with the right structure for v2 onDocumentUpdated
+  const updateEvent = {
+    data: {
+      before: beforeSnapshot,
+      after: afterSnapshot,
+    },
     params: {
       projectId: testProject.id,
       positionId: "position1",
       applicationId: "application1",
     },
-  });
+  };
+
+  // Call the function with the event
+  await wrappedOnApplicationUpdate(updateEvent);
 
   // Check that a notification was created
   const notificationsSnapshot = await db.collection("notifications")
@@ -362,21 +374,27 @@ async function testApplicationUpdateTrigger() {
   }
 
   // Now test with an accepted application
+  // Update to accepted status
   await applicationRef.update({ status: "accepted" });
 
-  // Get the updated document snapshot
-  const acceptedDoc = (await applicationRef.get()) as admin.firestore.QueryDocumentSnapshot;
+  // Get the new "after" snapshot
+  const acceptedSnapshot = await applicationRef.get();
 
-  // Create a change object for the accepted status
-  const acceptedChange = testEnv.makeChange(afterDoc, acceptedDoc);
-
-  await wrappedOnApplicationUpdate(acceptedChange, {
+  // Create the update event for accepted status
+  const acceptEvent = {
+    data: {
+      before: afterSnapshot,
+      after: acceptedSnapshot,
+    },
     params: {
       projectId: testProject.id,
       positionId: "position1",
       applicationId: "application1",
     },
-  });
+  };
+
+  // Call the function with the accept event
+  await wrappedOnApplicationUpdate(acceptEvent);
 
   // Check that the student was added to the project team
   const updatedProjectDoc = await db.collection("projects").doc(testProject.id).get();
