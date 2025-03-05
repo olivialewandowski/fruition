@@ -649,10 +649,7 @@ video {
 [hidden]:where(:not([hidden="until-found"])) {
   display: none;
 }
-  h1, h2, h3, h4, h5, h6 {
-    font-size: revert;
-    font-weight: revert;
-  }
+  /* Base styles can go here, but avoid overriding Tailwind's utility classes */
 .container {
   width: 100%;
 }
@@ -1089,6 +1086,9 @@ video {
 .w-px {
   width: 1px;
 }
+.w-56 {
+  width: 14rem;
+}
 .min-w-0 {
   min-width: 0px;
 }
@@ -1272,6 +1272,9 @@ video {
 .gap-6 {
   gap: 1.5rem;
 }
+.gap-8 {
+  gap: 2rem;
+}
 .space-x-2 > :not([hidden]) ~ :not([hidden]) {
   --tw-space-x-reverse: 0;
   margin-right: calc(0.5rem * var(--tw-space-x-reverse));
@@ -1319,6 +1322,9 @@ video {
 }
 .overflow-visible {
   overflow: visible;
+}
+.overflow-x-auto {
+  overflow-x: auto;
 }
 .overflow-y-auto {
   overflow-y: auto;
@@ -1715,6 +1721,15 @@ video {
 .pt-6 {
   padding-top: 1.5rem;
 }
+.pr-6 {
+  padding-right: 1.5rem;
+}
+.pb-1 {
+  padding-bottom: 0.25rem;
+}
+.pt-0 {
+  padding-top: 0px;
+}
 .text-left {
   text-align: left;
 }
@@ -2075,6 +2090,11 @@ video {
 .hover\:bg-violet-700:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(109 40 217 / var(--tw-bg-opacity, 1));
+}
+
+.hover\:bg-purple-100:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(243 232 255 / var(--tw-bg-opacity, 1));
 }
 
 .hover\:text-gray-800:hover {
@@ -2439,6 +2459,10 @@ video {
     display: block;
   }
 
+  .md\:flex {
+    display: flex;
+  }
+
   .md\:hidden {
     display: none;
   }
@@ -2515,6 +2539,11 @@ video {
   .md\:px-8 {
     padding-left: 2rem;
     padding-right: 2rem;
+  }
+
+  .md\:py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
   }
 
   .md\:text-3xl {

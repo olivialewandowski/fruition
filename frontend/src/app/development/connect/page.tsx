@@ -257,64 +257,62 @@ export default function ConnectPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <div className="h-screen pl-3 pt-3 pb-3 shadow-lg">
+      <div className="h-screen pl-3 pt-3 pb-3">
         <Sidebar />
       </div>
       
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
-          <div className="max-w-7xl mx-auto">
-            <ConnectNavigation 
-              activeTab={activeTab} 
-              onTabChange={setActiveTab} 
-              savedCount={savedProjects.length}
-              appliedCount={appliedProjects.length}
-            />
-            
-            <ClientOnly>
-              {isLoading ? (
-                <div className="flex justify-center items-center h-64">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                </div>
-              ) : !user ? (
-                <div className="flex flex-col items-center justify-center h-64">
-                  <p className="text-lg mb-6">Please sign in to view projects</p>
-                  <button 
-                    onClick={handleSignIn}
-                    className="px-6 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Signing in...' : 'Sign in with Google'}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {activeTab === 'discover' && (
-                    <DiscoverTab 
-                      projects={projects} 
-                      onApplyProject={handleApplyProject}
-                      onSaveProject={handleSaveProject}
-                      onDeclineProject={handleDeclineProject}
-                      onUndoAction={handleUndoAction}
-                    />
-                  )}
-                  
-                  {activeTab === 'saved' && (
-                    <SavedTab 
-                      projects={savedProjects} 
-                      onRemoveProject={handleRemoveSavedProject}
-                      onApplyProject={handleApplyProject}
-                    />
-                  )}
-                  
-                  {activeTab === 'applied' && (
-                    <AppliedTab projects={appliedProjects} />
-                  )}
-                </>
-              )}
-            </ClientOnly>
-          </div>
-        </main>
+      <div className="flex-1 transition-all duration-300 overflow-y-auto pl-6 pr-6 pt-0">
+        <ConnectNavigation 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab} 
+          savedCount={savedProjects.length}
+          appliedCount={appliedProjects.length}
+        />
+        
+        <div className="pb-8 mt-6">
+          <ClientOnly>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+            ) : !user ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <p className="text-lg mb-6">Please sign in to view projects</p>
+                <button 
+                  onClick={handleSignIn}
+                  className="px-6 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Signing in...' : 'Sign in with Google'}
+                </button>
+              </div>
+            ) : (
+              <>
+                {activeTab === 'discover' && (
+                  <DiscoverTab 
+                    projects={projects} 
+                    onApplyProject={handleApplyProject}
+                    onSaveProject={handleSaveProject}
+                    onDeclineProject={handleDeclineProject}
+                    onUndoAction={handleUndoAction}
+                  />
+                )}
+                
+                {activeTab === 'saved' && (
+                  <SavedTab 
+                    projects={savedProjects} 
+                    onRemoveProject={handleRemoveSavedProject}
+                    onApplyProject={handleApplyProject}
+                  />
+                )}
+                
+                {activeTab === 'applied' && (
+                  <AppliedTab projects={appliedProjects} />
+                )}
+              </>
+            )}
+          </ClientOnly>
+        </div>
       </div>
     </div>
   );
