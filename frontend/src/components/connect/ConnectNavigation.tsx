@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { 
+  BellIcon, 
+  Cog6ToothIcon, 
+  ChevronDownIcon
+} from '@heroicons/react/24/outline';
 
 interface ConnectNavigationProps {
   activeTab: 'discover' | 'saved' | 'applied';
@@ -20,7 +25,21 @@ const ConnectNavigation: React.FC<ConnectNavigationProps> = ({
 }) => {
   const router = useRouter();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const { user, userData, signOut } = useAuth();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -32,35 +51,120 @@ const ConnectNavigation: React.FC<ConnectNavigationProps> = ({
   };
 
   return (
-    <div className="flex overflow-visible relative flex-wrap gap-5 justify-center px-6 py-3.5 w-full bg-white border border-solid border-neutral-200 shadow-md rounded-2xl max-w-[100%] mx-auto mb-4">
-      <div className="flex gap-10 items-center text-lg text-center text-violet-900 whitespace-nowrap max-md:max-w-full">
-        <div 
-          className={`self-stretch px-5 py-2 rounded-3xl max-md:px-5 cursor-pointer ${activeTab === 'discover' ? 'bg-purple-200 font-semibold text-violet-900' : 'font-medium text-gray-700'}`}
-          onClick={() => onTabChange('discover')}
-        >
-          Discover
-        </div>
-        <div 
-          className={`self-stretch px-5 py-2 rounded-3xl max-md:px-5 cursor-pointer ${activeTab === 'saved' ? 'bg-purple-200 font-semibold text-violet-900' : 'font-medium text-gray-700'}`}
-          onClick={() => onTabChange('saved')}
-        >
-          Saved
-          {savedCount > 0 && (
-            <span className="ml-2 bg-purple-300 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {savedCount}
-            </span>
-          )}
-        </div>
-        <div 
-          className={`self-stretch px-5 py-2 rounded-3xl max-md:px-5 cursor-pointer ${activeTab === 'applied' ? 'bg-purple-200 font-semibold text-violet-900' : 'font-medium text-gray-700'}`}
-          onClick={() => onTabChange('applied')}
-        >
-          Applied
-          {appliedCount > 0 && (
-            <span className="ml-2 bg-purple-300 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {appliedCount}
-            </span>
-          )}
+    <div className="relative z-10 w-full mt-3">
+      <div className="bg-white shadow-md rounded-2xl border border-gray-200 pb-3 pl-1 pr-4 mt-0 mb-6 w-full max-w-full">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 md:p-6 w-full">
+          {/* Left side - Title */}
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Connect</h1>
+          </div>
+          
+          {/* Center - Navigation Tabs */}
+          <div className="flex items-center space-x-2 md:space-x-4 self-start md:self-center mt-4 md:mt-0">
+            <button 
+              className={`px-4 md:px-8 py-3 text-base md:text-lg font-medium rounded-lg
+                ${activeTab === 'discover' 
+                  ? 'bg-violet-100 text-violet-900' 
+                  : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              onClick={() => onTabChange('discover')}
+            >
+              Discover
+            </button>
+            <button 
+              className={`px-4 md:px-8 py-3 text-base md:text-lg font-medium rounded-lg flex items-center
+                ${activeTab === 'saved' 
+                  ? 'bg-violet-100 text-violet-900' 
+                  : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              onClick={() => onTabChange('saved')}
+            >
+              Saved
+              {savedCount > 0 && (
+                <span className="ml-2 bg-purple-300 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                  {savedCount}
+                </span>
+              )}
+            </button>
+            <button 
+              className={`px-4 md:px-8 py-3 text-base md:text-lg font-medium rounded-lg flex items-center
+                ${activeTab === 'applied' 
+                  ? 'bg-violet-100 text-violet-900' 
+                  : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              onClick={() => onTabChange('applied')}
+            >
+              Applied
+              {appliedCount > 0 && (
+                <span className="ml-2 bg-purple-300 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                  {appliedCount}
+                </span>
+              )}
+            </button>
+          </div>
+          
+          {/* Right side - User menu */}
+          <div className="flex items-center space-x-3 md:space-x-5 self-end md:self-center mt-4 md:mt-0">
+            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+              <BellIcon className="w-6 h-6" />
+            </button>
+            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
+              <Cog6ToothIcon className="w-6 h-6" />
+            </button>
+            
+            {/* Profile dropdown */}
+            <div className="relative" ref={profileMenuRef}>
+              <button 
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="flex items-center space-x-2 p-1 hover:bg-gray-100 rounded-lg"
+              >
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-violet-200 flex items-center justify-center text-violet-800 font-semibold">
+                  {userData?.firstName?.charAt(0) || 'U'}
+                </div>
+                <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+              </button>
+              
+              {isProfileMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 md:w-56 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50">
+                  <div className="p-4 border-b border-gray-100">
+                    <p className="font-medium text-gray-900">
+                      {userData?.firstName ? `${userData.firstName} ${userData.lastName || ''}` : 'User'}
+                    </p>
+                    <p className="text-sm text-gray-500">{userData?.email || ''}</p>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => {
+                        router.push('/development/profile');
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-5 py-3 text-base text-gray-700 hover:bg-gray-100"
+                    >
+                      Your Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/development/settings');
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-5 py-3 text-base text-gray-700 hover:bg-gray-100 border-t border-gray-100"
+                    >
+                      Settings
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleSignOut();
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-5 py-3 text-base text-gray-700 hover:bg-gray-100 border-t border-gray-100"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
