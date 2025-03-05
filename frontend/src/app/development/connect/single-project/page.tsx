@@ -6,6 +6,10 @@ import BaseLayout from '@/components/layout/BaseLayout';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
 import AppliedTab from '@/components/connect/AppliedTab';
+import { toast } from 'react-hot-toast';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import Sidebar from '@/components/layout/Sidebar';
+import ConnectNavigation from '@/components/connect/ConnectNavigation';
 import { 
   applyToProject, 
   saveProject, 
@@ -15,8 +19,6 @@ import {
   removeProject,
   undoLastAction
 } from '@/services/projectsService';
-import { toast } from 'react-hot-toast';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';

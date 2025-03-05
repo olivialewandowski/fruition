@@ -165,7 +165,7 @@ const DiscoverTab = ({
           {projects.length === 0 ? (
             <div className="text-center p-8 bg-white rounded-lg shadow-md">
               <h3 className="text-xl font-semibold text-gray-800 mb-2">No More Projects</h3>
-              <p className="text-gray-600">You've gone through all available projects. Check back later for more opportunities!</p>
+              <p className="text-gray-600">{"You've"} gone through all available projects. Check back later for more opportunities!</p>
               <button 
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 transition-colors mt-4"
