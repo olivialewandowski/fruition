@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-size: revert;
+    font-weight: revert;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #000000;
@@ -18,4 +25,35 @@
 
 .font-montserrat-alternates {
   font-family: var(--font-montserrat-alternates);
+}
+
+/* Add missing border width classes for the loading spinner */
+.border-2 {
+  border-width: 2px;
+}
+
+.border-3 {
+  border-width: 3px;
+}
+
+.border-4 {
+  border-width: 4px;
+}
+
+/* Ensure the spinner animation works properly */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@layer components {
+  .project-card-title {
+    font-size: 10rem !important;
+    line-height: 1.2;
+  }
 }
