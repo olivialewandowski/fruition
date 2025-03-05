@@ -34,6 +34,21 @@ const montserratAlternates = Montserrat_Alternates({
 export const metadata: Metadata = {
   title: "Fruition | Research Platform",
   description: "Connect with research opportunities and collaborate on projects",
+  icons: {
+    icon: [
+      { url: "/favicon_io/favicon.ico" },
+      { url: "/favicon_io/icon.png", type: "image/png" },
+      { url: "/favicon_io/icon.svg", type: "image/svg+xml" }
+    ],
+    apple: [
+      { url: "/favicon_io/apple-icon.png" }
+    ],
+    other: [
+      { url: "/favicon_io/web-app-manifest-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon_io/web-app-manifest-512x512.png", sizes: "512x512", type: "image/png" }
+    ]
+  },
+  manifest: "/favicon_io/manifest.json"
 };
 
 export default function RootLayout({

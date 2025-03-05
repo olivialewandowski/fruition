@@ -7,7 +7,7 @@ import {
   declineProject,
   getSavedProjects,
   getAppliedProjects,
-  undoLastAction
+  undoLastAction,
 } from "../services/connectService";
 import { getProjectsByIds } from "../services/projectsService";
 
@@ -172,7 +172,7 @@ connectRouter.get(
       return res.status(500).json({
         success: false,
         message: "Failed to get applied projects",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -190,14 +190,14 @@ connectRouter.post(
 
       return res.status(200).json({
         success: result.success,
-        message: result.message
+        message: result.message,
       });
     } catch (error) {
       console.error("Error undoing last action:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to undo last action",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }

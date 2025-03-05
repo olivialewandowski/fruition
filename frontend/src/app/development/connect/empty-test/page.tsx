@@ -20,6 +20,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Sidebar from '@/components/layout/Sidebar';
+import ConnectNavigation from '@/components/connect/ConnectNavigation';
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';

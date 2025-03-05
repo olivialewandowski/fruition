@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { db } from "../config/firebase";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { Project } from "../types/project";
@@ -10,130 +10,139 @@ import { Application } from "../types/position";
  * - Creates a welcome notification
  * - Updates university stats if user has a university
  */
-export const onUserCreate = functions
-  .firestore.document("users/{userId}")
-  .onCreate(async (snapshot, context) => {
-    const userId = context.params.userId;
-    const userData = snapshot.data() as User;
+export const onUserCreate = onDocumentCreated("users/{userId}", async (event) => {
+  const userId = event.params.userId;
+  const userData = event.data?.data() as User;
 
-    try {
-      // Create welcome notification
-      await db.collection("notifications").add({
-        userId,
-        type: "welcome",
-        title: "Welcome to Fruition!",
-        message: "Thank you for joining our research-matching platform.",
-        read: false,
-        createdAt: Timestamp.now(),
-      });
+  if (!userData) {
+    console.log("No user data found in event");
+    return;
+  }
 
-      // If user has a university, update university stats
-      if (userData.university) {
-        const universityRef = db.collection("universities").doc(userData.university);
+  try {
+    // Create welcome notification
+    await db.collection("notifications").add({
+      userId,
+      type: "welcome",
+      title: "Welcome to Fruition!",
+      message: "Thank you for joining our research-matching platform.",
+      read: false,
+      createdAt: Timestamp.now(),
+    });
 
-        // Check if userId is valid before using it in arrayUnion
-        if (userId) {
-          if (userData.role === "student") {
-            await universityRef.update({
-              studentCount: FieldValue.increment(1),
-              studentIds: FieldValue.arrayUnion(userId),
-            });
-            console.log(`Added student ${userId} to university ${userData.university}`);
-          } else if (userData.role === "faculty") {
-            await universityRef.update({
-              facultyCount: FieldValue.increment(1),
-              facultyIds: FieldValue.arrayUnion(userId),
-            });
-            console.log(`Added faculty ${userId} to university ${userData.university}`);
-          }
-        } else {
-          console.error("Invalid userId in onUserCreate trigger");
+    // If user has a university, update university stats
+    if (userData.university) {
+      const universityRef = db.collection("universities").doc(userData.university);
+
+      // Check if userId is valid before using it in arrayUnion
+      if (userId) {
+        if (userData.role === "student") {
+          await universityRef.update({
+            studentCount: FieldValue.increment(1),
+            studentIds: FieldValue.arrayUnion(userId),
+          });
+          console.log(`Added student ${userId} to university ${userData.university}`);
+        } else if (userData.role === "faculty") {
+          await universityRef.update({
+            facultyCount: FieldValue.increment(1),
+            facultyIds: FieldValue.arrayUnion(userId),
+          });
+          console.log(`Added faculty ${userId} to university ${userData.university}`);
         }
       } else {
-        console.log("User has no university assigned");
+        console.error("Invalid userId in onUserCreate trigger");
       }
-    } catch (error) {
-      console.error("Error in onUserCreate trigger:", error);
+    } else {
+      console.log("User has no university assigned");
     }
-  });
+  } catch (error) {
+    console.error("Error in onUserCreate trigger:", error);
+  }
+});
 
 /**
  * Trigger that runs when a project is created
  * - Updates department project count
  * - Creates notifications for relevant students
  */
-export const onProjectCreate = functions
-  .firestore.document("projects/{projectId}")
-  .onCreate(async (snapshot, context) => {
-    const projectId = context.params.projectId;
-    const projectData = snapshot.data() as Project;
+export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (event) => {
+  const projectId = event.params.projectId;
+  const projectData = event.data?.data() as Project;
 
-    try {
-      // Update department project count
-      if (projectData.department) {
-        await db.collection("departments").doc(projectData.department).update({
-          projectCount: FieldValue.increment(1),
+  if (!projectData) {
+    console.log("No project data found in event");
+    return;
+  }
+
+  try {
+    // Update department project count
+    if (projectData.department) {
+      await db.collection("departments").doc(projectData.department).update({
+        projectCount: FieldValue.increment(1),
+      });
+    }
+
+    // Get students with matching interests
+    // Note: We're using keywords from the project to match with student interests
+    const matchingStudents = await db.collection("users")
+      .where("role", "==", "student")
+      .limit(50)
+      .get();
+
+    // Create notifications for matching students with relevant interests
+    const batch = db.batch();
+    // Extract keywords from project data with proper typing
+    const projectKeywords = (projectData as Project & { keywords: string[] }).keywords || [];
+
+    matchingStudents.docs.forEach((doc) => {
+      const studentData = doc.data();
+      const studentInterests = studentData.interests || [];
+
+      // Check if there's any overlap between project keywords and student interests
+      const hasMatchingInterests = projectKeywords.some((keyword: string) =>
+        studentInterests.some((interest: string) =>
+          interest.toLowerCase().includes(keyword.toLowerCase()) ||
+          keyword.toLowerCase().includes(interest.toLowerCase())
+        )
+      );
+
+      // Create notification if interests match or if student is in the same department
+      if (hasMatchingInterests || studentData.department === projectData.department) {
+        const notificationRef = db.collection("notifications").doc();
+        batch.set(notificationRef, {
+          userId: doc.id,
+          type: "new_project",
+          title: "New Project Matching Your Interests",
+          message: `A new project "${projectData.title}" was posted that matches your interests.`,
+          projectId,
+          read: false,
+          createdAt: Timestamp.now(),
         });
       }
+    });
 
-      // Get students with matching interests
-      // Note: We're using keywords from the project to match with student interests
-      const matchingStudents = await db.collection("users")
-        .where("role", "==", "student")
-        .limit(50)
-        .get();
-
-      // Create notifications for matching students with relevant interests
-      const batch = db.batch();
-      // Extract keywords from project data with proper typing
-      const projectKeywords = (projectData as Project & { keywords: string[] }).keywords || [];
-
-      matchingStudents.docs.forEach((doc) => {
-        const studentData = doc.data();
-        const studentInterests = studentData.interests || [];
-
-        // Check if there's any overlap between project keywords and student interests
-        const hasMatchingInterests = projectKeywords.some((keyword: string) =>
-          studentInterests.some((interest: string) =>
-            interest.toLowerCase().includes(keyword.toLowerCase()) ||
-            keyword.toLowerCase().includes(interest.toLowerCase())
-          )
-        );
-
-        // Create notification if interests match or if student is in the same department
-        if (hasMatchingInterests || studentData.department === projectData.department) {
-          const notificationRef = db.collection("notifications").doc();
-          batch.set(notificationRef, {
-            userId: doc.id,
-            type: "new_project",
-            title: "New Project Matching Your Interests",
-            message: `A new project "${projectData.title}" was posted that matches your interests.`,
-            projectId,
-            read: false,
-            createdAt: Timestamp.now(),
-          });
-        }
-      });
-
-      await batch.commit();
-    } catch (error) {
-      console.error("Error in onProjectCreate trigger:", error);
-    }
-  });
+    await batch.commit();
+  } catch (error) {
+    console.error("Error in onProjectCreate trigger:", error);
+  }
+});
 
 /**
  * Trigger that runs when an application status changes
  * - Notifies the student
  * - Updates position filled count if accepted
  */
-export const onApplicationUpdate = functions
-  .firestore.document(
-    "projects/{projectId}/positions/{positionId}/applications/{applicationId}"
-  )
-  .onUpdate(async (change, context) => {
-    const { projectId, positionId, applicationId } = context.params;
-    const beforeData = change.before.data() as Application;
-    const afterData = change.after.data() as Application;
+export const onApplicationUpdate = onDocumentUpdated(
+  "projects/{projectId}/positions/{positionId}/applications/{applicationId}",
+  async (event) => {
+    const { projectId, positionId, applicationId } = event.params;
+    const beforeData = event.data?.before.data() as Application;
+    const afterData = event.data?.after.data() as Application;
+
+    if (!beforeData || !afterData) {
+      console.log("Missing before or after data in event");
+      return;
+    }
 
     // Only proceed if status has changed
     if (beforeData.status === afterData.status) {
@@ -196,4 +205,5 @@ export const onApplicationUpdate = functions
     } catch (error) {
       console.error("Error in onApplicationUpdate trigger:", error);
     }
-  });
+  }
+);
