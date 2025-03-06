@@ -12,15 +12,28 @@ interface BaseLayoutProps {
     id: string;
     label: string;
     isAvailable?: (role?: string) => boolean;
+    count?: number;
   }>;
   defaultTab?: string;
+  activeTab?: string;
+  onTabChange?: (tabId: string) => void;
 }
 
-export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLayoutProps) {
+export default function BaseLayout({ 
+  children, 
+  title, 
+  tabs, 
+  defaultTab,
+  activeTab: propActiveTab,
+  onTabChange: propOnTabChange
+}: BaseLayoutProps) {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState<string | undefined>(defaultTab);
+  const [internalActiveTab, setInternalActiveTab] = useState<string | undefined>(defaultTab);
+  
+  // Use the prop activeTab if provided, otherwise use internal state
+  const activeTab = propActiveTab || internalActiveTab;
   
   // Determine if we're on the connect page
   const isConnectPage = pathname?.includes('/connect');
@@ -53,7 +66,7 @@ export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLa
         
         // Set default active tab
         if (!activeTab) {
-          setActiveTab('discover');
+          setInternalActiveTab('discover');
         }
       } else {
         // Dashboard tabs differ based on user role
@@ -72,7 +85,7 @@ export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLa
         
         // Set default active tab
         if (!activeTab) {
-          setActiveTab('active');
+          setInternalActiveTab('active');
         }
       }
     }
@@ -82,6 +95,7 @@ export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLa
     id: string;
     label: string;
     isAvailable?: (role?: string) => boolean;
+    count?: number;
   }>>([]);
   
   // Authentication check
@@ -93,7 +107,11 @@ export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLa
   
   // Handle tab change
   const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
+    if (propOnTabChange) {
+      propOnTabChange(tabId);
+    } else {
+      setInternalActiveTab(tabId);
+    }
   };
   
   // Loading state

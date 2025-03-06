@@ -85,7 +85,7 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply }: Pr
   // If not mounted yet or project data is missing, show a loading placeholder
   if (!mounted || !project || !project.id || !project.title) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-5xl mb-8" style={{ minHeight: '500px' }}>
+      <div className="w-full max-w-5xl mb-4 bg-violet-50 rounded-xl p-6" style={{ minHeight: '500px' }}>
         <div className="animate-pulse">
           <div className="h-10 bg-gray-200 rounded w-3/4 mb-4"></div>
           <div className="h-6 bg-gray-200 rounded w-1/2 mb-8"></div>
@@ -104,8 +104,8 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply }: Pr
   return (
     <motion.div
       key={`card-motion-${project.id}`}
-      className="bg-white rounded-2xl shadow-md border border-solid border-neutral-200 p-8 w-full max-w-[90%] mx-auto mb-8"
-      style={{ minHeight: '620px', display: 'flex', flexDirection: 'column' }}
+      className="w-full max-w-[95%] mx-auto mb-4 bg-violet-50 rounded-xl p-6"
+      style={{ minHeight: '550px', display: 'flex', flexDirection: 'column' }}
       variants={cardVariants}
       initial="initial"
       animate={animationPhase}
@@ -120,7 +120,7 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply }: Pr
         </p>
         
         {/* Project description */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h3 className="text-xl font-semibold text-gray-700 mt-6 mb-3">Project Description</h3>
           <p className="text-gray-600 text-lg leading-relaxed">
             {project.description || 'No description provided.'}
