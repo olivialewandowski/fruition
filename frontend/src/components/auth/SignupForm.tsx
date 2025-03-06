@@ -15,6 +15,9 @@ const SignupForm = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    firstName: '',
+    lastName: '',
+    role: 'student' as 'student' | 'faculty' | 'admin' | 'user',
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +35,6 @@ const SignupForm = () => {
     setError('');
     setIsLoading(true);
     
-    // Add additional check before attempting authentication
     if (!auth?.config?.apiKey) {
       setError('Authentication service not properly initialized');
       setIsLoading(false);
@@ -40,7 +42,6 @@ const SignupForm = () => {
     }
 
     try {
-      // Add console log for debugging
       console.log('Attempting to create user with email:', formData.email.trim());
       
       const userCredential = await createUserWithEmailAndPassword(
@@ -49,19 +50,19 @@ const SignupForm = () => {
         formData.password
       );
 
-      // Create minimal user document
+      // Create complete user document with all fields
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         email: formData.email.trim(),
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: formData.role,
         createdAt: new Date().toISOString(),
       });
 
-      // Get the ID token and store it
       const idToken = await userCredential.user.getIdToken();
       localStorage.setItem('authToken', idToken);
 
-      // Redirect to profile completion page
-      // Use push instead of replace to avoid navigation history issues
-      router.push('/development/complete-profile');
+      router.push('/development/dashboard');
     } catch (err: any) {
       console.error('Signup error:', err);
       
@@ -170,6 +171,50 @@ const SignupForm = () => {
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* First Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                First Name
+              </label>
+              <input
+                type="text"
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                value={formData.firstName}
+                onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+              />
+            </div>
+
+            {/* Last Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Last Name
+              </label>
+              <input
+                type="text"
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                value={formData.lastName}
+                onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+              />
+            </div>
+
+            {/* Role Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Role
+              </label>
+              <select
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                value={formData.role}
+                onChange={(e) => setFormData({...formData, role: e.target.value as 'student' | 'faculty' | 'admin' | 'user'})}
+              >
+                <option value="student">Student</option>
+                <option value="faculty">Faculty</option>
+              </select>
+            </div>
+
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
