@@ -14,23 +14,20 @@ export default function DashboardPage() {
   const [projectsToShow, setProjectsToShow] = useState<any[]>([]);
 
   // Define tabs based on user role
-  const dashboardTabs = [
-    { 
-      id: 'active', 
-      label: 'Active',
-      isAvailable: (role?: string) => true  // Available to all roles
-    },
-    { 
-      id: 'applied', 
-      label: 'Applied',
-      isAvailable: (role?: string) => role === 'student'  // Only for students
-    },
-    { 
-      id: 'archived', 
-      label: 'Archived',
-      isAvailable: (role?: string) => true  // Available to all roles
+  const getDashboardTabs = () => {
+    if (userData?.role === 'student') {
+      return [
+        { id: 'active', label: 'Active' },
+        { id: 'applied', label: 'Applied' },
+        { id: 'archived', label: 'Archived' }
+      ];
+    } else {
+      return [
+        { id: 'active', label: 'Active' },
+        { id: 'archived', label: 'Archived' }
+      ];
     }
-  ];
+  };
 
   // Update displayed projects when tab changes or user data loads
   useEffect(() => {
@@ -78,7 +75,7 @@ export default function DashboardPage() {
   return (
     <BaseLayout 
       title="Dashboard" 
-      tabs={dashboardTabs}
+      tabs={getDashboardTabs()}
       defaultTab="active"
     >
       {/* Page Header */}

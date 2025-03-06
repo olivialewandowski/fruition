@@ -10,6 +10,32 @@ import {
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
+// Toggle switch component for "Include Student Projects"
+const ToggleSwitch: React.FC<{
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+  label: string;
+}> = ({ enabled, onChange, label }) => {
+  return (
+    <div className="flex items-center space-x-2">
+      <span className="text-sm text-gray-700">{label}</span>
+      <button
+        type="button"
+        className={`relative inline-flex h-6 w-11 items-center rounded-full focus:outline-none ${
+          enabled ? 'bg-violet-700' : 'bg-gray-200'
+        }`}
+        onClick={() => onChange(!enabled)}
+      >
+        <span
+          className={`${
+            enabled ? 'translate-x-6' : 'translate-x-1'
+          } inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out`}
+        />
+      </button>
+    </div>
+  );
+};
+
 interface ConnectNavigationProps {
   activeTab: 'discover' | 'saved' | 'applied';
   onTabChange: (tab: 'discover' | 'saved' | 'applied') => void;
@@ -25,8 +51,9 @@ const ConnectNavigation: React.FC<ConnectNavigationProps> = ({
 }) => {
   const router = useRouter();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [includeStudentProjects, setIncludeStudentProjects] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const { user, userData, signOut } = useAuth();
+  const { user, userData } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -101,6 +128,15 @@ const ConnectNavigation: React.FC<ConnectNavigationProps> = ({
                 </span>
               )}
             </button>
+
+            {/* Toggle switch for including student projects */}
+            <div className="ml-4">
+              <ToggleSwitch
+                enabled={includeStudentProjects}
+                onChange={setIncludeStudentProjects}
+                label="Include Student Projects"
+              />
+            </div>
           </div>
           
           {/* Right side - User menu */}
@@ -131,6 +167,9 @@ const ConnectNavigation: React.FC<ConnectNavigationProps> = ({
                       {userData?.firstName ? `${userData.firstName} ${userData.lastName || ''}` : 'User'}
                     </p>
                     <p className="text-sm text-gray-500">{userData?.email || ''}</p>
+                    <p className="text-xs font-medium text-violet-700 mt-1">
+                      {userData?.role ? userData.role.charAt(0).toUpperCase() + userData.role.slice(1) : 'User'}
+                    </p>
                   </div>
                   <div>
                     <button
@@ -171,4 +210,4 @@ const ConnectNavigation: React.FC<ConnectNavigationProps> = ({
   );
 };
 
-export default ConnectNavigation; 
+export default ConnectNavigation;

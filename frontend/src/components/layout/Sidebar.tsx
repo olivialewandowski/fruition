@@ -106,13 +106,24 @@ const Sidebar: React.FC = () => {
     }
   };
 
-  // Filter FEATURES based on user permissions
-  const userFeatures = FEATURES.filter(feature => {
+  // Filter features based on user role and permissions
+  const availableFeatures = FEATURES.filter(feature => {
+    // For student - show dashboard and connect
+    if (userData?.role === 'student') {
+      return ['dashboard', 'connect'].includes(feature.id);
+    }
+    
+    // For faculty and admin - show only dashboard
+    if (userData?.role === 'faculty' || userData?.role === 'admin') {
+      return feature.id === 'dashboard';
+    }
+    
+    // Default behavior - check if user has any required permissions
     return feature.requiredPermissions.some(permission => permissions.includes(permission));
   });
 
   // Create navigation items from available features
-  const navItems = userFeatures.map(feature => ({
+  const navItems = availableFeatures.map(feature => ({
     href: featureUrls[feature.id] || '#',
     icon: featureIcons[feature.id] || <DocumentTextIcon className="w-5 h-5" />,
     label: feature.displayName
@@ -220,7 +231,9 @@ const Sidebar: React.FC = () => {
                         ? `${userData.firstName} ${userData.lastName || ''}` 
                         : user?.displayName || 'User'}
                     </span>
-                    <span className="text-xs text-gray-500">View profile</span>
+                    <span className="text-xs text-gray-500">
+                      {userData?.role ? userData.role.charAt(0).toUpperCase() + userData.role.slice(1) : 'User'}
+                    </span>
                   </div>
                 </div>
               )}

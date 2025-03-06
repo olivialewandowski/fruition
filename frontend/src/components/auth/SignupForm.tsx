@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -19,13 +19,30 @@ const SignupForm = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Add check for Firebase initialization
+  useEffect(() => {
+    if (!auth?.config?.apiKey) {
+      console.error('Firebase not properly initialized');
+      setError('Authentication service not properly initialized');
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     
+    // Add additional check before attempting authentication
+    if (!auth?.config?.apiKey) {
+      setError('Authentication service not properly initialized');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // Create user with email and password
+      // Add console log for debugging
+      console.log('Attempting to create user with email:', formData.email.trim());
+      
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email.trim(),

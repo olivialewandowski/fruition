@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import BaseLayout from '@/components/layout/BaseLayout';
 import { Project } from '@/types/project';
+import BaseLayout from '@/components/layout/BaseLayout';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
 import AppliedTab from '@/components/connect/AppliedTab';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useRouter } from 'next/navigation';
 import { 
   getProjects, 
   applyToProject, 
@@ -17,35 +21,6 @@ import {
   undoLastAction,
   getSampleProjects
 } from '@/services/projectsService';
-import { toast } from 'react-hot-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { signInWithGoogle } from '@/services/authService';
-import ConnectNavigation from '@/components/connect/ConnectNavigation';
-import Sidebar from '@/components/layout/Sidebar';
-
-// Improved ClientOnly component with loading state
-const ClientOnly = ({ children }: { children: React.ReactNode }) => {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="h-32 w-full bg-gray-200 rounded-md mb-4"></div>
-          <div className="h-4 w-3/4 bg-gray-200 rounded-md mb-2"></div>
-          <div className="h-4 w-1/2 bg-gray-200 rounded-md"></div>
-        </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
-};
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';
@@ -57,25 +32,22 @@ export default function ConnectPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ConnectTab>('discover');
   const { user, userData } = useAuth();
+  const router = useRouter();
 
-  // Define the tabs
+  // Define the tabs for connect navigation
   const connectTabs = [
-    { 
-      id: 'discover', 
-      label: 'Discover',
-      isAvailable: (role?: string) => role === 'student'  // Only for students
-    },
-    { 
-      id: 'saved', 
-      label: 'Saved',
-      isAvailable: (role?: string) => role === 'student'  // Only for students
-    },
-    { 
-      id: 'applied', 
-      label: 'Applied',
-      isAvailable: (role?: string) => role === 'student'  // Only for students
-    }
+    { id: 'discover', label: 'Discover' },
+    { id: 'saved', label: 'Saved' },
+    { id: 'applied', label: 'Applied' }
   ];
+
+  // Redirect non-student users
+  useEffect(() => {
+    if (userData && userData.role !== 'student' && !isLoading) {
+      router.push('/development/dashboard');
+      toast.error('The Connect feature is only available for Student accounts');
+    }
+  }, [userData, isLoading, router]);
 
   // Fetch projects when user is authenticated
   useEffect(() => {
@@ -105,11 +77,6 @@ export default function ConnectPage() {
 
     fetchData();
   }, [user]);
-
-  // Handle tab change
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId as ConnectTab);
-  };
 
   // Handle applying to a project
   const handleApplyProject = async (project: Project) => {
@@ -246,74 +213,43 @@ export default function ConnectPage() {
     }
   };
 
-  const handleSignIn = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error('Error signing in:', error);
-      toast.error('Failed to sign in. Please try again.');
-    }
-  };
-
   return (
-    <div className="flex h-screen bg-gray-50">
-      <div className="h-screen pl-3 pt-3 pb-3">
-        <Sidebar />
-      </div>
-      
-      <div className="flex-1 transition-all duration-300 overflow-y-auto pl-6 pr-6 pt-0">
-        <ConnectNavigation 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
-          savedCount={savedProjects.length}
-          appliedCount={appliedProjects.length}
-        />
-        
-        <div className="pb-8 mt-6">
-          <ClientOnly>
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              </div>
-            ) : !user ? (
-              <div className="flex flex-col items-center justify-center h-64">
-                <p className="text-lg mb-6">Please sign in to view projects</p>
-                <button 
-                  onClick={handleSignIn}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Signing in...' : 'Sign in with Google'}
-                </button>
-              </div>
-            ) : (
-              <>
-                {activeTab === 'discover' && (
-                  <DiscoverTab 
-                    projects={projects} 
-                    onApplyProject={handleApplyProject}
-                    onSaveProject={handleSaveProject}
-                    onDeclineProject={handleDeclineProject}
-                    onUndoAction={handleUndoAction}
-                  />
-                )}
-                
-                {activeTab === 'saved' && (
-                  <SavedTab 
-                    projects={savedProjects} 
-                    onRemoveProject={handleRemoveSavedProject}
-                    onApplyProject={handleApplyProject}
-                  />
-                )}
-                
-                {activeTab === 'applied' && (
-                  <AppliedTab projects={appliedProjects} />
-                )}
-              </>
+    <BaseLayout 
+      title="Connect" 
+      tabs={connectTabs}
+      defaultTab="discover"
+    >
+      <div className="w-full">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <LoadingSpinner size="large" />
+          </div>
+        ) : (
+          <>
+            {activeTab === 'discover' && (
+              <DiscoverTab 
+                projects={projects} 
+                onApplyProject={handleApplyProject}
+                onSaveProject={handleSaveProject}
+                onDeclineProject={handleDeclineProject}
+                onUndoAction={handleUndoAction}
+              />
             )}
-          </ClientOnly>
-        </div>
+            
+            {activeTab === 'saved' && (
+              <SavedTab 
+                savedProjects={savedProjects} 
+                onApplyProject={handleApplyProject}
+                onRemoveProject={handleRemoveSavedProject}
+              />
+            )}
+            
+            {activeTab === 'applied' && (
+              <AppliedTab appliedProjects={appliedProjects} />
+            )}
+          </>
+        )}
       </div>
-    </div>
+    </BaseLayout>
   );
 }
