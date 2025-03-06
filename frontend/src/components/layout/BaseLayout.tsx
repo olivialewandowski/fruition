@@ -117,7 +117,7 @@ export default function BaseLayout({
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <LoadingSpinner size="large" />
       </div>
     );
@@ -126,7 +126,7 @@ export default function BaseLayout({
   // Unauthorized state
   if (!user && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Unauthorized</h2>
           <p className="text-gray-700 mb-6">Please log in to access this page.</p>
@@ -144,7 +144,7 @@ export default function BaseLayout({
   // Check if the user has permission to access the current page
   if (isConnectPage && userData?.role !== 'student' && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
           <p className="text-gray-700 mb-6">
@@ -162,7 +162,7 @@ export default function BaseLayout({
   }
   
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-white">
       <div className="flex h-screen pt-3">
         <div className="h-screen pl-3">
           <Sidebar />

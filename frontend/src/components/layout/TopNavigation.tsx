@@ -123,47 +123,49 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
   
   return (
     <div className="relative z-10">
-      <div className={`
-        bg-white shadow-md rounded-2xl border border-gray-200 
-        pb-2 pl-1 pr-4 mt-0
-      `}>
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-3 md:p-4">
+      <div className="py-4 px-4">
+        <div className="flex flex-row items-center">
           {/* Left side - Title */}
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+          <div className="w-1/4">
+            <h1 className="text-xl md:text-4xl font-bold text-gray-900">
               {isConnectPage ? 'Connect' : title}
             </h1>
           </div>
           
-          {/* Center - Navigation Tabs */}
-          <div className="flex items-center space-x-2 md:space-x-4 self-start md:self-center mt-2 md:mt-0">
-            {availableTabs.map(tab => {
-              // Use type assertion to handle the count property
-              const tabWithCount = tab as { id: string; label: string; count?: number };
-              
-              return (
-                <button 
-                  key={tab.id}
-                  className={`px-3 md:px-6 py-2 text-sm md:text-base font-medium rounded-lg flex items-center
-                    ${activeTab === tab.id 
-                      ? 'bg-violet-100 text-violet-900' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  onClick={() => onTabChange && onTabChange(tab.id)}
-                >
-                  {tab.label}
-                  {tabWithCount.count !== undefined && tabWithCount.count > 0 && (
-                    <span className="ml-2 bg-purple-300 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">
-                      {tabWithCount.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            
+          {/* Center - Pill-shaped Navigation */}
+          <div className="flex-1 flex justify-center">
+            <div className="inline-flex items-center bg-white rounded-full p-1.5 shadow-md">
+              {availableTabs.map(tab => {
+                // Use type assertion to handle the count property
+                const tabWithCount = tab as { id: string; label: string; count?: number };
+                
+                return (
+                  <button 
+                    key={tab.id}
+                    className={`px-4 md:px-6 py-2 text-sm md:text-base font-medium rounded-full flex items-center transition-colors
+                      ${activeTab === tab.id 
+                        ? 'bg-gray-100 text-violet-900' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    onClick={() => onTabChange && onTabChange(tab.id)}
+                  >
+                    {tab.label}
+                    {tabWithCount.count !== undefined && tabWithCount.count > 0 && (
+                      <span className="ml-2 bg-purple-300 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {tabWithCount.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Right side - User menu and Toggle switch */}
+          <div className="w-1/4 flex items-center justify-end space-x-2 md:space-x-3">
             {/* Toggle switch for including student projects (only for Connect page) */}
             {isConnectPage && userData?.role === 'student' && (
-              <div className="ml-2 hidden md:block">
+              <div className="hidden md:block mr-2">
                 <ToggleSwitch
                   enabled={includeStudentProjects}
                   onChange={setIncludeStudentProjects}
@@ -171,10 +173,7 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
                 />
               </div>
             )}
-          </div>
-          
-          {/* Right side - User menu */}
-          <div className="flex items-center space-x-2 md:space-x-3 self-end md:self-center mt-2 md:mt-0">
+            
             <button className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full">
               <BellIcon className="w-5 h-5" />
             </button>

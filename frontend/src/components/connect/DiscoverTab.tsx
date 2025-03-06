@@ -7,7 +7,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 const ProjectCard = dynamic(() => import('./ProjectCard'), { 
   ssr: false,
   loading: () => (
-    <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-5xl" style={{ minHeight: '500px' }}>
+    <div className="bg-slate-50 rounded-xl shadow-lg p-8 w-full max-w-5xl" style={{ 
+      minHeight: '500px',
+      boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 5px 15px -5px rgba(0, 0, 0, 0.05)'
+    }}>
       <div className="animate-pulse">
         <div className="h-10 bg-gray-200 rounded w-3/4 mb-4"></div>
         <div className="h-6 bg-gray-200 rounded w-1/2 mb-8"></div>
@@ -176,7 +179,7 @@ const DiscoverTab = ({
               </button>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-10 w-full mx-auto">
+            <div className="w-full">
               <div className="flex flex-col items-center">
                 <div className="w-full">
                   <AnimatePresence mode="wait">
