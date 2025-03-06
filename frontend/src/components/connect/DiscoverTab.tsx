@@ -125,12 +125,6 @@ const DiscoverTab = ({
     setSwipeDirection('up');
   };
 
-  // Handle undo action
-  const handleUndo = () => {
-    if (isTransitioning || !onUndoAction) return;
-    onUndoAction();
-  };
-
   // Handle empty projects case
   if (!projects || projects.length === 0) {
     return (
@@ -174,7 +168,7 @@ const DiscoverTab = ({
               </button>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 md:p-8 w-full mx-auto">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-10 w-full mx-auto">
               <div className="flex flex-col items-center">
                 <div className="w-full">
                   <AnimatePresence mode="wait">
@@ -186,63 +180,10 @@ const DiscoverTab = ({
                         onDecline={handleDecline}
                         onSave={handleSave}
                         onApply={handleApply}
+                        onUndo={onUndoAction}
                       />
                     )}
                   </AnimatePresence>
-                </div>
-                
-                <div className="flex flex-wrap justify-center gap-3 mt-4 mb-2 w-full">
-                  {/* Undo button */}
-                  <button
-                    onClick={handleUndo}
-                    disabled={isTransitioning || !onUndoAction}
-                    className="flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 px-5 py-3 rounded-lg hover:bg-gray-50"
-                    aria-label="Undo last action"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                    </svg>
-                    Undo
-                  </button>
-                  
-                  {/* Save button */}
-                  <button
-                    onClick={handleSave}
-                    disabled={isTransitioning}
-                    className="flex items-center justify-center text-gray-600 border border-gray-300 hover:text-gray-800 transition-colors disabled:opacity-50 px-5 py-3 rounded-lg hover:bg-gray-50"
-                    aria-label="Save project"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                    Save for later
-                  </button>
-                  
-                  {/* Decline button */}
-                  <button
-                    onClick={handleDecline}
-                    disabled={isTransitioning}
-                    className="flex items-center justify-center border border-red-500 text-red-500 rounded-lg px-5 py-3 hover:bg-red-50 transition-colors disabled:opacity-50"
-                    aria-label="Decline project"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Decline
-                  </button>
-                  
-                  {/* Apply button */}
-                  <button
-                    onClick={handleApply}
-                    disabled={isTransitioning}
-                    className="flex items-center justify-center bg-green-500 text-white rounded-lg px-5 py-3 hover:bg-green-600 transition-colors disabled:opacity-50"
-                    aria-label="Apply to project"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Apply now
-                  </button>
                 </div>
               </div>
             </div>
