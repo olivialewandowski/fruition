@@ -149,7 +149,7 @@ const Sidebar: React.FC = () => {
       `}>
         {/* Actual sidebar with rounded corners */}
         <div className={`
-          flex flex-col h-full bg-white border border-gray-200 rounded-2xl shadow-lg transition-all duration-300 mt-0
+          flex flex-col h-full bg-white border border-gray-200 rounded-2xl shadow-md transition-all duration-300 mt-0
           ${isCollapsed && !isMobileOpen ? 'w-16' : 'w-full md:w-64'}
           ${isMobileOpen ? 'mx-4 my-4 h-[calc(100%-2rem)]' : 'h-full'}
         `}>
@@ -274,7 +274,7 @@ const Sidebar: React.FC = () => {
       {/* Mobile toggle button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed bottom-4 right-4 md:hidden z-20 bg-violet-600 text-white p-3 rounded-full shadow-lg"
+        className="fixed bottom-4 right-4 md:hidden z-20 bg-violet-600 text-white p-3 rounded-full shadow-md"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />

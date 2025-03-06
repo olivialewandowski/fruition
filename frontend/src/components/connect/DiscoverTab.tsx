@@ -63,7 +63,7 @@ const DiscoverTab = ({
   onUndoAction 
 }: DiscoverTabProps) => {
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'up' | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'up' | 'undo' | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
   // Reset the current project index when the projects list changes
@@ -85,21 +85,23 @@ const DiscoverTab = ({
     // For all actions, we need to wait for the full animation sequence to complete
     const timer = setTimeout(() => {
       // Process actions based on swipe direction
-      if (swipeDirection === 'right') {
+      if (swipeDirection === 'up') {
         onSaveProject(currentProject);
-      } else if (swipeDirection === 'up') {
+      } else if (swipeDirection === 'right') {
         onApplyProject(currentProject);
       } else if (swipeDirection === 'left') {
         onDeclineProject(currentProject);
+      } else if (swipeDirection === 'undo' && onUndoAction) {
+        onUndoAction();
       }
       
       // Reset direction to null
       setSwipeDirection(null);
       
-      // Move to next project
-      if (currentProjectIndex < projects.length - 1) {
+      // Move to next project for non-undo actions
+      if (swipeDirection !== 'undo' && currentProjectIndex < projects.length - 1) {
         setCurrentProjectIndex(prev => prev + 1);
-      } else {
+      } else if (swipeDirection !== 'undo') {
         setCurrentProjectIndex(0);
       }
       
@@ -107,7 +109,7 @@ const DiscoverTab = ({
     }, 400);
     
     return () => clearTimeout(timer);
-  }, [swipeDirection, currentProject, currentProjectIndex, projects, onSaveProject, onApplyProject, onDeclineProject]);
+  }, [swipeDirection, currentProject, currentProjectIndex, projects, onSaveProject, onApplyProject, onDeclineProject, onUndoAction]);
 
   // Prevent actions while transitioning
   const handleDecline = () => {
@@ -117,12 +119,18 @@ const DiscoverTab = ({
 
   const handleSave = () => {
     if (isTransitioning || !currentProject) return;
-    setSwipeDirection('right');
+    setSwipeDirection('up');
   };
 
   const handleApply = () => {
     if (isTransitioning || !currentProject) return;
-    setSwipeDirection('up');
+    setSwipeDirection('right');
+  };
+  
+  // Handle undo action
+  const handleUndo = () => {
+    if (isTransitioning || !onUndoAction) return;
+    setSwipeDirection('undo');
   };
 
   // Handle empty projects case
@@ -138,7 +146,7 @@ const DiscoverTab = ({
             <div className="mt-8 flex justify-center">
               <button
                 onClick={onUndoAction}
-                className="w-14 h-14 flex items-center justify-center bg-white text-purple-500 rounded-full shadow-md hover:bg-purple-50 transition-colors"
+                className="w-14 h-14 flex items-center justify-center bg-white text-purple-500 rounded-full hover:bg-purple-50 transition-colors"
                 aria-label="Undo last action"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -180,7 +188,7 @@ const DiscoverTab = ({
                         onDecline={handleDecline}
                         onSave={handleSave}
                         onApply={handleApply}
-                        onUndo={onUndoAction}
+                        onUndo={handleUndo}
                       />
                     )}
                   </AnimatePresence>
