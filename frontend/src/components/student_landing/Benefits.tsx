@@ -21,7 +21,12 @@ export const Benefits: React.FC = () => {
   ];
 
   return (
-    <section className="px-10 py-16 mx-8 my-12 rounded-3xl bg-neutral-200 max-w-[1012px]">
+    <section 
+      className="px-10 py-16 mx-8 my-12 rounded-3xl max-w-[1012px]"
+      style={{
+        background: 'linear-gradient(180deg, #FFFFFF 0%, #E5E5E5 100%)'
+      }}
+    >
       <div className="mb-8 text-3xl font-bold text-left max-sm:text-2xl px-6">
         <div
           style={{
@@ -37,7 +42,7 @@ export const Benefits: React.FC = () => {
           features help students find active positions relevant to them.
         </div>
       </div>
-      <div className="flex justify-between mx-auto my-6 max-w-[798px] max-md:flex-col max-md:gap-14 max-md:items-center max-md:mt-12 px-8">
+      <div className="flex justify-between mx-auto my-6 max-w-[1012px] max-md:flex-col max-md:gap-14 max-md:items-center max-md:mt-12 px-8">
         {benefits.map((benefit, index) => (
           <BenefitCard
             key={index}

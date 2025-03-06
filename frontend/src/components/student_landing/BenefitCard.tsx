@@ -30,7 +30,7 @@ export const BenefitCard: React.FC<BenefitCardProps> = ({
           />
         </div>
       </div>
-      <h3 className="text-lg font-bold mx-auto text-purple-950 max-sm:mt-2 max-sm:text-xl">
+      <h3 className="text-lg font-bold mx-auto text-purple-950 max-sm:mt-2 max-sm:text-xl max-w-[200px]">
         {title}
       </h3>
     </article>
