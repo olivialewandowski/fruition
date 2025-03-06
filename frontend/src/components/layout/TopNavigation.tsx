@@ -15,6 +15,7 @@ interface TopNavigationProps {
     id: string;
     label: string;
     isAvailable?: (role?: string) => boolean;
+    count?: number;
   }>;
   activeTab?: string;
   onTabChange?: (tabId: string) => void;
@@ -104,7 +105,8 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
   const getConnectTabs = () => {
     return [
       { id: 'discover', label: 'Discover' },
-      { id: 'saved', label: 'Saved' }
+      { id: 'saved', label: 'Saved' },
+      { id: 'applied', label: 'Applied' }
     ];
   };
   
@@ -135,23 +137,33 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
           
           {/* Center - Navigation Tabs */}
           <div className="flex items-center space-x-2 md:space-x-4 self-start md:self-center mt-4 md:mt-0">
-            {availableTabs.map(tab => (
-              <button 
-                key={tab.id}
-                className={`px-4 md:px-8 py-3 text-base md:text-lg font-medium rounded-lg
-                  ${activeTab === tab.id 
-                    ? 'bg-violet-100 text-violet-900' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                onClick={() => onTabChange && onTabChange(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {availableTabs.map(tab => {
+              // Use type assertion to handle the count property
+              const tabWithCount = tab as { id: string; label: string; count?: number };
+              
+              return (
+                <button 
+                  key={tab.id}
+                  className={`px-4 md:px-8 py-3 text-base md:text-lg font-medium rounded-lg flex items-center
+                    ${activeTab === tab.id 
+                      ? 'bg-violet-100 text-violet-900' 
+                      : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  onClick={() => onTabChange && onTabChange(tab.id)}
+                >
+                  {tab.label}
+                  {tabWithCount.count !== undefined && tabWithCount.count > 0 && (
+                    <span className="ml-2 bg-purple-300 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                      {tabWithCount.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
             
             {/* Toggle switch for including student projects (only for Connect page) */}
             {isConnectPage && userData?.role === 'student' && (
-              <div className="ml-4">
+              <div className="ml-4 hidden md:block">
                 <ToggleSwitch
                   enabled={includeStudentProjects}
                   onChange={setIncludeStudentProjects}
