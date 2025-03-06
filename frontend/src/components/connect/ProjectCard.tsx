@@ -93,7 +93,7 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUn
   if (!mounted || !project || !project.id || !project.title) {
     return (
       <div 
-        className="w-full max-w-5xl mx-auto mb-4 bg-white rounded-xl border border-gray-200 shadow-lg px-8 pt-16 pb-16" 
+        className="w-full max-w-5xl mx-auto mb-4 bg-slate-50 rounded-xl shadow-lg px-8 pt-16 pb-16" 
         style={{ 
           minHeight: '550px',
           boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 5px 15px -5px rgba(0, 0, 0, 0.05)'
@@ -114,7 +114,7 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUn
   return (
     <motion.div
       key={`card-motion-${project.id}`}
-      className="w-full max-w-5xl mx-auto mb-4 bg-white rounded-xl border border-gray-200 shadow-lg px-8 pt-16 pb-16 relative transform hover:translate-y-[-2px] transition-all"
+      className="w-full max-w-5xl mx-auto mb-4 bg-white rounded-xl shadow-lg px-8 pt-16 pb-16 relative transform hover:translate-y-[-2px] transition-all"
       style={{ 
         minHeight: '550px', 
         display: 'flex', 
