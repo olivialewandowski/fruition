@@ -941,6 +941,9 @@ video {
 .mb-7 {
   margin-bottom: 1.75rem;
 }
+.mt-\[-20px\] {
+  margin-top: -20px;
+}
 .line-clamp-2 {
   overflow: hidden;
   display: -webkit-box;
@@ -1060,6 +1063,12 @@ video {
 }
 .h-7 {
   height: 1.75rem;
+}
+.h-3 {
+  height: 0.75rem;
+}
+.h-2\.5 {
+  height: 0.625rem;
 }
 .min-h-\[400px\] {
   min-height: 400px;
@@ -1193,6 +1202,12 @@ video {
 .w-40 {
   width: 10rem;
 }
+.w-3 {
+  width: 0.75rem;
+}
+.w-2\.5 {
+  width: 0.625rem;
+}
 .min-w-0 {
   min-width: 0px;
 }
@@ -1299,6 +1314,14 @@ video {
 }
 .translate-x-6 {
   --tw-translate-x: 1.5rem;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+.translate-x-5 {
+  --tw-translate-x: 1.25rem;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+.translate-x-4 {
+  --tw-translate-x: 1rem;
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 .scale-100 {
@@ -1446,6 +1469,11 @@ video {
   --tw-space-y-reverse: 0;
   margin-top: calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));
   margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));
+}
+.space-x-1 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: calc(0.25rem * var(--tw-space-x-reverse));
+  margin-left: calc(0.25rem * calc(1 - var(--tw-space-x-reverse)));
 }
 .self-start {
   align-self: flex-start;
@@ -1762,6 +1790,12 @@ video {
 .p-8 {
   padding: 2rem;
 }
+.p-1\.5 {
+  padding: 0.375rem;
+}
+.p-0\.5 {
+  padding: 0.125rem;
+}
 .px-10 {
   padding-left: 2.5rem;
   padding-right: 2.5rem;
@@ -1926,6 +1960,9 @@ video {
 }
 .pb-6 {
   padding-bottom: 1.5rem;
+}
+.pb-1 {
+  padding-bottom: 0.25rem;
 }
 .text-left {
   text-align: left;
@@ -2264,6 +2301,11 @@ video {
 
 .hover\:translate-y-\[-2px\]:hover {
   --tw-translate-y: -2px;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+
+.hover\:-translate-y-0\.5:hover {
+  --tw-translate-y: -0.125rem;
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
@@ -2799,6 +2841,14 @@ video {
     height: 2.5rem;
   }
 
+  .md\:h-8 {
+    height: 2rem;
+  }
+
+  .md\:h-7 {
+    height: 1.75rem;
+  }
+
   .md\:w-10 {
     width: 2.5rem;
   }
@@ -2817,6 +2867,14 @@ video {
 
   .md\:w-auto {
     width: auto;
+  }
+
+  .md\:w-8 {
+    width: 2rem;
+  }
+
+  .md\:w-7 {
+    width: 1.75rem;
   }
 
   .md\:max-w-\[90\%\] {
@@ -2855,6 +2913,12 @@ video {
     margin-left: calc(1.25rem * calc(1 - var(--tw-space-x-reverse)));
   }
 
+  .md\:space-x-3 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 0;
+    margin-right: calc(0.75rem * var(--tw-space-x-reverse));
+    margin-left: calc(0.75rem * calc(1 - var(--tw-space-x-reverse)));
+  }
+
   .md\:self-center {
     align-self: center;
   }
@@ -2871,6 +2935,14 @@ video {
     padding: 2.5rem;
   }
 
+  .md\:p-4 {
+    padding: 1rem;
+  }
+
+  .md\:p-3 {
+    padding: 0.75rem;
+  }
+
   .md\:px-6 {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
@@ -2881,6 +2953,11 @@ video {
     padding-right: 2rem;
   }
 
+  .md\:px-5 {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
   .md\:text-3xl {
     font-size: 1.875rem;
     line-height: 2.25rem;
@@ -2888,6 +2965,21 @@ video {
 
   .md\:text-lg {
     font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+
+  .md\:text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .md\:text-base {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  .md\:text-xl {
+    font-size: 1.25rem;
     line-height: 1.75rem;
   }
 }

@@ -8,11 +8,11 @@ interface ProjectCardProps {
   onSave: () => void;
   onApply: () => void;
   onUndo?: () => void;
-  swipeDirection: 'left' | 'right' | 'up' | null;
+  swipeDirection: 'left' | 'right' | 'up' | 'undo' | null;
 }
 
 const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUndo }: ProjectCardProps) => {
-  const [animateDirection, setAnimateDirection] = useState<'left' | 'right' | 'up' | null>(null);
+  const [animateDirection, setAnimateDirection] = useState<'left' | 'right' | 'up' | 'undo' | null>(null);
   const [animationPhase, setAnimationPhase] = useState<'initial' | 'bounce' | 'exit'>('initial');
   const [mounted, setMounted] = useState(false);
   
@@ -37,9 +37,9 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUn
     setAnimateDirection(swipeDirection);
     setAnimationPhase('bounce');
     
-    // First phase: bounce in direction - reduced from 300ms to 200ms
+    // First phase: bounce in direction
     const bounceTimer = setTimeout(() => {
-      // For all actions (left, right, up), we exit after bounce
+      // For all actions, we exit after bounce
       setAnimationPhase('exit');
     }, 200);
     
@@ -60,9 +60,12 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUn
       }
     },
     bounce: {
-      x: animateDirection === 'left' ? -40 : animateDirection === 'right' ? 40 : 0,
-      y: animateDirection === 'up' ? -40 : 0,
-      scale: 1.03,
+      x: animateDirection === 'left' ? -40 : 
+         animateDirection === 'right' ? 40 : 
+         animateDirection === 'undo' ? 0 : 0,
+      y: animateDirection === 'up' ? -40 : 
+         animateDirection === 'undo' ? 40 : 0,
+      scale: animateDirection === 'undo' ? 1.1 : 1.03,
       opacity: 1,
       transition: {
         type: 'spring',
@@ -71,9 +74,12 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUn
       }
     },
     exit: {
-      x: animateDirection === 'left' ? -1000 : animateDirection === 'right' ? 1000 : 0,
-      y: animateDirection === 'up' ? -1000 : 0,
-      opacity: 0,
+      x: animateDirection === 'left' ? -1000 : 
+         animateDirection === 'right' ? 1000 : 
+         animateDirection === 'undo' ? 0 : 0,
+      y: animateDirection === 'up' ? -1000 : 
+         animateDirection === 'undo' ? 1000 : 0,
+      opacity: animateDirection === 'undo' ? 0 : 0,
       transition: {
         type: 'spring',
         stiffness: 400,
@@ -188,7 +194,7 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUn
           {/* Primary button */}
           <button 
             onClick={onApply}
-            className="bg-violet-600 text-white px-10 py-3 rounded-md hover:bg-violet-700 transition-colors font-medium flex items-center justify-center"
+            className="bg-violet-600 text-white px-10 py-3 rounded-md hover:bg-violet-700 transition-colors font-medium flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -199,7 +205,7 @@ const ProjectCard = ({ project, swipeDirection, onDecline, onSave, onApply, onUn
           {/* Secondary button */}
           <button 
             onClick={onSave}
-            className="bg-white border-2 border-violet-600 text-violet-600 px-10 py-3 rounded-md hover:bg-violet-50 transition-colors font-medium flex items-center justify-center"
+            className="bg-white border-2 border-violet-600 text-violet-600 px-10 py-3 rounded-md hover:bg-violet-50 transition-colors font-medium flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
