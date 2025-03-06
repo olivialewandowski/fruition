@@ -12,8 +12,9 @@ interface UserData {
   email: string | null;
   firstName: string;
   lastName: string;
-  role: string;
-  institution: string;
+  role: 'student' | 'faculty' | 'admin' | 'user';
+  institution?: string;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -45,23 +46,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed. User:', user?.email);
       setUser(user);
       
       if (user) {
-        // Fetch additional user data from Firestore
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data() as UserData;
-          setUserData(data);
+        try {
+          // Fetch additional user data from Firestore
+          const userDocRef = doc(db, 'users', user.uid);
+          console.log('Fetching user document for UID:', user.uid);
           
-          // Set permissions based on user role
-          if (data.role && DEFAULT_ROLE_PERMISSIONS[data.role]) {
-            setPermissions(DEFAULT_ROLE_PERMISSIONS[data.role]);
+          const userDoc = await getDoc(userDocRef);
+          console.log('Raw Firestore data:', userDoc.data());
+          
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            console.log('Firestore data exists:', data);
+            
+            // Explicitly construct the userData object with known fields
+            const userData: UserData = {
+              uid: user.uid,
+              email: user.email,
+              firstName: data.firstName,
+              lastName: data.lastName,
+              role: data.role,
+              institution: data.institution,
+              createdAt: data.createdAt,
+            };
+            
+            console.log('Processed userData:', userData);
+            setUserData(userData);
+            
+            // Set permissions based on user role
+            if (userData.role && DEFAULT_ROLE_PERMISSIONS[userData.role]) {
+              console.log('Setting permissions for role:', userData.role);
+              setPermissions(DEFAULT_ROLE_PERMISSIONS[userData.role]);
+            } else {
+              console.warn('No permissions found for role:', userData.role);
+              setPermissions([]);
+            }
           } else {
+            console.warn('No user document found for uid:', user.uid);
+            // Only set defaults if document doesn't exist
+            const defaultUserData: UserData = {
+              uid: user.uid,
+              email: user.email,
+              firstName: 'User',
+              lastName: '',
+              role: 'user',
+            };
+            console.log('Setting default userData:', defaultUserData);
+            setUserData(defaultUserData);
             setPermissions([]);
           }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          const defaultUserData: UserData = {
+            uid: user.uid,
+            email: user.email,
+            firstName: 'User',
+            lastName: '',
+            role: 'user',
+          };
+          console.log('Setting default userData due to error:', defaultUserData);
+          setUserData(defaultUserData);
+          setPermissions([]);
         }
       } else {
+        console.log('No user, clearing userData and permissions');
         setUserData(null);
         setPermissions([]);
       }

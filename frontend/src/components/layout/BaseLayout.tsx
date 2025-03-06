@@ -1,8 +1,8 @@
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useState, useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopNavigation from '@/components/layout/TopNavigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface BaseLayoutProps {
@@ -19,14 +19,82 @@ interface BaseLayoutProps {
 export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLayoutProps) {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [activeTab, setActiveTab] = useState<string | undefined>(defaultTab);
   
+  // Determine if we're on the connect page
+  const isConnectPage = pathname?.includes('/connect');
+  
+  // Set default title based on the current page
+  useEffect(() => {
+    if (!title) {
+      if (isConnectPage) {
+        setPageTitle('Connect');
+      } else {
+        setPageTitle('Dashboard');
+      }
+    } else {
+      setPageTitle(title);
+    }
+  }, [title, isConnectPage]);
+  
+  const [pageTitle, setPageTitle] = useState<string>(title || 'Dashboard');
+  
+  // Create default tabs based on the current page and user role
+  useEffect(() => {
+    if (!tabs || tabs.length === 0) {
+      if (isConnectPage) {
+        // Connect tabs are the same for all users (only students have access)
+        setDefaultTabs([
+          { id: 'discover', label: 'Discover' },
+          { id: 'saved', label: 'Saved' },
+          { id: 'applied', label: 'Applied' }
+        ]);
+        
+        // Set default active tab
+        if (!activeTab) {
+          setActiveTab('discover');
+        }
+      } else {
+        // Dashboard tabs differ based on user role
+        if (userData?.role === 'student') {
+          setDefaultTabs([
+            { id: 'active', label: 'Active' },
+            { id: 'applied', label: 'Applied' },
+            { id: 'archived', label: 'Archived' }
+          ]);
+        } else {
+          setDefaultTabs([
+            { id: 'active', label: 'Active' },
+            { id: 'archived', label: 'Archived' }
+          ]);
+        }
+        
+        // Set default active tab
+        if (!activeTab) {
+          setActiveTab('active');
+        }
+      }
+    }
+  }, [tabs, userData?.role, isConnectPage, activeTab]);
+  
+  const [defaultTabs, setDefaultTabs] = useState<Array<{
+    id: string;
+    label: string;
+    isAvailable?: (role?: string) => boolean;
+  }>>([]);
+  
   // Authentication check
-  React.useEffect(() => {
+  useEffect(() => {
     if (!loading && !user) {
       router.push('/development/login');
     }
   }, [user, loading, router]);
+  
+  // Handle tab change
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+  };
   
   // Loading state
   if (loading) {
@@ -55,10 +123,25 @@ export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLa
     );
   }
   
-  // Handle tab change
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
-  };
+  // Check if the user has permission to access the current page
+  if (isConnectPage && userData?.role !== 'student' && !loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+          <p className="text-gray-700 mb-6">
+            The Connect feature is only available for Student accounts.
+          </p>
+          <button
+            onClick={() => router.push('/development/dashboard')}
+            className="px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gray-100">
@@ -70,8 +153,8 @@ export default function BaseLayout({ children, title, tabs, defaultTab }: BaseLa
         <div className="flex-1 transition-all duration-300 overflow-y-auto pl-6">
           <div className="pr-4">
             <TopNavigation 
-              title={title} 
-              tabs={tabs} 
+              title={pageTitle} 
+              tabs={tabs || defaultTabs}
               activeTab={activeTab}
               onTabChange={handleTabChange}
             />
