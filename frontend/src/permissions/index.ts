@@ -95,6 +95,16 @@ export interface Permission {
       path: '/development/connect',
       requiredPermissions: [PERMISSIONS.SWIPE_PROJECTS],  // Student-only feature
       isActive: true
+    },
+    {
+      id: 'match',
+      name: 'match',
+      displayName: 'Match',
+      description: 'Browse and match with research projects',
+      icon: 'connect-icon',  // Reusing the connect icon for now
+      path: '/development/match',
+      requiredPermissions: [PERMISSIONS.SWIPE_PROJECTS],  // Student-only feature
+      isActive: true
     }
   ];
   
