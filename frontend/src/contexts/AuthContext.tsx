@@ -15,6 +15,7 @@ interface UserData {
   role: 'student' | 'faculty' | 'admin' | 'user';
   institution?: string;
   createdAt?: string;
+  profileCompleted: boolean;
 }
 
 interface AuthContextType {
@@ -43,6 +44,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState<string[]>([]);
   const router = useRouter();
+  
+  // Function to fetch user data from Firestore
+  const fetchUserData = async (userId: string) => {
+    try {
+      console.log('Fetching user document for UID:', userId);
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        console.log('Firestore data exists:', data);
+        
+        // Check if this is a Google user with incomplete data
+        const isGoogleUser = user?.providerData?.some(provider => provider.providerId === 'google.com');
+        const hasIncompleteData = data.profileCompleted === false || 
+          (!data.profileCompleted && (!data.role || !data.firstName || !data.lastName || !data.institution));
+        
+        if (isGoogleUser && hasIncompleteData) {
+          console.log('Google user with incomplete data detected');
+          
+          // For Google users with incomplete data, we'll use a more complete default
+          // but still mark it as incomplete by returning false
+          const defaultUserData: UserData = {
+            uid: userId,
+            email: user?.email || null,
+            firstName: data.firstName || (user?.displayName ? user.displayName.split(' ')[0] : 'User'),
+            lastName: data.lastName || (user?.displayName ? user.displayName.split(' ').slice(1).join(' ') : ''),
+            role: data.role || 'user',
+            institution: data.institution,
+            createdAt: data.createdAt,
+            profileCompleted: data.profileCompleted || false
+          };
+          
+          console.log('Setting temporary userData for Google user:', defaultUserData);
+          setUserData(defaultUserData);
+          
+          // Set basic permissions
+          if (defaultUserData.role && DEFAULT_ROLE_PERMISSIONS[defaultUserData.role]) {
+            setPermissions(DEFAULT_ROLE_PERMISSIONS[defaultUserData.role]);
+          } else {
+            setPermissions([]);
+          }
+          
+          return false; // Mark as incomplete to trigger retry
+        }
+        
+        // Normal case - complete user data
+        const userData: UserData = {
+          uid: userId,
+          email: user?.email || null,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          role: data.role,
+          institution: data.institution,
+          createdAt: data.createdAt,
+          profileCompleted: data.profileCompleted || false
+        };
+        
+        console.log('Processed userData:', userData);
+        setUserData(userData);
+        
+        // Set permissions based on user role
+        if (userData.role && DEFAULT_ROLE_PERMISSIONS[userData.role]) {
+          console.log('Setting permissions for role:', userData.role);
+          setPermissions(DEFAULT_ROLE_PERMISSIONS[userData.role]);
+        } else {
+          console.warn('No permissions found for role:', userData.role);
+          setPermissions([]);
+        }
+        
+        return true;
+      } else {
+        console.warn('No user document found for uid:', userId);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -50,64 +131,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       
       if (user) {
-        try {
-          // Fetch additional user data from Firestore
-          const userDocRef = doc(db, 'users', user.uid);
-          console.log('Fetching user document for UID:', user.uid);
+        // Try to fetch user data with retries
+        let dataFetched = false;
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (!dataFetched && attempts < maxAttempts) {
+          dataFetched = await fetchUserData(user.uid);
           
-          const userDoc = await getDoc(userDocRef);
-          console.log('Raw Firestore data:', userDoc.data());
-          
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            console.log('Firestore data exists:', data);
-            
-            // Explicitly construct the userData object with known fields
-            const userData: UserData = {
-              uid: user.uid,
-              email: user.email,
-              firstName: data.firstName,
-              lastName: data.lastName,
-              role: data.role,
-              institution: data.institution,
-              createdAt: data.createdAt,
-            };
-            
-            console.log('Processed userData:', userData);
-            setUserData(userData);
-            
-            // Set permissions based on user role
-            if (userData.role && DEFAULT_ROLE_PERMISSIONS[userData.role]) {
-              console.log('Setting permissions for role:', userData.role);
-              setPermissions(DEFAULT_ROLE_PERMISSIONS[userData.role]);
-            } else {
-              console.warn('No permissions found for role:', userData.role);
-              setPermissions([]);
+          if (!dataFetched) {
+            attempts++;
+            if (attempts < maxAttempts) {
+              console.log(`Retry ${attempts}/${maxAttempts} fetching user data...`);
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
-          } else {
-            console.warn('No user document found for uid:', user.uid);
-            // Only set defaults if document doesn't exist
-            const defaultUserData: UserData = {
-              uid: user.uid,
-              email: user.email,
-              firstName: 'User',
-              lastName: '',
-              role: 'user',
-            };
-            console.log('Setting default userData:', defaultUserData);
-            setUserData(defaultUserData);
-            setPermissions([]);
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
+        }
+        
+        // If still no data after retries, set default data
+        if (!dataFetched) {
           const defaultUserData: UserData = {
             uid: user.uid,
             email: user.email,
             firstName: 'User',
             lastName: '',
             role: 'user',
+            profileCompleted: false
           };
-          console.log('Setting default userData due to error:', defaultUserData);
+          console.log('Setting default userData after retries:', defaultUserData);
           setUserData(defaultUserData);
           setPermissions([]);
         }

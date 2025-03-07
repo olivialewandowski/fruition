@@ -1,16 +1,41 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
+
+// Define proper types for form data
+interface ProfileFormData {
+  firstName: string;
+  lastName: string;
+  institution: string;
+  role: string;
+  email?: string | null;
+}
+
+// Simple sanitization function to prevent XSS
+function sanitizeInput(input: string): string {
+  // Handle null, undefined, or non-string inputs
+  if (input === null || input === undefined || typeof input !== 'string') {
+    return '';
+  }
+  
+  // Replace potentially dangerous characters
+  return input
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .trim();
+}
 
 const ProfileCompletion = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProfileFormData>({
     firstName: '',
     lastName: '',
     institution: '',
@@ -21,25 +46,45 @@ const ProfileCompletion = () => {
   const [pageLoading, setPageLoading] = useState(true);
 
   // Memoize the function to check user profile
-  const checkUserProfile = React.useCallback(async (userId: string) => {
+  const checkUserProfile = useCallback(async (userId: string) => {
     try {
+      if (!userId) {
+        console.error('Invalid userId provided to checkUserProfile');
+        return false;
+      }
+      
       const userDoc = await getDoc(doc(db, 'users', userId));
+      console.log('Profile check - Firestore data:', userDoc.exists() ? userDoc.data() : 'No data');
       
       // If user profile is complete, redirect to dashboard
-      if (userDoc.exists() && userDoc.data().role) {
-        router.replace('/development/dashboard');
+      if (userDoc.exists() && 
+          userDoc.data().profileCompleted === true && 
+          userDoc.data().role && 
+          userDoc.data().firstName && 
+          userDoc.data().lastName && 
+          userDoc.data().institution) {
+        console.log('Profile is complete, redirecting to dashboard');
+        // Use window.location to force a full page reload
+        window.location.href = '/development/dashboard';
+        return true;
       } else {
+        console.log('Profile is incomplete, staying on profile completion page');
         // Pre-fill form with any available user data
         const currentUser = auth.currentUser;
         if (currentUser) {
-          if (currentUser.displayName) {
-            const nameParts = currentUser.displayName.split(' ');
-            setFormData(prev => ({
-              ...prev,
-              firstName: nameParts[0] || '',
-              lastName: nameParts.slice(1).join(' ') || ''
-            }));
-          }
+          const docData = userDoc.exists() ? userDoc.data() : {};
+          
+          // Set form data with existing values or defaults
+          // Sanitize any data coming from external sources
+          setFormData(prev => ({
+            ...prev,
+            firstName: docData.firstName ? sanitizeInput(docData.firstName) : 
+                      (currentUser.displayName ? sanitizeInput(currentUser.displayName.split(' ')[0]) : ''),
+            lastName: docData.lastName ? sanitizeInput(docData.lastName) : 
+                     (currentUser.displayName ? sanitizeInput(currentUser.displayName.split(' ').slice(1).join(' ')) : ''),
+            institution: docData.institution ? sanitizeInput(docData.institution) : '',
+            role: docData.role || ''
+          }));
           
           if (currentUser.email) {
             setFormData(prev => ({
@@ -48,39 +93,87 @@ const ProfileCompletion = () => {
             }));
           }
         }
+        return false;
       }
     } catch (err) {
       console.error('Error checking user profile:', err);
+      return false;
     }
   }, [router, setFormData]);
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Create a local auth state listener to ensure we have the latest auth state
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!isMounted) return;
+      
       if (!currentUser) {
         // Only redirect if we're sure the user is not authenticated
         setTimeout(() => {
-          if (!auth.currentUser) {
+          if (!auth.currentUser && isMounted) {
             router.replace('/development/login');
           }
         }, 1000); // Add a delay to prevent immediate redirect
       } else {
-        // User is authenticated, check profile
-        checkUserProfile(currentUser.uid);
+        // User is authenticated, check profile in a separate tick
+        setTimeout(() => {
+          if (isMounted) {
+            checkUserProfile(currentUser.uid);
+          }
+        }, 0);
       }
-      setPageLoading(false);
+      
+      if (isMounted) {
+        setPageLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [router, checkUserProfile]);
 
   const handleRoleSelect = (selectedRole: string) => {
-    setFormData({ ...formData, role: selectedRole });
+    // Validate role before setting
+    if (['student', 'faculty', 'admin', 'user'].includes(selectedRole)) {
+      setFormData({ ...formData, role: selectedRole });
+    } else {
+      setError('Invalid role selected');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    // Sanitize all input values
+    const sanitizedFirstName = sanitizeInput(formData.firstName);
+    const sanitizedLastName = sanitizeInput(formData.lastName);
+    const sanitizedInstitution = sanitizeInput(formData.institution);
+    
+    // Validate all required fields
+    if (!sanitizedFirstName) {
+      setError('First name is required');
+      return;
+    }
+    
+    if (!sanitizedLastName) {
+      setError('Last name is required');
+      return;
+    }
+    
+    if (!sanitizedInstitution) {
+      setError('Institution is required');
+      return;
+    }
+    
+    if (!formData.role || !['student', 'faculty', 'admin', 'user'].includes(formData.role)) {
+      setError('Please select a valid role');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -89,23 +182,67 @@ const ProfileCompletion = () => {
         throw new Error('User not authenticated');
       }
 
-      // Update user profile in Firestore
-      await setDoc(doc(db, 'users', currentUser.uid), {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
+      console.log('Updating user profile with data:', {
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName,
         email: currentUser.email,
-        institution: formData.institution.trim(),
+        institution: sanitizedInstitution,
+        role: formData.role,
+        profileCompleted: true
+      });
+
+      // Update user profile in Firestore with sanitized data
+      await setDoc(doc(db, 'users', currentUser.uid), {
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName,
+        email: currentUser.email,
+        institution: sanitizedInstitution,
         role: formData.role,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        profileCompleted: true // Add a flag to explicitly mark profile as completed
       }, { merge: true });
 
-      // Redirect to dashboard
-      router.replace('/development/dashboard');
+      // Verify the data was written by reading it back
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      const verifyDataWritten = async () => {
+        try {
+          const docSnap = await getDoc(userDocRef);
+          console.log('Verification check - Firestore data:', docSnap.exists() ? docSnap.data() : 'No data');
+          
+          if (docSnap.exists() && 
+              docSnap.data().firstName === sanitizedFirstName &&
+              docSnap.data().role === formData.role &&
+              docSnap.data().profileCompleted === true) {
+            console.log('Profile data verified in Firestore, redirecting to dashboard');
+            
+            // Force a reload of the page to clear any cached state
+            window.location.href = '/development/dashboard';
+            return;
+          } else if (attempts < maxAttempts) {
+            attempts++;
+            console.log(`Data not yet available, retrying... (${attempts}/${maxAttempts})`);
+            setTimeout(verifyDataWritten, 500);
+          } else {
+            console.log('Max verification attempts reached, redirecting anyway');
+            // Force a reload of the page to clear any cached state
+            window.location.href = '/development/dashboard';
+          }
+        } catch (error) {
+          console.error('Error verifying profile data:', error);
+          // Force a reload of the page to clear any cached state
+          window.location.href = '/development/dashboard';
+        }
+      };
+      
+      // Start verification process
+      verifyDataWritten();
     } catch (err) {
       console.error('Profile completion error:', err);
       setError(err instanceof Error ? err.message : 'Failed to complete profile');
-    } finally {
       setIsLoading(false);
     }
   };
