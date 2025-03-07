@@ -4,14 +4,16 @@ import React, { useState, useEffect } from 'react';
 import BaseLayout from '@/components/layout/BaseLayout';
 import ProjectSection from '@/components/dashboard/ProjectSection';
 import { useAuth } from '@/contexts/AuthContext';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 // Sample projects import 
 import { yourProjects, facultyProjects, peerProjects } from '@/data/sampleProjects';
 
 export default function DashboardPage() {
-  const { userData, user } = useAuth();
+  const { userData, user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('active');
   const [projectsToShow, setProjectsToShow] = useState<any[]>([]);
+  const [isPageReady, setIsPageReady] = useState(false);
 
   // Define tabs based on user role
   const getDashboardTabs = () => {
@@ -28,6 +30,18 @@ export default function DashboardPage() {
       ];
     }
   };
+
+  // Set page ready state when user data is loaded
+  useEffect(() => {
+    if (!loading && userData) {
+      // Add a small delay to ensure everything is ready
+      const timer = setTimeout(() => {
+        setIsPageReady(true);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, userData]);
 
   // Update displayed projects when tab changes or user data loads
   useEffect(() => {
@@ -71,6 +85,22 @@ export default function DashboardPage() {
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
   };
+
+  // Show loading state if page is not ready
+  if (!isPageReady) {
+    return (
+      <BaseLayout title="Dashboard">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="mb-4">
+              <LoadingSpinner size="medium" />
+            </div>
+            <p className="text-gray-600">Loading your projects...</p>
+          </div>
+        </div>
+      </BaseLayout>
+    );
+  }
 
   return (
     <BaseLayout 
