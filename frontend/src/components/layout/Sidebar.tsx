@@ -59,6 +59,7 @@ const featureIcons: Record<string, React.ReactNode> = {
   grants: <CurrencyDollarIcon className="w-5 h-5" />,
   publications: <BookOpenIcon className="w-5 h-5" />,
   connect: <LinkIcon className="w-5 h-5" />,
+  match: <LinkIcon className="w-5 h-5" />,
 };
 
 // Map feature IDs to URLs
@@ -70,6 +71,7 @@ const featureUrls: Record<string, string> = {
   grants: '#',
   publications: '#',
   connect: '/development/connect',
+  match: '/development/match',
 };
 
 const Sidebar: React.FC = () => {
@@ -108,9 +110,9 @@ const Sidebar: React.FC = () => {
 
   // Filter features based on user role and permissions
   const availableFeatures = FEATURES.filter(feature => {
-    // For student - show dashboard and connect
+    // For student - show dashboard, connect, and match
     if (userData?.role === 'student') {
-      return ['dashboard', 'connect'].includes(feature.id);
+      return ['dashboard', 'connect', 'match'].includes(feature.id);
     }
     
     // For faculty and admin - show only dashboard
