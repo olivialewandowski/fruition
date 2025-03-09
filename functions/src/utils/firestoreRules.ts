@@ -26,7 +26,7 @@ service cloud.firestore {
     function isFaculty() {
       return isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'faculty';
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'faculty');
     }
     
     function isStudent() {
@@ -75,9 +75,18 @@ service cloud.firestore {
     // Projects collection
     match /projects/{projectId} {
       allow read: if true;
-      allow create: if isFaculty();
+      // Allow any authenticated user to create a project
+      allow create: if isSignedIn();
       allow update: if isAdmin() || isProjectOwner(projectId);
       allow delete: if isAdmin() || isProjectOwner(projectId);
+      
+      // Project positions subcollection
+      match /positions/{positionId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update: if isAdmin() || isProjectOwner(projectId);
+        allow delete: if isAdmin() || isProjectOwner(projectId);
+      }
       
       // Project applications subcollection
       match /applications/{applicationId} {

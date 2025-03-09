@@ -102,7 +102,7 @@ export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (
       const hasMatchingInterests = projectKeywords.some((keyword: string) =>
         studentInterests.some((interest: string) =>
           interest.toLowerCase().includes(keyword.toLowerCase()) ||
-          keyword.toLowerCase().includes(interest.toLowerCase())
+            keyword.toLowerCase().includes(interest.toLowerCase())
         )
       );
 

@@ -1,20 +1,53 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { 
+  User, 
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  Auth
+} from 'firebase/auth';
 import { auth, db } from '@/config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_ROLE_PERMISSIONS, PermissionId, FEATURES } from '@/permissions';
 
+// Update the UserData interface to use a specific set of roles
 interface UserData {
   uid: string;
   email: string | null;
   firstName: string;
   lastName: string;
-  role: 'student' | 'faculty' | 'admin' | 'user';
-  institution?: string;
-  createdAt?: string;
+  role: "student" | "faculty" | "admin"; // Remove "user" option
+  university: string;
+  createdAt: string;
+  lastActive: string;
+  
+  activeProjects: string[];
+  archivedProjects: string[];
+
+  // student-specific fields
+  year?: string;
+  major?: string;
+  minor?: string;
+  gpa?: number;
+
+  // common fields
+  aboutMe?: string;
+  department?: string;
+
+  // student-specific arrays
+  skills?: string[];
+  interests?: string[];
+  projectPreferences?: {
+    savedProjects: string[];
+    appliedProjects: string[];
+    rejectedProjects: string[];
+  };
+
+  // faculty/admin specific fields
+  title?: string;
+  researchInterests?: string[];
 }
 
 interface AuthContextType {
@@ -27,15 +60,24 @@ interface AuthContextType {
   permissions: string[];
 }
 
-const AuthContext = createContext<AuthContextType>({
+// Provide default implementations for the context methods
+const defaultContextValue: AuthContextType = {
   user: null,
   userData: null,
   loading: true,
-  signOut: async () => {},
+  signOut: async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  },
   hasPermission: () => false,
   hasFeature: () => false,
   permissions: [],
-});
+};
+
+const AuthContext = createContext<AuthContextType>(defaultContextValue);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -45,9 +87,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
       console.log('Auth state changed. User:', user?.email);
-      setUser(user);
+      setUser(user); // Set the user immediately when auth state changes
       
       if (user) {
         try {
@@ -66,11 +108,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userData: UserData = {
               uid: user.uid,
               email: user.email,
-              firstName: data.firstName,
-              lastName: data.lastName,
-              role: data.role,
-              institution: data.institution,
-              createdAt: data.createdAt,
+              firstName: data.firstName || 'User',
+              lastName: data.lastName || '',
+              // Default to "student" if no role is found
+              role: data.role === "student" || data.role === "faculty" || data.role === "admin" 
+                ? data.role 
+                : "student",
+              university: data.university || '',
+              createdAt: data.createdAt || new Date().toISOString(),
+              lastActive: data.lastActive || new Date().toISOString(),
+              
+              // Ensure these are always arrays or have default values
+              activeProjects: data.activeProjects || [],
+              archivedProjects: data.archivedProjects || [],
+
+              // Optional fields with fallback
+              year: data.year,
+              major: data.major,
+              minor: data.minor,
+              gpa: data.gpa,
+              aboutMe: data.aboutMe,
+              department: data.department,
+              skills: data.skills || [],
+              interests: data.interests || [],
+              projectPreferences: data.projectPreferences || {
+                savedProjects: [],
+                appliedProjects: [],
+                rejectedProjects: []
+              },
+              title: data.title,
+              researchInterests: data.researchInterests || []
             };
             
             console.log('Processed userData:', userData);
@@ -84,31 +151,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.warn('No permissions found for role:', userData.role);
               setPermissions([]);
             }
-          } else {
-            console.warn('No user document found for uid:', user.uid);
-            // Only set defaults if document doesn't exist
-            const defaultUserData: UserData = {
-              uid: user.uid,
-              email: user.email,
-              firstName: 'User',
-              lastName: '',
-              role: 'user',
-            };
-            console.log('Setting default userData:', defaultUserData);
-            setUserData(defaultUserData);
-            setPermissions([]);
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
-          const defaultUserData: UserData = {
+          // Set minimal userData instead of returning
+          setUserData({
             uid: user.uid,
             email: user.email,
             firstName: 'User',
             lastName: '',
-            role: 'user',
-          };
-          console.log('Setting default userData due to error:', defaultUserData);
-          setUserData(defaultUserData);
+            role: 'student', // Default to student
+            university: '',
+            createdAt: new Date().toISOString(),
+            lastActive: new Date().toISOString(),
+            activeProjects: [],
+            archivedProjects: []
+          });
           setPermissions([]);
         }
       } else {
@@ -117,25 +175,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPermissions([]);
       }
       
-      setLoading(false);
+      setLoading(false); // Always set loading to false at the end
     });
 
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      const handle = setInterval(async () => {
-        const token = await user.getIdToken(true);
-        // Token refreshed
-      }, 10 * 60 * 1000); // Refresh every 10 minutes
-      return () => clearInterval(handle);
-    }
-  }, [user]);
-
-  const signOut = async () => {
+  // Implement signOut method
+  const handleSignOut = async () => {
     try {
-      await auth.signOut();
+      await firebaseSignOut(auth);
       router.push('/development/login');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -161,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       userData, 
       loading, 
-      signOut, 
+      signOut: handleSignOut, 
       hasPermission, 
       hasFeature,
       permissions,

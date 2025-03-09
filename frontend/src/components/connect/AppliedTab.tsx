@@ -34,7 +34,7 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
                     {skill}
                   </span>
                 ))}
-                {project.skills?.length > 3 && (
+                {project.skills && project.skills.length > 3 && (
                   <span className="px-2 py-1 bg-gray-50 text-gray-600 text-xs rounded-full">
                     +{project.skills.length - 3} more
                   </span>
@@ -63,4 +63,4 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
   );
 };
 
-export default AppliedTab; 
+export default AppliedTab;

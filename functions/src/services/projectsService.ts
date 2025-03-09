@@ -1,686 +1,1017 @@
 // src/services/projectsService.ts
 import { db } from "../config/firebase";
-import * as admin from "firebase-admin";
+import { getAuth } from "firebase-admin/auth";
+import {
+  Timestamp,
+  FieldValue,
+  FieldPath,
+} from "firebase-admin/firestore";
 import { Project, ProjectWithId } from "../types/project";
-import { Application, OnboardingMaterial } from "../types/position";
+import { Position, Application, OnboardingMaterial, ApplicationWithId } from "../types/position";
 import { hasPermission } from "../models/permissions";
-import { PROJECT_PERMISSIONS, CONNECT_PERMISSIONS } from "../types/permissions";
+import { PROJECT_PERMISSIONS } from "../types/permissions";
 
-// Type for update data to improve type safety
-type UpdateData = {
-  status: string;
-  updatedAt: string;
-  notes?: string;
+/**
+ * Create a new project with position
+ * @param projectData - The project data
+ * @param positionData - The position data
+ * @returns The created project ID
+ */
+export const createProject = async (
+  projectData: Partial<Project>,
+  positionData: Partial<Position>
+): Promise<string> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+
+    // Check permission
+    const canCreate = await hasPermission(userId, PROJECT_PERMISSIONS.CREATE_PROJECT);
+    if (!canCreate) {
+      throw new Error("Unauthorized: You don't have permission to create projects");
+    }
+
+    // Add the current user as the mentorId
+    const projectWithUser = {
+      ...projectData,
+      mentorId: userId,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      status: projectData.status || "active",
+      isActive: projectData.status === "active" ? true : false,
+      teamMembers: projectData.teamMembers || [],
+    };
+
+    // Create the project document
+    const projectRef = await db.collection("projects").add(projectWithUser);
+    const projectId = projectRef.id;
+
+    // Add the position with a reference to the project
+    const positionWithProject = {
+      ...positionData,
+      projectId,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    await db.collection("positions").add(positionWithProject);
+
+    // Update user's active projects
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      if (!userData) {
+        throw new Error("User data is missing");
+      }
+
+      const activeProjects = userData.activeProjects || [];
+      const archivedProjects = userData.archivedProjects || [];
+
+      const updatedActiveProjects = activeProjects.filter((id: string) => id !== projectId);
+      const updatedArchivedProjects = archivedProjects.filter((id: string) => id !== projectId);
+
+      await userRef.update({
+        activeProjects: updatedActiveProjects,
+        archivedProjects: updatedArchivedProjects,
+        updatedAt: Timestamp.fromDate(new Date()),
+      });
+
+      if (!activeProjects.includes(projectId)) {
+        await userRef.update({
+          activeProjects: [...activeProjects, projectId],
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    return projectId;
+  } catch (error) {
+    console.error("Error creating project:", error);
+    throw error;
+  }
 };
 
-// Type for team member addition
-type TeamMemberUpdate = {
-  userId: string;
-  name: string;
-  title: string;
-  joinedDate: string;
-};
-
 /**
- * Creates a new project
- * @param userId - The ID of the user creating the project
- * @param projectData - The project data to save
- * @returns The ID of the created project
- */
-export async function createProject(userId: string, projectData: Partial<Project>): Promise<string> {
-  // check permission
-  const canCreate = await hasPermission(userId, PROJECT_PERMISSIONS.CREATE_PROJECT);
-  if (!canCreate) {
-    throw new Error("Unauthorized: You don't have permission to create projects");
-  }
-
-  const now = new Date().toISOString();
-
-  const projectRef = await db.collection("projects").add({
-    ...projectData,
-    mentorId: userId,
-    createdAt: now,
-    updatedAt: now,
-    status: projectData.status || "draft",
-    isActive: projectData.status === "active" ? true : false,
-    teamMembers: projectData.teamMembers || [],
-  });
-
-  // add the project to the user's active projects
-  await db.collection("users").doc(userId).update({
-    activeProjects: admin.firestore.FieldValue.arrayUnion(projectRef.id),
-    updatedAt: now,
-  });
-
-  return projectRef.id;
-}
-
-/**
- * Updates an existing project
- * @param userId - The ID of the user updating the project
- * @param projectId - The ID of the project to update
- * @param projectData - The updated project data
- */
-export async function updateProject(
-  userId: string,
-  projectId: string,
-  projectData: Partial<Project>
-): Promise<void> {
-  // check permission
-  const canEdit = await hasPermission(userId, PROJECT_PERMISSIONS.EDIT_PROJECT);
-  if (!canEdit) {
-    throw new Error("Unauthorized: You don't have permission to edit projects");
-  }
-
-  // get the project to check ownership
-  const projectDoc = await db.collection("projects").doc(projectId).get();
-
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
-
-  const projectInfo = projectDoc.data();
-  if (!projectInfo) {
-    throw new Error("Project data is empty");
-  }
-
-  // only the project mentor or an admin can edit the project
-  const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
-  if (projectInfo.mentorId !== userId && !isAdmin) {
-    throw new Error("Unauthorized: You can only edit your own projects");
-  }
-
-  const now = new Date().toISOString();
-
-  // handle status changes
-  let isActive = projectInfo.isActive || false;
-  if (projectData.status) {
-    isActive = projectData.status === "active";
-  }
-
-  await db.collection("projects").doc(projectId).update({
-    ...projectData,
-    isActive,
-    updatedAt: now,
-  });
-
-  // if status changed to "archived", move from active to archived projects for the mentor
-  if (projectData.status === "archived" && projectInfo.status !== "archived") {
-    await db.collection("users").doc(projectInfo.mentorId).update({
-      activeProjects: admin.firestore.FieldValue.arrayRemove(projectId),
-      archivedProjects: admin.firestore.FieldValue.arrayUnion(projectId),
-      updatedAt: now,
-    });
-  }
-
-  // if status changed from "archived" to "active", move from archived to active projects
-  if (projectData.status === "active" && projectInfo.status === "archived") {
-    await db.collection("users").doc(projectInfo.mentorId).update({
-      activeProjects: admin.firestore.FieldValue.arrayUnion(projectId),
-      archivedProjects: admin.firestore.FieldValue.arrayRemove(projectId),
-      updatedAt: now,
-    });
-  }
-}
-
-/**
- * Gets a project by ID
- * @param userId - The ID of the user requesting the project
- * @param projectId - The ID of the project to retrieve
- * @returns The project data
- */
-export async function getProjectById(userId: string, projectId: string): Promise<ProjectWithId> {
-  // check permission
-  const canView = await hasPermission(userId, PROJECT_PERMISSIONS.VIEW_APPLICATIONS);
-  if (!canView) {
-    throw new Error("Unauthorized: You don't have permission to view projects");
-  }
-
-  const projectDoc = await db.collection("projects").doc(projectId).get();
-
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
-
-  const projectData = projectDoc.data();
-  if (!projectData) {
-    throw new Error("Project data is empty");
-  }
-
-  return {
-    id: projectDoc.id,
-    ...projectData,
-  } as ProjectWithId;
-}
-
-/**
- * Gets all projects for the current user
- * @param userId - The ID of the user
- * @param status - Optional status filter ("active", "archived", "draft")
+ * Get user projects based on status
+ * @param status - The project status to filter by (active, archived, applied)
  * @returns Array of projects
  */
-export async function getUserProjects(
-  userId: string,
-  status?: "active" | "archived" | "draft"
-): Promise<ProjectWithId[]> {
-  // check permission
-  const canView = await hasPermission(userId, PROJECT_PERMISSIONS.VIEW_APPLICATIONS);
-  if (!canView) {
-    throw new Error("Unauthorized: You don't have permission to view projects");
-  }
+export const getUserProjects = async (
+  status: "active" | "archived" | "applied" = "active"
+): Promise<Project[]> => {
+  try {
+    const userId = await getAuthenticatedUserId();
 
-  // get user document to retrieve project IDs
-  const userDoc = await db.collection("users").doc(userId).get();
-
-  if (!userDoc.exists) {
-    throw new Error("User not found");
-  }
-
-  const userData = userDoc.data();
-  if (!userData) {
-    throw new Error("User data is empty");
-  }
-
-  // determine which project list to use based on status
-  let projectIds: string[] = [];
-
-  if (status === "archived") {
-    projectIds = userData.archivedProjects || [];
-  } else {
-    // default to active projects
-    projectIds = userData.activeProjects || [];
-
-    // for faculty, also get projects where they are the mentor
-    if (userData.role === "faculty" || userData.role === "admin") {
-      const mentorProjectsQuery = await db.collection("projects")
-        .where("mentorId", "==", userId)
-        .where("status", "==", status || "active")
-        .get();
-
-      const mentorProjectIds = mentorProjectsQuery.docs.map((doc) => doc.id);
-      projectIds = [...new Set([...projectIds, ...mentorProjectIds])];
+    // Check permission
+    const canView = await hasPermission(userId, PROJECT_PERMISSIONS.VIEW_APPLICATIONS);
+    if (!canView) {
+      throw new Error("Unauthorized: You don't have permission to view projects");
     }
 
-    // for students, also include projects they applied to if needed
-    if (userData.role === "student" && status === undefined) {
-      // Only add applied projects if they're explicitly requested or showing all projects
-      const appliedProjects = userData.projectPreferences?.appliedProjects || [];
-      projectIds = [...new Set([...projectIds, ...appliedProjects])];
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return [];
     }
+
+    const userData = userDoc.data();
+    if (!userData) {
+      return [];
+    }
+
+    let projectIds: string[] = [];
+
+    // Get project IDs based on status
+    if (status === "active") {
+      projectIds = userData.activeProjects || [];
+
+      // For faculty, also get projects where they are the mentor
+      if (userData.role === "faculty" || userData.role === "admin") {
+        const mentorProjectsQuery = db.collection("projects")
+          .where("mentorId", "==", userId)
+          .where("status", "==", "active");
+
+        const mentorProjectsSnapshot = await mentorProjectsQuery.get();
+        const mentorProjectIds = mentorProjectsSnapshot.docs.map((doc) => doc.id);
+
+        projectIds = [...new Set([...projectIds, ...mentorProjectIds])];
+      }
+    } else if (status === "archived") {
+      projectIds = userData.archivedProjects || [];
+    } else if (status === "applied") {
+      projectIds = userData.projectPreferences?.appliedProjects || [];
+    }
+
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    // Fetch projects
+    const projects: Project[] = [];
+
+    // Process in batches (Firestore has a limit for "in" queries)
+    for (let i = 0; i < projectIds.length; i += 10) {
+      const batch = projectIds.slice(i, i + 10);
+
+      if (batch.length > 0) {
+        const projectsQuery = db.collection("projects")
+          .where(FieldPath.documentId(), "in", batch);
+
+        const projectsSnapshot = await projectsQuery.get();
+
+        projectsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data) {
+            const project = {
+              id: doc.id,
+              mentorId: data.mentorId,
+              status: data.status,
+              isActive: data.isActive,
+              teamMembers: data.teamMembers,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              ...data,
+            } as ProjectWithId;
+            projects.push(project);
+          }
+        });
+      }
+    }
+
+    return projects;
+  } catch (error) {
+    console.error("Error getting user projects:", error);
+    throw error;
   }
+};
 
-  // if no project IDs, return empty array
-  if (projectIds.length === 0) {
-    return [];
+/**
+ * Get a project by ID
+ * @param projectId - The project ID to fetch
+ * @returns The project data
+ */
+export const getProjectById = async (projectId: string): Promise<ProjectWithId | null> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+
+    // Check permission
+    const canView = await hasPermission(userId, PROJECT_PERMISSIONS.VIEW_APPLICATIONS);
+    if (!canView) {
+      throw new Error("Unauthorized: You don't have permission to view projects");
+    }
+
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+
+    if (!projectDoc.exists) {
+      return null;
+    }
+
+    const projectData = projectDoc.data();
+    if (!projectData) {
+      return null;
+    }
+
+    return {
+      id: projectDoc.id,
+      ...projectData,
+    } as ProjectWithId;
+  } catch (error) {
+    console.error("Error getting project:", error);
+    throw error;
   }
+};
 
-  // get projects in batches (Firestore limits "in" queries to 10 items)
-  const projects: ProjectWithId[] = [];
+/**
+ * Update a project
+ * @param projectId - The project ID to update
+ * @param projectData - The updated project data
+ */
+export const updateProject = async (
+  projectId: string,
+  projectData: Partial<Project>
+): Promise<void> => {
+  try {
+    const userId = await getAuthenticatedUserId();
 
-  // process in batches of 10
-  for (let i = 0; i < projectIds.length; i += 10) {
-    const batch = projectIds.slice(i, i + 10);
+    const projectDoc = await db.collection("projects").doc(projectId).get();
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
 
-    const projectsQuery = await db.collection("projects")
-      .where(admin.firestore.FieldPath.documentId(), "in", batch)
-      .get();
+    const existingProject = projectDoc.data();
+    if (!existingProject) {
+      throw new Error("Project data is missing");
+    }
 
-    projectsQuery.docs.forEach((doc) => {
-      const data = doc.data();
-      projects.push({
-        id: doc.id,
-        ...data,
-      } as ProjectWithId);
+    // Check permission
+    const canEdit = await hasPermission(userId, PROJECT_PERMISSIONS.EDIT_PROJECT);
+    if (!canEdit) {
+      throw new Error("Unauthorized: You don't have permission to edit projects");
+    }
+
+    // Only the project owner or admin can update it
+    const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (existingProject.mentorId !== userId && !isAdmin) {
+      throw new Error("You do not have permission to update this project");
+    }
+
+    // Handle status changes
+    let isActive = existingProject.isActive || false;
+    if (projectData.status) {
+      isActive = projectData.status === "active";
+    }
+
+    // Update the project
+    await db.collection("projects").doc(projectId).update({
+      ...projectData,
+      isActive,
+      updatedAt: FieldValue.serverTimestamp(),
     });
-  }
 
-  return projects;
-}
+    // If status changed to "archived", move from active to archived projects
+    if (projectData.status === "archived" && existingProject.status !== "archived") {
+      const userRef = db.collection("users").doc(existingProject.mentorId);
+      const userDoc = await userRef.get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        if (userData) {
+          const activeProjects = userData.activeProjects || [];
+          const archivedProjects = userData.archivedProjects || [];
+
+          // Remove from active projects
+          const updatedActiveProjects = activeProjects.filter(
+            (id: string) => id !== projectId
+          );
+
+          // Add to archived projects if not already there
+          if (!archivedProjects.includes(projectId)) {
+            await userRef.update({
+              activeProjects: updatedActiveProjects,
+              archivedProjects: [...archivedProjects, projectId],
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          } else {
+            await userRef.update({
+              activeProjects: updatedActiveProjects,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          }
+        }
+      }
+    }
+
+    // If status changed from "archived" to "active", move from archived to active projects
+    if (projectData.status === "active" && existingProject.status === "archived") {
+      const userRef = db.collection("users").doc(existingProject.mentorId);
+      const userDoc = await userRef.get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        if (userData) {
+          const activeProjects = userData.activeProjects || [];
+          const archivedProjects = userData.archivedProjects || [];
+
+          // Remove from archived projects
+          const updatedArchivedProjects = archivedProjects.filter(
+            (id: string) => id !== projectId
+          );
+
+          // Add to active projects if not already there
+          if (!activeProjects.includes(projectId)) {
+            await userRef.update({
+              archivedProjects: updatedArchivedProjects,
+              activeProjects: [...activeProjects, projectId],
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          } else {
+            await userRef.update({
+              archivedProjects: updatedArchivedProjects,
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error updating project:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get project positions
+ * @param projectId - The project ID
+ * @returns Array of positions for the project
+ */
+export const getProjectPositions = async (projectId: string): Promise<Position[]> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("You must be logged in to view positions");
+    }
+
+    const positionsQuery = db.collection("positions")
+      .where("projectId", "==", projectId);
+
+    const positionsSnapshot = await positionsQuery.get();
+    const positions: Position[] = [];
+
+    positionsSnapshot.forEach((doc) => {
+      const positionData = doc.data();
+      positions.push({
+        id: doc.id,
+        ...positionData,
+      } as unknown as Position);
+    });
+
+    return positions;
+  } catch (error) {
+    console.error("Error getting project positions:", error);
+    throw error;
+  }
+};
+
+/**
+ * Archive a project
+ * @param projectId - The project ID to archive
+ */
+export const archiveProject = async (projectId: string): Promise<void> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+
+    // Check permission
+    const canEdit = await hasPermission(userId, PROJECT_PERMISSIONS.EDIT_PROJECT);
+    if (!canEdit) {
+      throw new Error("Unauthorized: You don't have permission to edit projects");
+    }
+
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
+
+    const project = projectDoc.data();
+    if (!project) {
+      throw new Error("Project data is missing");
+    }
+
+    // Only the project owner or admin can archive it
+    const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (project.mentorId !== userId && !isAdmin) {
+      throw new Error("You do not have permission to archive this project");
+    }
+
+    // Update the project status
+    await projectRef.update({
+      status: "archived",
+      isActive: false,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    // Update user's active and archived projects
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      if (userData) {
+        const activeProjects = userData.activeProjects || [];
+        const archivedProjects = userData.archivedProjects || [];
+
+        // Remove from active projects
+        const updatedActiveProjects = activeProjects.filter(
+          (id: string) => id !== projectId
+        );
+
+        // Add to archived projects if not already there
+        if (!archivedProjects.includes(projectId)) {
+          await userRef.update({
+            activeProjects: updatedActiveProjects,
+            archivedProjects: [...archivedProjects, projectId],
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          await userRef.update({
+            activeProjects: updatedActiveProjects,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error archiving project:", error);
+    throw error;
+  }
+};
+
+/**
+ * Unarchive a project
+ * @param projectId - The project ID to unarchive
+ */
+export const unarchiveProject = async (projectId: string): Promise<void> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+
+    // Check permission
+    const canEdit = await hasPermission(userId, PROJECT_PERMISSIONS.EDIT_PROJECT);
+    if (!canEdit) {
+      throw new Error("Unauthorized: You don't have permission to edit projects");
+    }
+
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
+
+    const project = projectDoc.data();
+    if (!project) {
+      throw new Error("Project data is missing");
+    }
+
+    // Only the project owner or admin can unarchive it
+    const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (project.mentorId !== userId && !isAdmin) {
+      throw new Error("You do not have permission to unarchive this project");
+    }
+
+    // Update the project status
+    await projectRef.update({
+      status: "active",
+      isActive: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    // Update user's active and archived projects
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      if (userData) {
+        const activeProjects = userData.activeProjects || [];
+        const archivedProjects = userData.archivedProjects || [];
+
+        // Remove from archived projects
+        const updatedArchivedProjects = archivedProjects.filter(
+          (id: string) => id !== projectId
+        );
+
+        // Add to active projects if not already there
+        if (!activeProjects.includes(projectId)) {
+          await userRef.update({
+            archivedProjects: updatedArchivedProjects,
+            activeProjects: [...activeProjects, projectId],
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          await userRef.update({
+            archivedProjects: updatedArchivedProjects,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error unarchiving project:", error);
+    throw error;
+  }
+};
 
 /**
  * Gets all applications for a project
- * @param userId - The ID of the user requesting applications
  * @param projectId - The ID of the project
  * @returns Array of applications
  */
-export async function getProjectApplications(
-  userId: string,
-  projectId: string
-): Promise<Application[]> {
-  // check permission
-  const canManage = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
-  if (!canManage) {
-    throw new Error("Unauthorized: You don't have permission to view applications");
+export const getProjectApplications = async (projectId: string): Promise<Application[]> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+
+    // Check permission
+    const canManage = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (!canManage) {
+      throw new Error("Unauthorized: You don't have permission to view applications");
+    }
+
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
+
+    const projectData = projectDoc.data();
+    if (!projectData) {
+      throw new Error("Project data is missing");
+    }
+
+    const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (projectData.mentorId !== userId && !isAdmin) {
+      throw new Error("Unauthorized: You can only view applications for your own projects");
+    }
+
+    const applicationsQuery = db.collection("projects").doc(projectId).collection("applications");
+    const applicationsSnapshot = await applicationsQuery.get();
+    const applications: Application[] = [];
+
+    applicationsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data) {
+        const application: ApplicationWithId = {
+          id: doc.id,
+          studentId: data.studentId,
+          studentName: data.studentName,
+          status: data.status,
+          submittedAt: data.submittedAt,
+          updatedAt: data.updatedAt,
+          notes: data.notes,
+          interestStatement: data.interestStatement,
+          resumeFile: data.resumeFile,
+          studentInfo: data.studentInfo,
+          ...data,
+        };
+        applications.push(application);
+      }
+    });
+
+    return applications;
+  } catch (error) {
+    console.error("Error getting project applications:", error);
+    throw error;
   }
-
-  // check if user is the project mentor or an admin
-  const projectDoc = await db.collection("projects").doc(projectId).get();
-
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
-
-  const projectData = projectDoc.data();
-  if (!projectData) {
-    throw new Error("Project data is empty");
-  }
-
-  const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
-
-  if (projectData.mentorId !== userId && !isAdmin) {
-    throw new Error("Unauthorized: You can only view applications for your own projects");
-  }
-
-  // get all applications for the project
-  const applicationsSnapshot = await db.collection("projects")
-    .doc(projectId)
-    .collection("applications")
-    .get();
-
-  const applications: Application[] = [];
-
-  applicationsSnapshot.forEach((doc) => {
-    const appData = doc.data();
-    applications.push({
-      id: doc.id,
-      ...appData,
-    } as unknown as Application);
-  });
-
-  return applications;
-}
+};
 
 /**
  * Updates an application status
- * @param userId - The ID of the user updating the application
  * @param projectId - The ID of the project
  * @param applicationId - The ID of the application
  * @param status - The new status
  * @param notes - Optional notes about the status change
  */
-export async function updateApplicationStatus(
-  userId: string,
+export const updateApplicationStatus = async (
   projectId: string,
   applicationId: string,
   status: "incoming" | "pending" | "interviewing" | "accepted" | "rejected",
   notes?: string
-): Promise<void> {
-  // check permission
-  const canManage = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
-  if (!canManage) {
-    throw new Error("Unauthorized: You don't have permission to manage applications");
-  }
+): Promise<void> => {
+  try {
+    const userId = await getAuthenticatedUserId();
 
-  // check if user is the project mentor or an admin
-  const projectDoc = await db.collection("projects").doc(projectId).get();
+    const applicationDoc = await db.collection("projects")
+      .doc(projectId)
+      .collection("applications")
+      .doc(applicationId)
+      .get();
 
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
+    if (!applicationDoc.exists) {
+      throw new Error("Application not found");
+    }
 
-  const projectData = projectDoc.data();
-  if (!projectData) {
-    throw new Error("Project data is empty");
-  }
-
-  const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
-
-  if (projectData.mentorId !== userId && !isAdmin) {
-    throw new Error("Unauthorized: You can only manage applications for your own projects");
-  }
-
-  // update the application status
-  const applicationRef = db.collection("projects")
-    .doc(projectId)
-    .collection("applications")
-    .doc(applicationId);
-
-  const applicationDoc = await applicationRef.get();
-
-  if (!applicationDoc.exists) {
-    throw new Error("Application not found");
-  }
-
-  const now = new Date().toISOString();
-  const updateData: UpdateData = {
-    status,
-    updatedAt: now,
-  };
-
-  if (notes) {
-    updateData.notes = notes;
-  }
-
-  await applicationRef.update(updateData);
-
-  // if status is "accepted", add the student to the project team
-  if (status === "accepted") {
     const applicationData = applicationDoc.data();
     if (!applicationData) {
-      throw new Error("Application data is empty");
+      throw new Error("Application data is missing");
     }
 
-    const studentId = applicationData.studentId;
+    // Check permission
+    const canManage = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (!canManage) {
+      throw new Error("Unauthorized: You don't have permission to manage applications");
+    }
 
-    if (studentId) {
-      // get student information
-      const studentDoc = await db.collection("users").doc(studentId).get();
+    // Check if user is the project mentor or an admin
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
 
-      if (studentDoc.exists) {
-        const studentData = studentDoc.data();
-        if (!studentData) {
-          throw new Error("Student data is empty");
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
+
+    const projectData = projectDoc.data();
+
+    if (!projectData) {
+      throw new Error("Project data is missing");
+    }
+
+    const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (projectData.mentorId !== userId && !isAdmin) {
+      throw new Error("Unauthorized: You can only manage applications for your own projects");
+    }
+
+    // Update the application status
+    const updateData: Record<string, any> = {
+      status,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (notes) {
+      updateData.notes = notes;
+    }
+
+    await applicationDoc.ref.update(updateData);
+
+    // If status is "accepted", add the student to the project team
+    if (status === "accepted") {
+      const studentId = applicationData.studentId;
+
+      if (studentId) {
+        const studentDoc = await db.collection("users").doc(studentId).get();
+        if (studentDoc.exists) {
+          const studentData = studentDoc.data();
+          if (studentData) {
+            // Now we can safely use studentData
+            const teamMember = {
+              userId: studentId,
+              name: `${studentData.firstName} ${studentData.lastName}`,
+              title: "Research Assistant",
+              joinedDate: Timestamp.fromDate(new Date()),
+            };
+
+            const currentTeamMembers = projectData.teamMembers || [];
+            await projectRef.update({
+              teamMembers: [...currentTeamMembers, teamMember],
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+
+            // Add project to student's active projects
+            const studentActiveProjects = studentData.activeProjects || [];
+            if (!studentActiveProjects.includes(projectId)) {
+              await studentDoc.ref.update({
+                activeProjects: [...studentActiveProjects, projectId],
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
         }
-
-        // add student to project team members
-        const teamMemberUpdate: TeamMemberUpdate = {
-          userId: studentId,
-          name: `${studentData.firstName} ${studentData.lastName}`,
-          title: "Research Assistant", // Default title
-          joinedDate: now,
-        };
-
-        await db.collection("projects").doc(projectId).update({
-          teamMembers: admin.firestore.FieldValue.arrayUnion(teamMemberUpdate),
-          updatedAt: now,
-        });
-
-        // add project to student's active projects
-        await db.collection("users").doc(studentId).update({
-          activeProjects: admin.firestore.FieldValue.arrayUnion(projectId),
-          updatedAt: now,
-        });
       }
     }
+  } catch (error) {
+    console.error("Error updating application status:", error);
+    throw error;
   }
-}
+};
 
 /**
  * Adds onboarding material to a project
- * @param userId - The ID of the user adding the material
  * @param projectId - The ID of the project
  * @param material - The onboarding material to add
  * @returns The ID of the created material
  */
-export async function addOnboardingMaterial(
-  userId: string,
+export const addOnboardingMaterial = async (
   projectId: string,
   material: Partial<OnboardingMaterial>
-): Promise<string> {
-  // check permission
-  const canEdit = await hasPermission(userId, PROJECT_PERMISSIONS.EDIT_PROJECT);
-  if (!canEdit) {
-    throw new Error("Unauthorized: You don't have permission to edit projects");
-  }
+): Promise<string> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("You must be logged in to add onboarding materials");
+    }
 
-  // check if user is the project mentor or an admin
-  const projectDoc = await db.collection("projects").doc(projectId).get();
+    // Check permission
+    const canEdit = await hasPermission(userId, PROJECT_PERMISSIONS.EDIT_PROJECT);
+    if (!canEdit) {
+      throw new Error("Unauthorized: You don't have permission to edit projects");
+    }
 
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
+    // Check if user is the project mentor or an admin
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
 
-  const projectData = projectDoc.data();
-  if (!projectData) {
-    throw new Error("Project data is empty");
-  }
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
 
-  const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    const projectData = projectDoc.data();
+    if (!projectData) {
+      throw new Error("Project data is missing");
+    }
 
-  if (projectData.mentorId !== userId && !isAdmin) {
-    throw new Error("Unauthorized: You can only add materials to your own projects");
-  }
+    const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (projectData.mentorId !== userId && !isAdmin) {
+      throw new Error("Unauthorized: You can only add materials to your own projects");
+    }
 
-  const now = new Date().toISOString();
-
-  // create the onboarding material
-  const materialRef = await db.collection("projects")
-    .doc(projectId)
-    .collection("onboardingMaterials")
-    .add({
+    // Create the onboarding material
+    const materialData = {
       ...material,
-      uploadedAt: now,
+      uploadedAt: FieldValue.serverTimestamp(),
       uploadedBy: userId,
-    });
+    };
 
-  return materialRef.id;
-}
+    const materialRef = await db
+      .collection("projects")
+      .doc(projectId)
+      .collection("onboardingMaterials")
+      .add(materialData);
+
+    return materialRef.id;
+  } catch (error) {
+    console.error("Error adding onboarding material:", error);
+    throw error;
+  }
+};
 
 /**
  * Gets all onboarding materials for a project
- * @param userId - The ID of the user requesting materials
  * @param projectId - The ID of the project
  * @returns Array of onboarding materials
  */
-export async function getOnboardingMaterials(
-  userId: string,
-  projectId: string
-): Promise<OnboardingMaterial[]> {
-  // check permission (only need view_projects to see materials)
-  const canView = await hasPermission(userId, PROJECT_PERMISSIONS.VIEW_APPLICATIONS);
-  if (!canView) {
-    throw new Error("Unauthorized: You don't have permission to view projects");
+export const getOnboardingMaterials = async (projectId: string): Promise<OnboardingMaterial[]> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("You must be logged in to view onboarding materials");
+    }
+
+    // Check permission
+    const canView = await hasPermission(userId, PROJECT_PERMISSIONS.VIEW_APPLICATIONS);
+    if (!canView) {
+      throw new Error("Unauthorized: You don't have permission to view projects");
+    }
+
+    // Verify project exists
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
+
+    // Get onboarding materials
+    const materialsQuery = db.collection("projects").doc(projectId).collection("onboardingMaterials");
+
+    const materialsSnapshot = await materialsQuery.get();
+    const materials: OnboardingMaterial[] = [];
+
+    materialsSnapshot.forEach((doc) => {
+      const materialData = doc.data();
+      materials.push({
+        id: doc.id,
+        ...materialData,
+      } as unknown as OnboardingMaterial);
+    });
+
+    return materials;
+  } catch (error) {
+    console.error("Error getting onboarding materials:", error);
+    throw error;
   }
-
-  // verify project exists
-  const projectDoc = await db.collection("projects").doc(projectId).get();
-
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
-
-  // get onboarding materials
-  const materialsSnapshot = await db.collection("projects")
-    .doc(projectId)
-    .collection("onboardingMaterials")
-    .get();
-
-  const materials: OnboardingMaterial[] = [];
-
-  materialsSnapshot.forEach((doc) => {
-    const materialData = doc.data();
-    materials.push({
-      id: doc.id,
-      ...materialData,
-    } as unknown as OnboardingMaterial);
-  });
-
-  return materials;
-}
+};
 
 /**
  * Applies to a project
- * @param userId - The ID of the student applying
  * @param projectId - The ID of the project
  * @param applicationData - The application data
  * @returns The ID of the created application
  */
-export async function applyToProject(
-  userId: string,
+export const applyToProject = async (
   projectId: string,
   applicationData: Partial<Application>
-): Promise<string> {
-  // check permission
-  const canApply = await hasPermission(userId, CONNECT_PERMISSIONS.APPLY_TO_PROJECTS);
-  if (!canApply) {
-    throw new Error("Unauthorized: You don't have permission to apply to projects");
-  }
+): Promise<string> => {
+  try {
+    const userId = await getAuthenticatedUserId();
 
-  // verify project exists and is accepting applications
-  const projectDoc = await db.collection("projects").doc(projectId).get();
-
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
-
-  const projectData = projectDoc.data();
-  if (!projectData) {
-    throw new Error("Project data is empty");
-  }
-
-  // if project is active
-  if (projectData.status !== "active") {
-    throw new Error("Cannot apply to inactive project");
-  }
-
-  // if applications are closed
-  if (!projectData.rollingApplications) {
-    const closeDate = projectData.applicationCloseDate?.toDate();
-
-    if (closeDate && closeDate < new Date()) {
-      throw new Error("Applications for this project are closed");
+    const projectDoc = await db.collection("projects").doc(projectId).get();
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
     }
-  }
 
-  // if user already applied
-  const existingApplicationsQuery = await db.collection("projects")
-    .doc(projectId)
-    .collection("applications")
-    .where("studentId", "==", userId)
-    .get();
+    const projectData = projectDoc.data();
+    if (!projectData) {
+      throw new Error("Project data is missing");
+    }
 
-  if (!existingApplicationsQuery.empty) {
-    throw new Error("You have already applied to this project");
-  }
+    if (projectData.status !== "active") {
+      throw new Error("Cannot apply to inactive project");
+    }
 
-  // user data
-  const userDoc = await db.collection("users").doc(userId).get();
+    // Check if applications are closed
+    if (!projectData.rollingApplications) {
+      const closeDate = projectData.applicationCloseDate?.toDate();
 
-  if (!userDoc.exists) {
-    throw new Error("User not found");
-  }
+      if (closeDate && closeDate < new Date()) {
+        throw new Error("Applications for this project are closed");
+      }
+    }
 
-  const userData = userDoc.data();
-  if (!userData) {
-    throw new Error("User data is empty");
-  }
+    // Check if user already applied
+    const existingApplicationsQuery = db.collection("projects").doc(projectId).collection("applications")
+      .where("studentId", "==", userId);
 
-  // create application
-  const now = new Date().toISOString();
+    const existingApplicationsSnapshot = await existingApplicationsQuery.get();
 
-  const applicationRef = await db.collection("projects")
-    .doc(projectId)
-    .collection("applications")
-    .add({
+    if (!existingApplicationsSnapshot.empty) {
+      throw new Error("You have already applied to this project");
+    }
+
+    // Get user data
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      throw new Error("User not found");
+    }
+
+    const userData = userDoc.data();
+    if (!userData) {
+      throw new Error("User data is missing");
+    }
+
+    // Create application
+    const applicationWithDefaults = {
       studentId: userId,
       studentName: `${userData.firstName} ${userData.lastName}`,
       status: "incoming",
-      submittedAt: now,
-      updatedAt: now,
+      submittedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       ...applicationData,
-    });
+    };
 
-  // add project to student's applied projects
-  await db.collection("users").doc(userId).update({
-    "projectPreferences.appliedProjects": admin.firestore.FieldValue.arrayUnion(projectId),
-    "updatedAt": now,
-  });
+    const applicationRef = await db
+      .collection("projects")
+      .doc(projectId)
+      .collection("applications")
+      .add(applicationWithDefaults);
 
-  return applicationRef.id;
-}
+    // Add project to student's applied projects
+    const projectPreferences = userData.projectPreferences || {};
+    const appliedProjects = projectPreferences.appliedProjects || [];
+
+    if (!appliedProjects.includes(projectId)) {
+      await userRef.update({
+        "projectPreferences.appliedProjects": [...appliedProjects, projectId],
+        "updatedAt": FieldValue.serverTimestamp(),
+      });
+    }
+
+    return applicationRef.id;
+  } catch (error) {
+    console.error("Error applying to project:", error);
+    throw error;
+  }
+};
 
 /**
  * Gets all faculty-managed projects
  * Used by admins to view all projects
- * @param userId - The ID of the user requesting projects
  * @returns Array of projects
  */
-export async function getAllProjects(userId: string): Promise<ProjectWithId[]> {
-  // check permission - admin only
-  const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
-  if (!isAdmin) {
-    throw new Error("Unauthorized: Admin access required");
+export const getAllProjects = async (): Promise<Project[]> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("You must be logged in to view all projects");
+    }
+
+    const projectsQuery = db.collection("projects");
+    const projectsSnapshot = await projectsQuery.get();
+
+    const projects: Project[] = [];
+
+    projectsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data) {
+        const project = {
+          id: doc.id,
+          mentorId: data.mentorId,
+          status: data.status,
+          isActive: data.isActive,
+          teamMembers: data.teamMembers,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          ...data,
+        } as ProjectWithId;
+        projects.push(project);
+      }
+    });
+
+    return projects;
+  } catch (error) {
+    console.error("Error getting all projects:", error);
+    throw error;
   }
-
-  const projectsSnapshot = await db.collection("projects").get();
-
-  const projects: ProjectWithId[] = [];
-
-  projectsSnapshot.forEach((doc) => {
-    const data = doc.data();
-    projects.push({
-      id: doc.id,
-      ...data,
-    } as ProjectWithId);
-  });
-
-  return projects;
-}
+};
 
 /**
  * Deletes a project
- * @param userId - The ID of the user deleting the project
  * @param projectId - The ID of the project to delete
  */
-export async function deleteProject(userId: string, projectId: string): Promise<void> {
-  // check permission
-  const canDelete = await hasPermission(userId, PROJECT_PERMISSIONS.DELETE_PROJECT);
-  if (!canDelete) {
-    throw new Error("Unauthorized: You don't have permission to delete projects");
-  }
-
-  // get the project to check ownership
-  const projectDoc = await db.collection("projects").doc(projectId).get();
-
-  if (!projectDoc.exists) {
-    throw new Error("Project not found");
-  }
-
-  const projectInfo = projectDoc.data();
-  if (!projectInfo) {
-    throw new Error("Project data is empty");
-  }
-
-  // only the project mentor or an admin can delete the project
-  const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
-  if (projectInfo.mentorId !== userId && !isAdmin) {
-    throw new Error("Unauthorized: You can only delete your own projects");
-  }
-
-  // remove project from user's lists
-  await db.collection("users").doc(projectInfo.mentorId).update({
-    activeProjects: admin.firestore.FieldValue.arrayRemove(projectId),
-    archivedProjects: admin.firestore.FieldValue.arrayRemove(projectId),
-    updatedAt: new Date().toISOString(),
-  });
-
-  // delete project document
-  await db.collection("projects").doc(projectId).delete();
-}
-
-/**
- * Get multiple projects by their IDs
- * @param projectIds - Array of project IDs to retrieve
- * @returns Array of projects with their IDs
- */
-export async function getProjectsByIds(projectIds: string[]): Promise<ProjectWithId[]> {
-  if (!projectIds.length) {
-    return [];
-  }
-
+export const deleteProject = async (projectId: string): Promise<void> => {
   try {
-    // Firestore doesn't support retrieving multiple documents by ID in a single query
-    // So we need to fetch them individually and combine the results
-    const projectPromises = projectIds.map(async (projectId) => {
-      const projectDoc = await db.collection("projects").doc(projectId).get();
+    const userId = await getAuthenticatedUserId();
 
-      if (!projectDoc.exists) {
-        return null;
+    const projectDoc = await db.collection("projects").doc(projectId).get();
+    if (!projectDoc.exists) {
+      throw new Error("Project not found");
+    }
+
+    const projectData = projectDoc.data();
+    if (!projectData) {
+      throw new Error("Project data is missing");
+    }
+
+    // Only the project owner or admin can delete it
+    const isAdmin = await hasPermission(userId, PROJECT_PERMISSIONS.MANAGE_APPLICATIONS);
+    if (projectData.mentorId !== userId && !isAdmin) {
+      throw new Error("Unauthorized: You can only delete your own projects");
+    }
+
+    // Remove project from user's lists
+    const userRef = db.collection("users").doc(projectData.mentorId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+
+      if (!userData) {
+        throw new Error("User data is missing");
       }
 
-      const projectData = projectDoc.data() as Project;
-      return {
-        id: projectDoc.id,
-        ...projectData,
-      };
+      const activeProjects = userData.activeProjects || [];
+      const archivedProjects = userData.archivedProjects || [];
+
+      const updatedActiveProjects = activeProjects.filter((id: string) => id !== projectId);
+      const updatedArchivedProjects = archivedProjects.filter((id: string) => id !== projectId);
+
+      await userRef.update({
+        activeProjects: updatedActiveProjects,
+        archivedProjects: updatedArchivedProjects,
+        updatedAt: Timestamp.fromDate(new Date()),
+      });
+    }
+
+    // Delete project positions
+    const positionsQuery = db.collection("positions")
+      .where("projectId", "==", projectId);
+
+    const positionsSnapshot = await positionsQuery.get();
+
+    const deletePositions = positionsSnapshot.docs.map(async (positionDoc) => {
+      await positionDoc.ref.delete();
     });
 
-    const projects = await Promise.all(projectPromises);
+    await Promise.all(deletePositions);
 
-    // Filter out any null values (projects that weren't found)
-    return projects.filter((project): project is ProjectWithId => project !== null);
+    // Delete project document
+    await projectDoc.ref.delete();
   } catch (error) {
-    console.error("Error getting projects by IDs:", error);
-    throw new Error("Failed to retrieve projects");
+    console.error("Error deleting project:", error);
+    throw error;
   }
-}
+};
+
+// Helper function to get authenticated user ID
+const getAuthenticatedUserId = async (): Promise<string> => {
+  const auth = getAuth();
+  // This should be replaced with actual token from your request context
+  const idToken = "YOUR_ID_TOKEN_HERE"; // Replace this with actual token
+  const token = await auth.verifyIdToken(idToken);
+  if (!token.uid) {
+    throw new Error("Not authenticated");
+  }
+  return token.uid;
+};
