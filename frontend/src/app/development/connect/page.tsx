@@ -37,9 +37,15 @@ export default function ConnectPage() {
   // Define the tabs for connect navigation
   const connectTabs = [
     { id: 'discover', label: 'Discover' },
-    { id: 'saved', label: 'Saved' },
-    { id: 'applied', label: 'Applied' }
+    { id: 'saved', label: 'Saved', count: savedProjects.length },
+    { id: 'applied', label: 'Applied', count: appliedProjects.length }
   ];
+
+  // Handle tab change with type conversion
+  const handleTabChange = (tabId: string) => {
+    // Convert string to ConnectTab type
+    setActiveTab(tabId as ConnectTab);
+  };
 
   // Redirect non-student users
   useEffect(() => {
@@ -218,6 +224,8 @@ export default function ConnectPage() {
       title="Connect" 
       tabs={connectTabs}
       defaultTab="discover"
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
     >
       <div className="w-full">
         {isLoading ? (

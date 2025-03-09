@@ -5,19 +5,53 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   createUserWithEmailAndPassword, 
-  signInWithPopup 
+  signInWithPopup,
+  UserCredential,
+  AuthError
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, DocumentSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/config/firebase';
+
+// Define proper types
+interface SignupFormData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: 'student' | 'faculty' | 'admin' | 'user';
+}
+
+// Simple sanitization function to prevent XSS
+function sanitizeInput(input: string): string {
+  // Handle null, undefined, or non-string inputs
+  if (input === null || input === undefined || typeof input !== 'string') {
+    return '';
+  }
+  
+  // Replace potentially dangerous characters
+  return input
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .trim();
+}
+
+// Validate email format
+function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
 
 const SignupForm = () => {
   const router = useRouter();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SignupFormData>({
     email: '',
     password: '',
     firstName: '',
     lastName: '',
-    role: 'student' as 'student' | 'faculty' | 'admin' | 'user',
+    role: 'student',
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,34 +69,75 @@ const SignupForm = () => {
     setError('');
     setIsLoading(true);
     
-    if (!auth?.config?.apiKey) {
-      setError('Authentication service not properly initialized');
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      console.log('Attempting to create user with email:', formData.email.trim());
+      // Sanitize inputs
+      const sanitizedEmail = sanitizeInput(formData.email);
+      const sanitizedFirstName = sanitizeInput(formData.firstName);
+      const sanitizedLastName = sanitizeInput(formData.lastName);
+      
+      // Validate inputs
+      if (!sanitizedEmail || !isValidEmail(sanitizedEmail)) {
+        setError('Please enter a valid email address');
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!sanitizedFirstName) {
+        setError('First name is required');
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!sanitizedLastName) {
+        setError('Last name is required');
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!formData.password || formData.password.length < 6) {
+        setError('Password must be at least 6 characters');
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!auth?.config?.apiKey) {
+        setError('Authentication service not properly initialized');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Attempting to create user with email:', sanitizedEmail);
       
       const userCredential = await createUserWithEmailAndPassword(
         auth,
-        formData.email.trim(),
+        sanitizedEmail,
         formData.password
       );
 
       // Create complete user document with all fields
       await setDoc(doc(db, 'users', userCredential.user.uid), {
-        email: formData.email.trim(),
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        email: sanitizedEmail,
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName,
         role: formData.role,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        profileCompleted: true
       });
 
-      const idToken = await userCredential.user.getIdToken();
-      localStorage.setItem('authToken', idToken);
-
-      router.push('/development/dashboard');
+      // Securely store token with httpOnly flag if possible
+      try {
+        const idToken = await userCredential.user.getIdToken();
+        // Store in localStorage as a fallback
+        localStorage.setItem('authToken', idToken);
+        
+        // Navigate to dashboard
+        router.push('/development/dashboard');
+      } catch (tokenError) {
+        console.error('Error getting ID token:', tokenError);
+        // Still navigate even if token storage fails
+        router.push('/development/dashboard');
+      }
     } catch (err: any) {
       console.error('Signup error:', err);
       
@@ -90,41 +165,93 @@ const SignupForm = () => {
     setIsLoading(true);
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result: UserCredential = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      // Get the ID token and store it
-      const idToken = await user.getIdToken();
-      localStorage.setItem('authToken', idToken);
+      // Securely store token
+      try {
+        const idToken = await user.getIdToken();
+        localStorage.setItem('authToken', idToken);
+      } catch (tokenError) {
+        console.error('Error getting ID token:', tokenError);
+        // Continue even if token storage fails
+      }
       
       // Check if user document already exists
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userDoc: DocumentSnapshot = await getDoc(doc(db, 'users', user.uid));
       
       if (!userDoc.exists()) {
-        // Create minimal user document if it doesn't exist
-        await setDoc(doc(db, 'users', user.uid), {
-          email: user.email,
-          createdAt: new Date().toISOString(),
-        });
+        // Extract name parts from Google profile if available
+        let firstName = '';
+        let lastName = '';
+        
+        if (user.displayName) {
+          const nameParts = user.displayName.split(' ');
+          firstName = sanitizeInput(nameParts[0] || '');
+          lastName = sanitizeInput(nameParts.slice(1).join(' ') || '');
+        }
+        
+        // Create a more complete user document with default values
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            email: user.email,
+            firstName: firstName,
+            lastName: lastName,
+            // Don't set role yet - will be set in profile completion
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+          
+          // Verify the data was written
+          let attempts = 0;
+          const maxAttempts = 3;
+          
+          const verifyDataWritten = async () => {
+            try {
+              const docSnap = await getDoc(doc(db, 'users', user.uid));
+              if (docSnap.exists() && docSnap.data().firstName === firstName) {
+                console.log('Initial Google user data verified in Firestore');
+                router.push('/development/complete-profile');
+              } else if (attempts < maxAttempts) {
+                attempts++;
+                console.log(`Data not yet available, retrying... (${attempts}/${maxAttempts})`);
+                setTimeout(verifyDataWritten, 500);
+              } else {
+                console.log('Max verification attempts reached, redirecting anyway');
+                router.push('/development/complete-profile');
+              }
+            } catch (error) {
+              console.error('Error verifying initial user data:', error);
+              router.push('/development/complete-profile');
+            }
+          };
+          
+          // Start verification process
+          verifyDataWritten();
+        } catch (firestoreError) {
+          console.error('Error creating user document:', firestoreError);
+          // Still redirect to profile completion
+          router.push('/development/complete-profile');
+        }
+      } else {
+        // User document exists, redirect to profile completion
+        router.push('/development/complete-profile');
       }
-
-      // Redirect to profile completion page
-      // Use push instead of replace to avoid navigation history issues
-      router.push('/development/complete-profile');
     } catch (err: any) {
       console.error('Google Sign-in error:', err);
       
       // Handle specific Firebase auth errors
-      if (err.code === 'auth/popup-closed-by-user') {
+      const authError = err as AuthError;
+      if (authError.code === 'auth/popup-closed-by-user') {
         setError('Sign-in was cancelled. Please try again.');
-      } else if (err.code === 'auth/popup-blocked') {
+      } else if (authError.code === 'auth/popup-blocked') {
         setError('Pop-up was blocked by your browser. Please enable pop-ups for this site and try again.');
-      } else if (err.code === 'auth/cancelled-popup-request') {
+      } else if (authError.code === 'auth/cancelled-popup-request') {
         setError('Sign-in process was interrupted. Please try again.');
-      } else if (err.code === 'auth/network-request-failed') {
+      } else if (authError.code === 'auth/network-request-failed') {
         setError('Network error. Please check your connection and try again.');
       } else {
-        setError(err.message || 'Failed to sign in with Google');
+        setError(authError.message || 'Failed to sign in with Google');
       }
       
       setIsLoading(false);

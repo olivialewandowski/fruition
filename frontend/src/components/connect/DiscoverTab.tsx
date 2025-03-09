@@ -7,7 +7,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 const ProjectCard = dynamic(() => import('./ProjectCard'), { 
   ssr: false,
   loading: () => (
-    <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-5xl" style={{ minHeight: '500px' }}>
+    <div className="bg-slate-50 rounded-xl shadow-lg p-8 w-full max-w-5xl" style={{ 
+      minHeight: '500px',
+      boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 5px 15px -5px rgba(0, 0, 0, 0.05)'
+    }}>
       <div className="animate-pulse">
         <div className="h-10 bg-gray-200 rounded w-3/4 mb-4"></div>
         <div className="h-6 bg-gray-200 rounded w-1/2 mb-8"></div>
@@ -63,7 +66,7 @@ const DiscoverTab = ({
   onUndoAction 
 }: DiscoverTabProps) => {
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'up' | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'up' | 'undo' | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
   // Reset the current project index when the projects list changes
@@ -85,21 +88,23 @@ const DiscoverTab = ({
     // For all actions, we need to wait for the full animation sequence to complete
     const timer = setTimeout(() => {
       // Process actions based on swipe direction
-      if (swipeDirection === 'right') {
+      if (swipeDirection === 'up') {
         onSaveProject(currentProject);
-      } else if (swipeDirection === 'up') {
+      } else if (swipeDirection === 'right') {
         onApplyProject(currentProject);
       } else if (swipeDirection === 'left') {
         onDeclineProject(currentProject);
+      } else if (swipeDirection === 'undo' && onUndoAction) {
+        onUndoAction();
       }
       
       // Reset direction to null
       setSwipeDirection(null);
       
-      // Move to next project
-      if (currentProjectIndex < projects.length - 1) {
+      // Move to next project for non-undo actions
+      if (swipeDirection !== 'undo' && currentProjectIndex < projects.length - 1) {
         setCurrentProjectIndex(prev => prev + 1);
-      } else {
+      } else if (swipeDirection !== 'undo') {
         setCurrentProjectIndex(0);
       }
       
@@ -107,7 +112,7 @@ const DiscoverTab = ({
     }, 400);
     
     return () => clearTimeout(timer);
-  }, [swipeDirection, currentProject, currentProjectIndex, projects, onSaveProject, onApplyProject, onDeclineProject]);
+  }, [swipeDirection, currentProject, currentProjectIndex, projects, onSaveProject, onApplyProject, onDeclineProject, onUndoAction]);
 
   // Prevent actions while transitioning
   const handleDecline = () => {
@@ -117,18 +122,18 @@ const DiscoverTab = ({
 
   const handleSave = () => {
     if (isTransitioning || !currentProject) return;
-    setSwipeDirection('right');
+    setSwipeDirection('up');
   };
 
   const handleApply = () => {
     if (isTransitioning || !currentProject) return;
-    setSwipeDirection('up');
+    setSwipeDirection('right');
   };
-
+  
   // Handle undo action
   const handleUndo = () => {
     if (isTransitioning || !onUndoAction) return;
-    onUndoAction();
+    setSwipeDirection('undo');
   };
 
   // Handle empty projects case
@@ -144,7 +149,7 @@ const DiscoverTab = ({
             <div className="mt-8 flex justify-center">
               <button
                 onClick={onUndoAction}
-                className="w-14 h-14 flex items-center justify-center bg-white text-purple-500 rounded-full shadow-md hover:bg-purple-50 transition-colors"
+                className="w-14 h-14 flex items-center justify-center bg-white text-purple-500 rounded-full hover:bg-purple-50 transition-colors"
                 aria-label="Undo last action"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -174,74 +179,25 @@ const DiscoverTab = ({
               </button>
             </div>
           ) : (
-            <>
-              <AnimatePresence mode="wait">
-                {currentProject && (
-                  <ProjectCard
-                    key={`project-${currentProject.id}`}
-                    project={currentProject}
-                    swipeDirection={swipeDirection}
-                    onDecline={handleDecline}
-                    onSave={handleSave}
-                    onApply={handleApply}
-                  />
-                )}
-              </AnimatePresence>
-              
-              <div className="flex space-x-4 mt-2">
-                {/* Undo button */}
-                <button
-                  onClick={handleUndo}
-                  disabled={isTransitioning || !onUndoAction}
-                  className="flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 px-8 py-4"
-                  aria-label="Undo last action"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                  </svg>
-                  Undo
-                </button>
-                
-                {/* Save button */}
-                <button
-                  onClick={handleSave}
-                  disabled={isTransitioning}
-                  className="flex items-center justify-center text-gray-600 border border-gray-300 hover:text-gray-800 transition-colors disabled:opacity-50 px-8 py-4 rounded-md"
-                  aria-label="Save project"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                  Save for later
-                </button>
-                
-                {/* Decline button */}
-                <button
-                  onClick={handleDecline}
-                  disabled={isTransitioning}
-                  className="flex items-center justify-center border border-red-500 text-red-500 rounded-md px-8 py-4 hover:bg-red-100 transition-colors disabled:opacity-50"
-                  aria-label="Decline project"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Decline
-                </button>
-                
-                {/* Apply button */}
-                <button
-                  onClick={handleApply}
-                  disabled={isTransitioning}
-                  className="flex items-center justify-center bg-green-500 text-white rounded-md px-8 py-4 hover:bg-green-600 transition-colors disabled:opacity-50"
-                  aria-label="Apply to project"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Apply now
-                </button>
+            <div className="w-full">
+              <div className="flex flex-col items-center">
+                <div className="w-full">
+                  <AnimatePresence mode="wait">
+                    {currentProject && (
+                      <ProjectCard
+                        key={`project-${currentProject.id}`}
+                        project={currentProject}
+                        swipeDirection={swipeDirection}
+                        onDecline={handleDecline}
+                        onSave={handleSave}
+                        onApply={handleApply}
+                        onUndo={handleUndo}
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </ClientOnly>

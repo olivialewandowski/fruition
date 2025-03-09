@@ -7,9 +7,10 @@ import ProjectCreationModal from '@/components/dashboard/ProjectCreationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProjects } from '@/services/projectsService';
 import { Project } from '@/types/project';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function DashboardPage() {
-  const { userData, user } = useAuth();
+  const { userData, user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('active');
   const [projectsToShow, setProjectsToShow] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +33,19 @@ export default function DashboardPage() {
   };
 
   // Fetch projects when tab changes or user data loads
+  // Set page ready state when user data is loaded
+  useEffect(() => {
+    if (!loading && userData) {
+      // Add a small delay to ensure everything is ready
+      const timer = setTimeout(() => {
+        setIsPageReady(true);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, userData]);
+
+  // Update displayed projects when tab changes or user data loads
   useEffect(() => {
     const fetchProjects = async () => {
       if (!user) return;
@@ -59,6 +73,22 @@ export default function DashboardPage() {
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
   };
+    
+  // Show loading state if page is not ready
+  if (!isPageReady) {
+    return (
+      <BaseLayout title="Dashboard">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="mb-4">
+              <LoadingSpinner size="medium" />
+            </div>
+            <p className="text-gray-600">Loading your projects...</p>
+          </div>
+        </div>
+      </BaseLayout>
+    );
+  }
 
   return (
     <BaseLayout 

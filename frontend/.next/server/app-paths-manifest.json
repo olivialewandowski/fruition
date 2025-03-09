@@ -1,7 +1,1 @@
-{
-  "/development/dashboard/page": "app/development/dashboard/page.js",
-  "/development/profile/page": "app/development/profile/page.js",
-  "/development/signup/page": "app/development/signup/page.js",
-  "/development/complete-profile/page": "app/development/complete-profile/page.js",
-  "/students/page": "app/students/page.js"
-}
+{}
