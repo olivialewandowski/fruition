@@ -4,6 +4,7 @@ import {
   updateProject,
   getProjectById,
   getUserProjects,
+  getProjectPositions,
   getProjectApplications,
   updateApplicationStatus,
   addOnboardingMaterial,
@@ -31,7 +32,7 @@ projectsRouter.get(
     try {
       // since we've passed through validateAuthToken and requirePermission,
       // we can be sure that req.user exists and has a uid
-      const projects = await getAllProjects(req.user!.uid);
+      const projects = await getAllProjects();
       return res.status(200).json({ data: projects });
     } catch (error) {
       return res.status(500).json({
@@ -50,8 +51,7 @@ projectsRouter.get(
     try {
       const status = req.query.status as string;
       const projects = await getUserProjects(
-        req.user!.uid,
-        status as "active" | "archived" | "draft"
+        status as "active" | "archived" | "applied"
       );
       return res.status(200).json({ data: projects });
     } catch (error) {
@@ -63,14 +63,21 @@ projectsRouter.get(
   }
 );
 
-// create new project
+// create new project with position
 projectsRouter.post(
   "/",
   requirePermission(PROJECT_PERMISSIONS.CREATE_PROJECT),
   async (req, res) => {
     try {
-      const projectData = req.body;
-      const createdProjectId = await createProject(req.user!.uid, projectData);
+      const { projectData, positionData } = req.body;
+
+      if (!projectData) {
+        return res.status(400).json({
+          error: "Missing project data",
+        });
+      }
+
+      const createdProjectId = await createProject(projectData, positionData);
       return res.status(201).json({
         message: "Project created successfully",
         data: { id: createdProjectId },
@@ -91,11 +98,29 @@ projectsRouter.get(
   async (req, res) => {
     try {
       const { projectId } = req.params;
-      const project = await getProjectById(req.user!.uid, projectId);
+      const project = await getProjectById(projectId);
       return res.status(200).json({ data: project });
     } catch (error) {
       return res.status(500).json({
         error: "Failed to get project",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+// get project positions
+projectsRouter.get(
+  "/:projectId/positions",
+  requirePermission(PROJECT_PERMISSIONS.VIEW_APPLICATIONS),
+  async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const positions = await getProjectPositions(projectId);
+      return res.status(200).json({ data: positions });
+    } catch (error) {
+      return res.status(500).json({
+        error: "Failed to get positions",
         details: error instanceof Error ? error.message : "Unknown error",
       });
     }
@@ -110,7 +135,7 @@ projectsRouter.put(
     try {
       const { projectId } = req.params;
       const projectData = req.body;
-      await updateProject(req.user!.uid, projectId, projectData);
+      await updateProject(projectId, projectData);
       return res.status(200).json({
         message: "Project updated successfully",
       });
@@ -130,7 +155,7 @@ projectsRouter.delete(
   async (req, res) => {
     try {
       const { projectId } = req.params;
-      await deleteProject(req.user!.uid, projectId);
+      await deleteProject(projectId);
 
       return res.status(200).json({
         message: "Project deleted successfully",
@@ -151,7 +176,7 @@ projectsRouter.get(
   async (req, res) => {
     try {
       const { projectId } = req.params;
-      const applications = await getProjectApplications(req.user!.uid, projectId);
+      const applications = await getProjectApplications(projectId);
       return res.status(200).json({ data: applications });
     } catch (error) {
       return res.status(500).json({
@@ -171,7 +196,6 @@ projectsRouter.put(
       const { projectId, applicationId } = req.params;
       const { status, notes } = req.body;
       await updateApplicationStatus(
-        req.user!.uid,
         projectId,
         applicationId,
         status,
@@ -198,7 +222,6 @@ projectsRouter.post(
       const { projectId } = req.params;
       const materialData = req.body;
       const materialId = await addOnboardingMaterial(
-        req.user!.uid,
         projectId,
         materialData
       );
@@ -222,7 +245,7 @@ projectsRouter.get(
   async (req, res) => {
     try {
       const { projectId } = req.params;
-      const materials = await getOnboardingMaterials(req.user!.uid, projectId);
+      const materials = await getOnboardingMaterials(projectId);
       return res.status(200).json({ data: materials });
     } catch (error) {
       return res.status(500).json({
@@ -242,7 +265,6 @@ projectsRouter.post(
       const { projectId } = req.params;
       const applicationData = req.body;
       const applicationId = await applyToProject(
-        req.user!.uid,
         projectId,
         applicationData
       );

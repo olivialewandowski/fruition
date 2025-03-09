@@ -148,6 +148,63 @@ export const getProjects = async (): Promise<Project[]> => {
   }
 };
 
+// Add this function to the frontend projectsService.ts
+export const getUserProjects = async (status: 'active' | 'archived' | 'applied' = 'active'): Promise<Project[]> => {
+  // In development, immediately return sample data based on status
+  if (IS_DEV) {
+    console.log(`Development mode: Getting ${status} projects`);
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error('Cannot get projects: No authenticated user');
+      return [];
+    }
+    
+    try {
+      // Get project IDs based on status
+      let projectIds: string[] = [];
+      
+      if (status === 'active') {
+        projectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'activeProjects', []);
+      } else if (status === 'archived') {
+        projectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'archivedProjects', []);
+      } else if (status === 'applied') {
+        projectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []);
+      }
+      
+      if (projectIds.length === 0) {
+        return [];
+      }
+      
+      // Return projects matching the IDs
+      return getSampleProjects()
+        .filter(project => projectIds.includes(project.id))
+        .map(project => ({
+          ...project
+        }));
+    } catch (error) {
+      console.error(`Error fetching ${status} projects from Firestore:`, error);
+      return [];
+    }
+  }
+
+  // Production API call logic
+  try {
+    const response = await axios.get(`${API_URL}/projects?status=${status}`, {
+      headers: getAuthHeaders()
+    });
+    
+    if (response.data.success || response.data.data) {
+      return response.data.data || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error(`Error fetching ${status} projects:`, error);
+    return [];
+  }
+};
+
 // Get saved projects from the API
 export const getSavedProjects = async (): Promise<Project[]> => {
   // In development, immediately return sample data

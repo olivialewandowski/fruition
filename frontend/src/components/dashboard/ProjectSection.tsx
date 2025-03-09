@@ -1,18 +1,27 @@
 import React from 'react';
-import ProjectCard from './ProjectCard';
+import DashboardProjectCard from './DashboardProjectCard';
 
-interface Project {
+interface ProjectWithId {
+  id?: string;
   title: string;
   description: string;
+  status?: string;
+  mentorId?: string;
+  keywords?: string[];
+  createdAt?: any;
 }
 
 interface ProjectSectionProps {
   title: string;
-  projects: Project[];
+  projects: ProjectWithId[];
   hideTitle?: boolean;
 }
 
-const ProjectSection: React.FC<ProjectSectionProps> = ({ title, projects, hideTitle = false }) => {
+const ProjectSection: React.FC<ProjectSectionProps> = ({ 
+  title, 
+  projects, 
+  hideTitle = false
+}) => {
   return (
     <div className="mb-10">
       {!hideTitle && (
@@ -22,7 +31,16 @@ const ProjectSection: React.FC<ProjectSectionProps> = ({ title, projects, hideTi
       )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         {projects.map((project, index) => (
-          <ProjectCard key={index} title={project.title} description={project.description} />
+          <DashboardProjectCard 
+            key={project.id || index} 
+            title={project.title} 
+            description={project.description}
+            id={project.id}
+            status={project.status}
+            mentorId={project.mentorId}
+            keywords={project.keywords}
+            createdAt={project.createdAt}
+          />
         ))}
       </div>
     </div>
