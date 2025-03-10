@@ -20,46 +20,74 @@ const MatchProjectsList = ({
 }: MatchProjectsListProps) => {
   const [isClient, setIsClient] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [isUndoInProgress, setIsUndoInProgress] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastUndoneProjectRef = useRef<string | null>(null);
 
   // Set isClient to true when component mounts on client
   useEffect(() => {
     setIsClient(true);
-    // Select the first project by default if available
-    if (projects && projects.length > 0) {
+    // Select the first project by default if available and no project was just undone
+    if (projects && projects.length > 0 && !lastUndoneProjectRef.current) {
       setSelectedProject(projects[0]);
     }
   }, [projects]);
 
-  // Handle project selection
-  const handleSelectProject = (project: Project) => {
-    if (selectedProject?.id === project.id) {
-      // If clicking the already selected project, deselect it
-      setSelectedProject(null);
-    } else {
-      // Otherwise, select the clicked project
-      setSelectedProject(project);
-      
-      // Scroll the selected project into view with a slight delay to allow animation
-      setTimeout(() => {
-        const selectedElement = document.getElementById(`project-${project.id}`);
+  // Effect to handle scrolling after undo
+  useEffect(() => {
+    if (isUndoInProgress && projects.length > 0) {
+      const newFirstProject = projects[0];
+      if (newFirstProject) {
+        setSelectedProject(newFirstProject);
+        const selectedElement = document.getElementById(`project-${newFirstProject.id}`);
         if (selectedElement && scrollContainerRef.current) {
           const containerRect = scrollContainerRef.current.getBoundingClientRect();
-          const elementRect = selectedElement.getBoundingClientRect();
-          
-          // Calculate the scroll position to center the element
-          const scrollTop = 
-            elementRect.top + 
-            scrollContainerRef.current.scrollTop - 
-            containerRect.top - 
-            (containerRect.height - elementRect.height) / 2;
-            
-          scrollContainerRef.current.scrollTo({
-            top: scrollTop,
-            behavior: 'smooth'
+          selectedElement.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'center'
           });
         }
-      }, 100);
+      }
+      setIsUndoInProgress(false);
+    }
+  }, [isUndoInProgress, projects]);
+
+  // Handle project selection and scrolling
+  const handleSelectProject = (project: Project) => {
+    if (selectedProject?.id === project.id) {
+      setSelectedProject(null);
+    } else {
+      setSelectedProject(project);
+      scrollToProject(project);
+    }
+  };
+
+  // Scroll to a specific project
+  const scrollToProject = (project: Project) => {
+    const selectedElement = document.getElementById(`project-${project.id}`);
+    if (selectedElement && scrollContainerRef.current) {
+      const containerRect = scrollContainerRef.current.getBoundingClientRect();
+      const elementRect = selectedElement.getBoundingClientRect();
+      
+      const scrollTop = 
+        elementRect.top + 
+        scrollContainerRef.current.scrollTop - 
+        containerRect.top - 
+        (containerRect.height - elementRect.height) / 2;
+        
+      scrollContainerRef.current.scrollTo({
+        top: scrollTop,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  // Handle undo action
+  const handleUndo = async () => {
+    if (onUndoAction) {
+      const currentFirstProjectId = projects[0]?.id || null;
+      setIsUndoInProgress(true);
+      await onUndoAction();
     }
   };
 
@@ -95,7 +123,7 @@ const MatchProjectsList = ({
           {onUndoAction && (
             <div className="mt-8 flex justify-center">
               <motion.button
-                onClick={onUndoAction}
+                onClick={handleUndo}
                 className="flex items-center justify-center bg-white text-purple-500 px-6 py-3 rounded-md hover:bg-purple-50 transition-colors border border-purple-200"
                 aria-label="Undo last action"
                 whileHover={{ scale: 1.05 }}
@@ -133,12 +161,10 @@ const MatchProjectsList = ({
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-6 pt-8"
         onScroll={() => {
-          // Force re-render of cards when scrolling to trigger animations
           const cards = document.querySelectorAll('.project-card-scroll');
           cards.forEach(card => {
             card.classList.remove('project-card-scroll');
-            // Type assertion to HTMLElement to access offsetWidth
-            void (card as HTMLElement).offsetWidth; // Trigger reflow
+            void (card as HTMLElement).offsetWidth;
             card.classList.add('project-card-scroll');
           });
         }}
@@ -184,7 +210,7 @@ const MatchProjectsList = ({
                   onSave={onSaveProject}
                   onApply={onApplyProject}
                   onDecline={onDeclineProject}
-                  onUndo={onUndoAction}
+                  onUndo={handleUndo}
                   showUndo={true}
                 />
               </motion.div>
