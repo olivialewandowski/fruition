@@ -1,4 +1,5 @@
 import { Project } from '@/types/project';
+import { motion } from 'framer-motion';
 
 interface MatchProjectCardProps {
   project: Project;
@@ -12,56 +13,50 @@ const MatchProjectCard = ({
   onSelect
 }: MatchProjectCardProps) => {
   return (
-    <div 
-      onClick={onSelect}
-      className={`
-        w-full bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden cursor-pointer
-        ${isSelected ? 'border-2 border-violet-500 shadow-md' : 'border border-gray-200'}
-      `}
-    >
-      <div className="p-4">
-        {/* Project title */}
-        <h2 className="text-lg font-bold text-gray-800 mb-1">{project.title}</h2>
-        
-        {/* Faculty and Department */}
-        <p className="text-xs text-violet-600 font-medium mb-2">
-          {project.faculty ? `${project.faculty}` : 'Research Organization'} 
-          {project.department && <span className="mx-1">•</span>}
-          {project.department && <span className="text-gray-600">{project.department}</span>}
-        </p>
-        
-        {/* Project description - truncated */}
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+    <div className="p-10 pt-14 h-full flex flex-col">
+      {/* Project title */}
+      <h2 className="text-5xl font-bold text-gray-800 mb-6 leading-tight">{project.title}</h2>
+      
+      {/* Faculty and Department */}
+      <p className="text-lg text-violet-600 font-medium mb-8">
+        {project.faculty ? `${project.faculty}` : 'Research Organization'} 
+        {project.department && <span className="mx-1">•</span>}
+        {project.department && <span className="text-gray-600">{project.department}</span>}
+      </p>
+      
+      {/* Project description - full text */}
+      <div className="mb-10 flex-grow">
+        <p className="text-xl text-gray-600 whitespace-pre-line leading-relaxed">
           {project.description || 'No description provided.'}
         </p>
-        
-        {/* Skills section - preview */}
-        <div className="flex flex-wrap gap-1 mb-1">
+      </div>
+      
+      {/* Duration and Commitment - horizontal layout like Connect */}
+      <div className="flex mb-10 text-gray-600">
+        <div className="mr-8">
+          <span className="font-semibold">Duration:</span> {project.duration || 'Not specified'}
+        </div>
+        <div>
+          <span className="font-semibold">Commitment:</span> {project.commitment || 'Not specified'}
+        </div>
+      </div>
+      
+      {/* Skills section */}
+      <div className="mb-6">
+        <h3 className="text-xl font-semibold text-gray-700 mb-4">Skills</h3>
+        <div className="flex flex-wrap gap-3">
           {project.skills && project.skills.length > 0 ? (
-            project.skills.slice(0, 2).map((skill, index) => (
+            project.skills.map((skill, index) => (
               <span 
                 key={`skill-${index}-${skill}`}
-                className="bg-violet-100 text-violet-800 px-2 py-0.5 rounded-full text-xs font-medium"
+                className="bg-violet-100 text-violet-800 px-4 py-2 rounded-full text-base font-medium"
               >
                 {skill}
               </span>
             ))
           ) : (
-            <span className="text-gray-500 italic text-xs">No specific skills listed</span>
+            <span className="text-gray-500 italic text-lg">No specific skills listed</span>
           )}
-          
-          {project.skills && project.skills.length > 2 && (
-            <span className="text-gray-500 text-xs font-medium">
-              +{project.skills.length - 2} more
-            </span>
-          )}
-        </div>
-        
-        {/* Click to view more */}
-        <div className="text-right">
-          <span className="text-xs text-violet-500 font-medium">
-            {isSelected ? 'Currently viewing' : 'Click to view details'}
-          </span>
         </div>
       </div>
     </div>
