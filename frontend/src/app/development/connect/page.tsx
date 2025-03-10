@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Project } from '@/types/project';
+import React, { useState, useEffect, useRef } from 'react';
+import { Project, ConnectProject, connectProjectToProject } from '@/types/project';
 import BaseLayout from '@/components/layout/BaseLayout';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
@@ -15,8 +15,8 @@ import {
   applyToProject, 
   saveProject, 
   getSavedProjects, 
-  getAppliedProjects,
-  declineProject,
+  getAppliedProjects, 
+  declineProject, 
   removeProject,
   undoLastAction,
   getSampleProjects
@@ -33,6 +33,10 @@ export default function ConnectPage() {
   const [activeTab, setActiveTab] = useState<ConnectTab>('discover');
   const { user, userData } = useAuth();
   const router = useRouter();
+  
+  // Keep track of undone projects for multiple undos
+  const undoneProjectsRef = useRef<string[]>([]);
+  const allProjectsRef = useRef<Project[]>([]);
 
   // Define the tabs for connect navigation
   const connectTabs = [
@@ -70,9 +74,14 @@ export default function ConnectPage() {
           getAppliedProjects()
         ]);
         
-        setProjects(projectsData);
-        setSavedProjects(savedProjectsData);
-        setAppliedProjects(appliedProjectsData);
+        // Convert ConnectProject objects to Project objects
+        const convertedProjects: Project[] = projectsData.map(p => connectProjectToProject(p));
+        const convertedSavedProjects: Project[] = savedProjectsData.map(p => connectProjectToProject(p));
+        const convertedAppliedProjects: Project[] = appliedProjectsData.map(p => connectProjectToProject(p));
+        
+        setProjects(convertedProjects);
+        setSavedProjects(convertedSavedProjects);
+        setAppliedProjects(convertedAppliedProjects);
       } catch (error) {
         console.error('Error fetching projects:', error);
         toast.error('Failed to load projects. Please try again later.');
@@ -87,19 +96,25 @@ export default function ConnectPage() {
   // Handle applying to a project
   const handleApplyProject = async (project: Project) => {
     try {
+      // Ensure project.id is defined
+      if (!project.id) {
+        toast.error('Project ID is missing');
+        return;
+      }
+      
       const success = await applyToProject(project.id);
       
       if (success) {
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
+        
         toast.success('Successfully applied to project!');
         
-        // Update the projects list
-        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        // Remove the project from the current list
+        setProjects(projects.filter(p => p.id !== project.id));
         
         // Add to applied projects
-        setAppliedProjects(prev => [
-          ...prev, 
-          { ...project, id: `applied_${project.id}` }
-        ]);
+        setAppliedProjects([...appliedProjects, project]);
       } else {
         toast.error('Failed to apply to project. Please try again.');
       }
@@ -112,19 +127,25 @@ export default function ConnectPage() {
   // Handle saving a project
   const handleSaveProject = async (project: Project) => {
     try {
+      // Ensure project.id is defined
+      if (!project.id) {
+        toast.error('Project ID is missing');
+        return;
+      }
+      
       const success = await saveProject(project.id);
       
       if (success) {
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
+        
         toast.success('Project saved!');
         
-        // Update the projects list
-        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        // Remove the project from the current list
+        setProjects(projects.filter(p => p.id !== project.id));
         
         // Add to saved projects
-        setSavedProjects(prev => [
-          ...prev, 
-          { ...project, id: `saved_${project.id}` }
-        ]);
+        setSavedProjects([...savedProjects, project]);
       } else {
         toast.error('Failed to save project. Please try again.');
       }
@@ -137,13 +158,20 @@ export default function ConnectPage() {
   // Handle declining a project
   const handleDeclineProject = async (project: Project) => {
     try {
+      // Ensure project.id is defined
+      if (!project.id) {
+        toast.error('Project ID is missing');
+        return;
+      }
+      
       const success = await declineProject(project.id);
       
       if (success) {
-        toast.success('Project declined');
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
         
-        // Update the projects list
-        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        // Remove the project from the current list
+        setProjects(projects.filter(p => p.id !== project.id));
       } else {
         toast.error('Failed to decline project. Please try again.');
       }
@@ -156,20 +184,29 @@ export default function ConnectPage() {
   // Handle removing a saved project
   const handleRemoveSavedProject = async (project: Project) => {
     try {
+      // Ensure project.id is defined
+      if (!project.id) {
+        toast.error('Project ID is missing');
+        return;
+      }
+      
       // Extract the original project ID
       const originalId = project.id.replace('saved_', '');
       const success = await removeProject(originalId);
       
       if (success) {
-        toast.success('Project removed from saved');
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
         
-        // Update the saved projects list
-        setSavedProjects(prev => prev.filter(p => p.id !== project.id));
+        toast.success('Project removed from saved list');
+        
+        // Remove from saved projects
+        setSavedProjects(savedProjects.filter(p => p.id !== project.id));
       } else {
         toast.error('Failed to remove project. Please try again.');
       }
     } catch (error) {
-      console.error('Error removing project:', error);
+      console.error('Error removing saved project:', error);
       toast.error('An error occurred while removing the project.');
     }
   };
@@ -189,27 +226,54 @@ export default function ConnectPage() {
           getAppliedProjects()
         ]);
         
-        // If we have an undone project ID, find that project in the sample data
-        // and add it to the top of the projects list
+        // Convert ConnectProject objects to Project objects
+        const convertedProjects: Project[] = projectsData.map(p => connectProjectToProject(p));
+        const convertedSavedProjects: Project[] = savedProjectsData.map(p => connectProjectToProject(p));
+        const convertedAppliedProjects: Project[] = appliedProjectsData.map(p => connectProjectToProject(p));
+        
+        // If we have an undone project ID, add it to our undone projects list
         if (result.undoneProjectId) {
-          // Get the sample projects to find the undone project
-          const sampleProjects = getSampleProjects();
-          const undoneProject = sampleProjects.find((p: Project) => p.id === result.undoneProjectId);
+          undoneProjectsRef.current.push(result.undoneProjectId);
           
-          if (undoneProject) {
-            // Add the undone project to the top of the list
-            setProjects([undoneProject, ...projectsData.filter(p => p.id !== result.undoneProjectId)]);
-          } else {
-            // If we can't find the undone project, just use the fetched projects
-            setProjects(projectsData);
+          // Store all available projects for future reference
+          const allProjects = [
+            ...convertedProjects,
+            ...convertedSavedProjects,
+            ...convertedAppliedProjects,
+            ...getSampleProjects().map(p => connectProjectToProject(p as ConnectProject))
+          ];
+          
+          // Remove duplicates
+          const uniqueProjects = Array.from(
+            new Map(allProjects.map(p => [p.id, p])).values()
+          );
+          
+          allProjectsRef.current = uniqueProjects;
+          
+          // Reorder projects to show undone projects in the correct order
+          // The most recently undone project should be at the top
+          const reorderedProjects = [...convertedProjects];
+          
+          // Add all undone projects to the beginning of the list in reverse order
+          // (most recent first)
+          for (let i = undoneProjectsRef.current.length - 1; i >= 0; i--) {
+            const undoneId = undoneProjectsRef.current[i];
+            const undoneProject = allProjectsRef.current.find(p => p.id === undoneId);
+            
+            if (undoneProject && !reorderedProjects.some(p => p.id === undoneId)) {
+              reorderedProjects.unshift(undoneProject);
+            }
           }
+          
+          // Update the projects list with the reordered list
+          setProjects(reorderedProjects);
         } else {
           // If no undone project ID, just use the fetched projects
-          setProjects(projectsData);
+          setProjects(convertedProjects);
         }
         
-        setSavedProjects(savedProjectsData);
-        setAppliedProjects(appliedProjectsData);
+        setSavedProjects(convertedSavedProjects);
+        setAppliedProjects(convertedAppliedProjects);
       } else {
         toast.error(result.message || 'Failed to undo action. Please try again.');
       }

@@ -97,6 +97,104 @@ const storeUserDataInFirestore = async (userId: string, field: string, data: any
   }
 };
 
+// Store a user action in the action history
+const storeUserAction = async (userId: string, action: 'save' | 'apply' | 'decline', projectId: string): Promise<void> => {
+  try {
+    // Check if Firestore is initialized
+    if (!db) {
+      console.error('Firestore not initialized');
+      return;
+    }
+    
+    // Get the current action history
+    const userDocRef = getUserDataRef(userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    // Create action object with timestamp
+    // Use Date.now() instead of serverTimestamp() since serverTimestamp() is not supported in arrays
+    const newAction = {
+      action,
+      projectId,
+      timestamp: Date.now() // Use client-side timestamp instead of serverTimestamp()
+    };
+    
+    if (userDoc.exists() && userDoc.data().actionHistory) {
+      // Update existing action history
+      const actionHistory = userDoc.data().actionHistory || [];
+      await updateDoc(userDocRef, {
+        actionHistory: [...actionHistory, newAction],
+        updatedAt: serverTimestamp() // This is fine as it's not in an array
+      });
+    } else {
+      // Create new action history
+      await setDoc(userDocRef, {
+        userId,
+        actionHistory: [newAction],
+        createdAt: serverTimestamp(), // This is fine as it's not in an array
+        updatedAt: serverTimestamp() // This is fine as it's not in an array
+      }, { merge: true });
+    }
+  } catch (error) {
+    console.error(`Error storing user action in Firestore:`, error);
+    throw error;
+  }
+};
+
+// Get the user's action history
+const getUserActionHistory = async (userId: string): Promise<Array<{action: 'save' | 'apply' | 'decline', projectId: string, timestamp: number}>> => {
+  try {
+    // Check if Firestore is initialized
+    if (!db) {
+      console.error('Firestore not initialized');
+      return [];
+    }
+    
+    const userDocRef = getUserDataRef(userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (userDoc.exists() && userDoc.data().actionHistory) {
+      return userDoc.data().actionHistory || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error(`Error getting user action history from Firestore:`, error);
+    return [];
+  }
+};
+
+// Remove the last action from the action history
+const removeLastActionFromHistory = async (userId: string): Promise<void> => {
+  try {
+    // Check if Firestore is initialized
+    if (!db) {
+      console.error('Firestore not initialized');
+      return;
+    }
+    
+    // Get the current action history
+    const userDocRef = getUserDataRef(userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (userDoc.exists() && userDoc.data().actionHistory) {
+      const actionHistory = userDoc.data().actionHistory || [];
+      
+      if (actionHistory.length > 0) {
+        // Remove the last action
+        const updatedHistory = actionHistory.slice(0, -1);
+        
+        await updateDoc(userDocRef, {
+          actionHistory: updatedHistory,
+          updatedAt: serverTimestamp() // This is fine as it's not in an array
+        });
+      }
+    }
+  } catch (error) {
+    console.error(`Error removing last action from history in Firestore:`, error);
+    throw error;
+  }
+};
+
 // Get projects from the API
 export const getProjects = async (): Promise<ConnectProject[]> => {
   // In development, immediately return sample data
@@ -321,59 +419,6 @@ export const getAppliedProjects = async (): Promise<ConnectProject[]> => {
   }
 };
 
-// Apply to a project
-export const applyToProject = async (projectId: string): Promise<boolean> => {
-  // In development, immediately return success
-  if (IS_DEV) {
-    console.log(`Development mode: Simulating apply to project ${projectId}`);
-    
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      console.error('Cannot apply to project: No authenticated user');
-      return false;
-    }
-    
-    try {
-      // Get current applied projects
-      const appliedProjectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []);
-      
-      // Only add if not already in the list
-      if (!appliedProjectIds.includes(projectId)) {
-        const updatedAppliedProjects = [...appliedProjectIds, projectId];
-        
-        // Store in Firestore
-        await storeUserDataInFirestore(currentUser.uid, 'appliedProjects', updatedAppliedProjects);
-        
-        // Store timestamp for this action
-        const timestamp = serverTimestamp();
-        const appliedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
-          currentUser.uid, 
-          'appliedProjectsTimestamps', 
-          {}
-        );
-        appliedTimestamps[projectId] = timestamp;
-        await storeUserDataInFirestore(currentUser.uid, 'appliedProjectsTimestamps', appliedTimestamps);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error(`Error applying to project ${projectId}:`, error);
-      return false;
-    }
-  }
-
-  try {
-    const response = await axios.post(`${API_URL}/connect/apply/${projectId}`, {}, {
-      headers: getAuthHeaders()
-    });
-    
-    return response.data.success || false;
-  } catch (error) {
-    console.error(`Error applying to project ${projectId}:`, error);
-    return false;
-  }
-};
-
 // Save a project
 export const saveProject = async (projectId: string): Promise<boolean> => {
   // In development, immediately return success
@@ -406,6 +451,9 @@ export const saveProject = async (projectId: string): Promise<boolean> => {
         );
         savedTimestamps[projectId] = timestamp;
         await storeUserDataInFirestore(currentUser.uid, 'savedProjectsTimestamps', savedTimestamps);
+        
+        // Add to action history
+        await storeUserAction(currentUser.uid, 'save', projectId);
       }
       
       return true;
@@ -423,6 +471,62 @@ export const saveProject = async (projectId: string): Promise<boolean> => {
     return response.data.success || false;
   } catch (error) {
     console.error(`Error saving project ${projectId}:`, error);
+    return false;
+  }
+};
+
+// Apply to a project
+export const applyToProject = async (projectId: string): Promise<boolean> => {
+  // In development, immediately return success
+  if (IS_DEV) {
+    console.log(`Development mode: Simulating apply to project ${projectId}`);
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error('Cannot apply to project: No authenticated user');
+      return false;
+    }
+    
+    try {
+      // Get current applied projects
+      const appliedProjectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []);
+      
+      // Only add if not already in the list
+      if (!appliedProjectIds.includes(projectId)) {
+        const updatedAppliedProjects = [...appliedProjectIds, projectId];
+        
+        // Store in Firestore
+        await storeUserDataInFirestore(currentUser.uid, 'appliedProjects', updatedAppliedProjects);
+        
+        // Store timestamp for this action
+        const timestamp = serverTimestamp();
+        const appliedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
+          currentUser.uid, 
+          'appliedProjectsTimestamps', 
+          {}
+        );
+        appliedTimestamps[projectId] = timestamp;
+        await storeUserDataInFirestore(currentUser.uid, 'appliedProjectsTimestamps', appliedTimestamps);
+        
+        // Add to action history
+        await storeUserAction(currentUser.uid, 'apply', projectId);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`Error applying to project ${projectId}:`, error);
+      return false;
+    }
+  }
+
+  try {
+    const response = await axios.post(`${API_URL}/connect/apply/${projectId}`, {}, {
+      headers: getAuthHeaders()
+    });
+    
+    return response.data.success || false;
+  } catch (error) {
+    console.error(`Error applying to project ${projectId}:`, error);
     return false;
   }
 };
@@ -459,6 +563,9 @@ export const declineProject = async (projectId: string): Promise<boolean> => {
         );
         declinedTimestamps[projectId] = timestamp;
         await storeUserDataInFirestore(currentUser.uid, 'declinedProjectsTimestamps', declinedTimestamps);
+        
+        // Add to action history
+        await storeUserAction(currentUser.uid, 'decline', projectId);
       }
       
       return true;
@@ -626,78 +733,39 @@ export const undoLastAction = async (): Promise<{ success: boolean; message: str
     }
     
     try {
-      // Instead of querying userActions collection which might not exist,
-      // we'll use a simpler approach for development mode
-      
-      // Get all user action lists
-      const [savedProjectIds, appliedProjectIds, declinedProjectIds] = await Promise.all([
-        getUserDataFromFirestore<string[]>(currentUser.uid, 'savedProjects', []),
-        getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []),
-        getUserDataFromFirestore<string[]>(currentUser.uid, 'declinedProjects', [])
-      ]);
-      
-      // Get timestamps for the most recent actions (if they exist)
-      const [savedTimestamps, appliedTimestamps, declinedTimestamps] = await Promise.all([
-        getUserDataFromFirestore<Record<string, TimestampValue>>(currentUser.uid, 'savedProjectsTimestamps', {}),
-        getUserDataFromFirestore<Record<string, TimestampValue>>(currentUser.uid, 'appliedProjectsTimestamps', {}),
-        getUserDataFromFirestore<Record<string, TimestampValue>>(currentUser.uid, 'declinedProjectsTimestamps', {})
-      ]);
-      
-      // Since Firestore timestamps might not be directly comparable as dates,
-      // We'll just take the last item in each array as the most recent
-      
-      // Create a list of actions based on the last item in each array
-      const actions: Array<{type: 'save' | 'apply' | 'decline', projectId: string, index: number}> = [];
-      
-      // Add saved projects
-      if (savedProjectIds.length > 0) {
-        actions.push({
-          type: 'save',
-          projectId: savedProjectIds[savedProjectIds.length - 1],
-          index: savedProjectIds.length - 1
-        });
-      }
-      
-      // Add applied projects
-      if (appliedProjectIds.length > 0) {
-        actions.push({
-          type: 'apply',
-          projectId: appliedProjectIds[appliedProjectIds.length - 1],
-          index: appliedProjectIds.length - 1
-        });
-      }
-      
-      // Add declined projects
-      if (declinedProjectIds.length > 0) {
-        actions.push({
-          type: 'decline',
-          projectId: declinedProjectIds[declinedProjectIds.length - 1],
-          index: declinedProjectIds.length - 1
-        });
-      }
+      // Get the user's action history
+      const actionHistory = await getUserActionHistory(currentUser.uid);
       
       // If no actions to undo
-      if (actions.length === 0) {
+      if (actionHistory.length === 0) {
         return { success: false, message: 'No actions to undo' };
       }
       
-      // Sort actions by index (higher index means more recent)
-      actions.sort((a, b) => b.index - a.index);
-      
       // Get the most recent action
-      const mostRecentAction = actions[0];
+      const mostRecentAction = actionHistory[actionHistory.length - 1];
       
       // Undo the most recent action based on its type
-      switch (mostRecentAction.type) {
+      switch (mostRecentAction.action) {
         case 'save':
+          // Get current saved projects
+          const savedProjectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'savedProjects', []);
+          
           // Remove from saved projects
           const updatedSavedProjects = savedProjectIds.filter(id => id !== mostRecentAction.projectId);
           await storeUserDataInFirestore(currentUser.uid, 'savedProjects', updatedSavedProjects);
           
           // Remove from timestamps
+          const savedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
+            currentUser.uid, 
+            'savedProjectsTimestamps', 
+            {}
+          );
           const updatedSavedTimestamps = { ...savedTimestamps };
           delete updatedSavedTimestamps[mostRecentAction.projectId];
           await storeUserDataInFirestore(currentUser.uid, 'savedProjectsTimestamps', updatedSavedTimestamps);
+          
+          // Remove from action history
+          await removeLastActionFromHistory(currentUser.uid);
           
           console.log(`Undid save action for project ${mostRecentAction.projectId}`);
           return { 
@@ -707,14 +775,25 @@ export const undoLastAction = async (): Promise<{ success: boolean; message: str
           };
           
         case 'apply':
+          // Get current applied projects
+          const appliedProjectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []);
+          
           // Remove from applied projects
           const updatedAppliedProjects = appliedProjectIds.filter(id => id !== mostRecentAction.projectId);
           await storeUserDataInFirestore(currentUser.uid, 'appliedProjects', updatedAppliedProjects);
           
           // Remove from timestamps
+          const appliedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
+            currentUser.uid, 
+            'appliedProjectsTimestamps', 
+            {}
+          );
           const updatedAppliedTimestamps = { ...appliedTimestamps };
           delete updatedAppliedTimestamps[mostRecentAction.projectId];
           await storeUserDataInFirestore(currentUser.uid, 'appliedProjectsTimestamps', updatedAppliedTimestamps);
+          
+          // Remove from action history
+          await removeLastActionFromHistory(currentUser.uid);
           
           console.log(`Undid apply action for project ${mostRecentAction.projectId}`);
           return { 
@@ -724,14 +803,25 @@ export const undoLastAction = async (): Promise<{ success: boolean; message: str
           };
           
         case 'decline':
+          // Get current declined projects
+          const declinedProjectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'declinedProjects', []);
+          
           // Remove from declined projects
           const updatedDeclinedProjects = declinedProjectIds.filter(id => id !== mostRecentAction.projectId);
           await storeUserDataInFirestore(currentUser.uid, 'declinedProjects', updatedDeclinedProjects);
           
           // Remove from timestamps
+          const declinedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
+            currentUser.uid, 
+            'declinedProjectsTimestamps', 
+            {}
+          );
           const updatedDeclinedTimestamps = { ...declinedTimestamps };
           delete updatedDeclinedTimestamps[mostRecentAction.projectId];
           await storeUserDataInFirestore(currentUser.uid, 'declinedProjectsTimestamps', updatedDeclinedTimestamps);
+          
+          // Remove from action history
+          await removeLastActionFromHistory(currentUser.uid);
           
           console.log(`Undid decline action for project ${mostRecentAction.projectId}`);
           return { 
