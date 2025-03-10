@@ -128,24 +128,6 @@ const MatchProjectsList = ({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Undo button (if needed) */}
-      {onUndoAction && (
-        <div className="flex justify-end px-6 py-3">
-          <motion.button
-            onClick={onUndoAction}
-            className="flex items-center justify-center text-violet-600 hover:text-violet-800 transition-colors"
-            aria-label="Undo last action"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
-            <span className="text-sm font-medium">Undo Last Action</span>
-          </motion.button>
-        </div>
-      )}
-      
       {/* Scrollable project cards section */}
       <div 
         ref={scrollContainerRef}
@@ -202,6 +184,8 @@ const MatchProjectsList = ({
                   onSave={onSaveProject}
                   onApply={onApplyProject}
                   onDecline={onDeclineProject}
+                  onUndo={onUndoAction}
+                  showUndo={true}
                 />
               </motion.div>
             ))}
