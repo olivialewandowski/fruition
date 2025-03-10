@@ -77,7 +77,7 @@ const ProjectCardWithScroll = ({
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={cardVariants}
-      className={`mb-12 ${isSelected ? 'z-10' : 'z-0'} relative min-h-[600px] w-full max-w-4xl mx-auto`}
+      className={`mb-12 ${isSelected ? 'z-10' : 'z-0'} relative min-h-[700px] w-full max-w-5xl mx-auto`}
       whileHover={{ 
         scale: 1.03,
         y: -5,
@@ -95,7 +95,7 @@ const ProjectCardWithScroll = ({
         className={`
           bg-white rounded-xl overflow-hidden h-full flex flex-col
           ${isSelected ? 'shadow-xl border-2 border-violet-500' : 'shadow-md border border-gray-200'}
-          transition-all duration-300
+          transition-all duration-300 pt-16
         `}
       >
         {/* Undo button in top left */}
@@ -105,7 +105,7 @@ const ProjectCardWithScroll = ({
               e.stopPropagation();
               onUndo();
             }}
-            className="absolute top-6 left-6 flex items-center justify-center text-violet-600 hover:text-violet-800 transition-colors"
+            className="absolute top-8 left-8 flex items-center justify-center text-violet-600 hover:text-violet-800 transition-colors"
             aria-label="Undo last action"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -115,7 +115,7 @@ const ProjectCardWithScroll = ({
           </motion.button>
         )}
 
-        <div onClick={onSelect} className="flex-grow">
+        <div onClick={onSelect} className="flex-grow px-12">
           <MatchProjectCard
             project={project}
             isSelected={isSelected}
