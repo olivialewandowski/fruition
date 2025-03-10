@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Project } from '@/types/project';
 import MatchProjectCard from './MatchProjectCard';
 import { useState } from 'react';
+import { XMarkIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 
 interface ProjectCardWithScrollProps {
   project: Project;
@@ -10,6 +11,8 @@ interface ProjectCardWithScrollProps {
   onSave: (project: Project) => void;
   onApply: (project: Project) => void;
   onDecline: (project: Project) => void;
+  onUndo?: () => void;
+  showUndo?: boolean;
 }
 
 const ProjectCardWithScroll = ({ 
@@ -18,31 +21,31 @@ const ProjectCardWithScroll = ({
   onSelect,
   onSave,
   onApply,
-  onDecline
+  onDecline,
+  onUndo,
+  showUndo = false
 }: ProjectCardWithScrollProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
   // Define animation variants with more dramatic effects
   const cardVariants = {
     hidden: { 
-      scale: 0.8, 
-      opacity: 0.3,
-      y: 60,
-      rotate: -2,
-      filter: "blur(4px)"
+      scale: 0.7, 
+      opacity: 0,
+      y: 100,
+      filter: "blur(8px)"
     },
     visible: { 
       scale: 1, 
       opacity: 1,
       y: 0,
-      rotate: 0,
       filter: "blur(0px)",
       transition: { 
         type: "spring",
-        stiffness: 80,
-        damping: 12,
-        mass: 1.2,
-        duration: 0.7
+        stiffness: 70,
+        damping: 10,
+        mass: 1.5,
+        duration: 0.9
       }
     }
   };
@@ -51,8 +54,8 @@ const ProjectCardWithScroll = ({
   const buttonContainerVariants = {
     hidden: {
       opacity: 0,
-      y: 20,
-      scale: 0.95
+      y: 30,
+      scale: 0.9
     },
     visible: {
       opacity: 1,
@@ -62,8 +65,8 @@ const ProjectCardWithScroll = ({
         type: "spring",
         stiffness: 400,
         damping: 20,
-        duration: 0.4,
-        delay: 0.1
+        duration: 0.5,
+        delay: 0.2
       }
     }
   };
@@ -72,7 +75,7 @@ const ProjectCardWithScroll = ({
     <motion.div
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: false, amount: 0.15 }}
+      viewport={{ once: true, margin: "-100px" }}
       variants={cardVariants}
       className={`mb-12 ${isSelected ? 'z-10' : 'z-0'} relative min-h-[600px] w-full max-w-4xl mx-auto`}
       whileHover={{ 
@@ -95,6 +98,23 @@ const ProjectCardWithScroll = ({
           transition-all duration-300
         `}
       >
+        {/* Undo button in top left */}
+        {showUndo && onUndo && (
+          <motion.button
+            onClick={(e) => {
+              e.stopPropagation();
+              onUndo();
+            }}
+            className="absolute top-6 left-6 flex items-center justify-center text-violet-600 hover:text-violet-800 transition-colors"
+            aria-label="Undo last action"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <ArrowUturnLeftIcon className="h-5 w-5 mr-2" />
+            <span className="font-medium">Undo</span>
+          </motion.button>
+        )}
+
         <div onClick={onSelect} className="flex-grow">
           <MatchProjectCard
             project={project}
@@ -155,6 +175,7 @@ const ProjectCardWithScroll = ({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
+            <XMarkIcon className="w-5 h-5 mr-2" />
             <span>Decline</span>
           </motion.button>
         </motion.div>

@@ -36,7 +36,7 @@ const NavItem: React.FC<NavItemProps> = ({ href, icon, label, isActive, isCollap
     <Link href={href} className="w-full">
       <div className={`
         flex items-center px-4 py-3 rounded-lg transition-all duration-200
-        ${isActive ? 'bg-violet-100 text-violet-900' : 'hover:bg-purple-50 text-gray-700'}
+        ${isActive ? 'bg-gray-100 text-violet-700' : 'hover:bg-gray-50 text-gray-700'}
         ${isCollapsed && !isMobile ? 'justify-center' : 'gap-3'}
       `}>
         <div className="w-6 h-6 min-w-[1.5rem] flex items-center justify-center">
