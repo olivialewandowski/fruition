@@ -174,7 +174,7 @@ export function validateDepartment(departmentData: DocumentData): {
   const errors: string[] = [];
 
   // Required fields
-  const requiredFields = ["name", "universityId"];
+  const requiredFields = ["name"];
   for (const field of requiredFields) {
     if (!departmentData[field]) {
       errors.push(`Missing required field: ${field}`);
@@ -182,8 +182,10 @@ export function validateDepartment(departmentData: DocumentData): {
   }
 
   // Name length
-  if (departmentData.name && (departmentData.name.length < 2 || departmentData.name.length > 100)) {
-    errors.push("Name must be between 2 and 100 characters");
+  if (departmentData.name !== undefined) {
+    if (departmentData.name === "" || departmentData.name.length < 2 || departmentData.name.length > 100) {
+      errors.push("Name must be between 2 and 100 characters");
+    }
   }
 
   return {
@@ -204,7 +206,7 @@ export function validateUniversity(universityData: DocumentData): {
   const errors: string[] = [];
 
   // Required fields
-  const requiredFields = ["name", "country", "state"];
+  const requiredFields = ["name"];
   for (const field of requiredFields) {
     if (!universityData[field]) {
       errors.push(`Missing required field: ${field}`);
@@ -212,8 +214,10 @@ export function validateUniversity(universityData: DocumentData): {
   }
 
   // Name length
-  if (universityData.name && (universityData.name.length < 2 || universityData.name.length > 100)) {
-    errors.push("Name must be between 2 and 100 characters");
+  if (universityData.name !== undefined) {
+    if (universityData.name === "" || universityData.name.length < 2 || universityData.name.length > 100) {
+      errors.push("Name must be between 2 and 100 characters");
+    }
   }
 
   return {

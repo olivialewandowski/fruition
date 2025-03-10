@@ -6,8 +6,24 @@ import {
 } from "../types";
 import { Timestamp } from "firebase-admin/firestore";
 
+// Update the type to include applications and all position fields
+type PositionWithApplications = PositionWithId & {
+  applications?: Array<{
+    id: string;
+    studentId?: string;
+    status?: string;
+    submittedAt?: Timestamp;
+    [key: string]: any; // Allow for additional fields
+  }>;
+  title?: string;
+  description?: string;
+  isOpen?: boolean;
+  projectId?: string;
+  [key: string]: any; // Allow for additional fields
+};
+
 type ProjectWithPositions = ProjectWithId & {
-  positions: PositionWithId[]
+  positions: PositionWithApplications[]
 };
 
 /**
@@ -26,8 +42,25 @@ export async function getAllActiveProjectsWithPositions(): Promise<ProjectWithPo
 
       // Get positions for this project
       const positionsSnapshot = await doc.ref.collection("positions").get();
-      const positions = positionsSnapshot.docs.map(
-        (posDoc) => ({ id: posDoc.id, ...posDoc.data() }) as PositionWithId
+      
+      // Get positions with applications
+      const positions = await Promise.all(
+        positionsSnapshot.docs.map(async (posDoc) => {
+          const position = { id: posDoc.id, ...posDoc.data() } as PositionWithId;
+          
+          // Get applications for this position
+          const applicationsSnapshot = await posDoc.ref.collection("applications").get();
+          const applications = applicationsSnapshot.docs.map(appDoc => ({
+            id: appDoc.id,
+            ...appDoc.data()
+          }));
+          
+          // Add applications to the position
+          return { 
+            ...position, 
+            applications: applications.length > 0 ? applications : [] 
+          };
+        })
       );
 
       return { ...project, positions };
@@ -315,12 +348,8 @@ export async function getUniversityStats(universityId: string): Promise<{
   studentCount: number;
   facultyCount: number;
   projectCount: number;
-  applicationCount: number;
-  departmentStats: Record<string, {
-    name: string;
-    projectCount: number;
-    facultyCount: number;
-  }>;
+  departmentCount: number;
+  activeProjectCount: number;
 }> {
   // Get university document
   const universityDoc = await db.collection("universities").doc(universityId).get();
@@ -340,44 +369,27 @@ export async function getUniversityStats(universityId: string): Promise<{
 
   const projectCount = projectsSnapshot.size;
 
+  // Get active projects count
+  const activeProjectsSnapshot = await db.collection("projects")
+    .where("universityId", "==", universityId)
+    .where("isActive", "==", true)
+    .get();
+
+  const activeProjectCount = activeProjectsSnapshot.size;
+
   // Get department stats
   const departmentsSnapshot = await db.collection("universities")
     .doc(universityId)
     .collection("departments")
     .get();
 
-  const departmentStats: Record<string, {
-    name: string;
-    projectCount: number;
-    facultyCount: number;
-  }> = {};
-
-  departmentsSnapshot.docs.forEach((doc) => {
-    const data = doc.data();
-    departmentStats[doc.id] = {
-      name: data.name,
-      projectCount: data.projectCount || 0,
-      facultyCount: data.facultyCount || 0,
-    };
-  });
-
-  // Count all applications
-  let applicationCount = 0;
-
-  for (const projectDoc of projectsSnapshot.docs) {
-    const positionsSnapshot = await projectDoc.ref.collection("positions").get();
-
-    for (const positionDoc of positionsSnapshot.docs) {
-      const applicationsSnapshot = await positionDoc.ref.collection("applications").get();
-      applicationCount += applicationsSnapshot.size;
-    }
-  }
+  const departmentCount = departmentsSnapshot.size;
 
   return {
     studentCount,
     facultyCount,
     projectCount,
-    applicationCount,
-    departmentStats,
+    departmentCount,
+    activeProjectCount,
   };
 }
