@@ -16,7 +16,7 @@ const ProfileForm: React.FC = () => {
     firstName: '',
     lastName: '',
     email: '',
-    institution: '',
+    university: '',
     role: '',
     // Role-specific fields
     department: '',
@@ -40,9 +40,10 @@ const ProfileForm: React.FC = () => {
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
+          const data = docSnap.data();
           setFormData(prevData => ({
             ...prevData,
-            ...docSnap.data()
+            ...data
           }));
         }
       } catch (err) {
@@ -197,10 +198,14 @@ const ProfileForm: React.FC = () => {
     try {
       if (!auth.currentUser) throw new Error('No authenticated user');
 
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+      // Create an update object
+      const updateObj = {
         ...formData,
         updatedAt: new Date().toISOString()
-      });
+      };
+
+      // Update user profile in Firestore
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), updateObj);
 
       router.push('/development/dashboard');
     } catch (err) {
@@ -243,11 +248,11 @@ const ProfileForm: React.FC = () => {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Institution</label>
+        <label className="text-sm font-medium">University</label>
         <input
           type="text"
-          value={formData.institution}
-          onChange={(e) => setFormData({...formData, institution: e.target.value})}
+          value={formData.university}
+          onChange={(e) => setFormData({...formData, university: e.target.value})}
           className="px-4 py-2 rounded-3xl border border-solid border-zinc-300 bg-zinc-100"
         />
       </div>

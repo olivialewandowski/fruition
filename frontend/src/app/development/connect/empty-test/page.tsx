@@ -188,9 +188,9 @@ export default function EmptyConnectTestPage() {
     }
   };
 
-  // Handle tab change
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId as ConnectTab);
+  // Handle tab change with the correct function signature
+  const handleTabChange = (tab: ConnectTab) => {
+    setActiveTab(tab);
   };
 
   return (
@@ -204,7 +204,7 @@ export default function EmptyConnectTestPage() {
             
             <ConnectNavigation 
               activeTab={activeTab} 
-              onTabChange={setActiveTab} 
+              onTabChange={handleTabChange}
               savedCount={savedProjects.length}
               appliedCount={appliedProjects.length}
             />

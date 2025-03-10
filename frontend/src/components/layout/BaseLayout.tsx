@@ -13,7 +13,7 @@ interface UserData {
   firstName: string;
   lastName: string;
   role: 'student' | 'faculty' | 'admin' | 'user';
-  institution?: string;
+  university?: string; // Changed from institution to university
   createdAt?: string;
   profileCompleted?: boolean;
 }
@@ -47,7 +47,7 @@ function useProfileRedirection(
     
     // Check if profile is incomplete
     const hasIncompleteProfile = userData.profileCompleted === false || 
-      (!userData.profileCompleted && (!userData.role || !userData.firstName || !userData.lastName || !userData.institution));
+      (!userData.profileCompleted && (!userData.role || !userData.firstName || !userData.lastName || !userData.university));
     
     if (hasIncompleteProfile) {
       console.log('Redirecting to profile completion page. User data:', {
@@ -76,7 +76,7 @@ function useProfileRedirection(
     needsRedirection: !!(user && userData && 
       user.providerData?.some(provider => provider && provider.providerId === 'google.com') && 
       (userData.profileCompleted === false || 
-       (!userData.profileCompleted && (!userData.role || !userData.firstName || !userData.lastName || !userData.institution))) && 
+       (!userData.profileCompleted && (!userData.role || !userData.firstName || !userData.lastName || !userData.university))) && 
       !pathname?.includes('/complete-profile') && 
       !loading)
   };

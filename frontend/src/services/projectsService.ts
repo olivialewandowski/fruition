@@ -1,4 +1,4 @@
-import { Project } from '@/types/project';
+import { ConnectProject } from '@/types/project';
 import axios from 'axios';
 import { auth, db } from '@/config/firebase';
 import { 
@@ -12,7 +12,10 @@ import {
   getDocs,
   orderBy,
   limit,
-  addDoc
+  addDoc, 
+  serverTimestamp,
+  Timestamp,
+  FieldValue
 } from 'firebase/firestore';
 import { getCurrentUser, isAuthenticated } from '@/services/authService';
 
@@ -34,6 +37,9 @@ const getAuthHeaders = () => {
 const getUserDataRef = (userId: string) => {
   return doc(db, 'userData', userId);
 };
+
+// Updated type to allow for Firestore timestamp values
+type TimestampValue = string | Timestamp | FieldValue;
 
 // Get user data from Firestore
 const getUserDataFromFirestore = async <T>(userId: string, field: string, defaultValue: T): Promise<T> => {
@@ -74,15 +80,15 @@ const storeUserDataInFirestore = async (userId: string, field: string, data: any
       // Update existing document
       await updateDoc(userDocRef, {
         [field]: data,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
     } else {
       // Create new document
       await setDoc(userDocRef, {
         userId,
         [field]: data,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
     }
   } catch (error) {
@@ -92,7 +98,7 @@ const storeUserDataInFirestore = async (userId: string, field: string, data: any
 };
 
 // Get projects from the API
-export const getProjects = async (): Promise<Project[]> => {
+export const getProjects = async (): Promise<ConnectProject[]> => {
   // In development, immediately return sample data
   if (IS_DEV) {
     console.log('Development mode: Using sample projects data');
@@ -149,7 +155,7 @@ export const getProjects = async (): Promise<Project[]> => {
 };
 
 // Add this function to the frontend projectsService.ts
-export const getUserProjects = async (status: 'active' | 'archived' | 'applied' = 'active'): Promise<Project[]> => {
+export const getUserProjects = async (status: 'active' | 'archived' | 'applied' = 'active'): Promise<ConnectProject[]> => {
   // In development, immediately return sample data based on status
   if (IS_DEV) {
     console.log(`Development mode: Getting ${status} projects`);
@@ -206,7 +212,7 @@ export const getUserProjects = async (status: 'active' | 'archived' | 'applied' 
 };
 
 // Get saved projects from the API
-export const getSavedProjects = async (): Promise<Project[]> => {
+export const getSavedProjects = async (): Promise<ConnectProject[]> => {
   // In development, immediately return sample data
   if (IS_DEV) {
     console.log('Development mode: Using sample saved projects data');
@@ -261,7 +267,7 @@ export const getSavedProjects = async (): Promise<Project[]> => {
 };
 
 // Get applied projects from the API
-export const getAppliedProjects = async (): Promise<Project[]> => {
+export const getAppliedProjects = async (): Promise<ConnectProject[]> => {
   // In development, immediately return sample data
   if (IS_DEV) {
     console.log('Development mode: Using sample applied projects data');
@@ -339,8 +345,8 @@ export const applyToProject = async (projectId: string): Promise<boolean> => {
         await storeUserDataInFirestore(currentUser.uid, 'appliedProjects', updatedAppliedProjects);
         
         // Store timestamp for this action
-        const timestamp = new Date().toISOString();
-        const appliedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+        const timestamp = serverTimestamp();
+        const appliedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
           currentUser.uid, 
           'appliedProjectsTimestamps', 
           {}
@@ -392,8 +398,8 @@ export const saveProject = async (projectId: string): Promise<boolean> => {
         await storeUserDataInFirestore(currentUser.uid, 'savedProjects', updatedSavedProjects);
         
         // Store timestamp for this action
-        const timestamp = new Date().toISOString();
-        const savedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+        const timestamp = serverTimestamp();
+        const savedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
           currentUser.uid, 
           'savedProjectsTimestamps', 
           {}
@@ -445,8 +451,8 @@ export const declineProject = async (projectId: string): Promise<boolean> => {
         await storeUserDataInFirestore(currentUser.uid, 'declinedProjects', updatedDeclinedProjects);
         
         // Store timestamp for this action
-        const timestamp = new Date().toISOString();
-        const declinedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+        const timestamp = serverTimestamp();
+        const declinedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
           currentUser.uid, 
           'declinedProjectsTimestamps', 
           {}
@@ -498,7 +504,7 @@ export const removeProject = async (projectId: string): Promise<boolean> => {
         await storeUserDataInFirestore(currentUser.uid, 'savedProjects', updatedSavedProjects);
         
         // Remove from timestamps
-        const savedTimestamps = await getUserDataFromFirestore<Record<string, string>>(
+        const savedTimestamps = await getUserDataFromFirestore<Record<string, TimestampValue>>(
           currentUser.uid, 
           'savedProjectsTimestamps', 
           {}
@@ -527,13 +533,13 @@ export const removeProject = async (projectId: string): Promise<boolean> => {
 };
 
 // For testing: Return empty projects
-export const getEmptyProjects = async (): Promise<Project[]> => {
+export const getEmptyProjects = async (): Promise<ConnectProject[]> => {
   console.log('Development mode: Testing with empty projects');
   return [];
 };
 
 // Sample projects data for fallback
-export const getSampleProjects = (): Project[] => {
+export const getSampleProjects = (): ConnectProject[] => {
   return [
     {
       id: '1',
@@ -598,7 +604,7 @@ export const purgeUserData = async (userId: string): Promise<void> => {
       savedProjects: [],
       appliedProjects: [],
       declinedProjects: [],
-      updatedAt: new Date().toISOString()
+      updatedAt: serverTimestamp()
     });
     
     console.log(`Purged all data for user: ${userId} in Firestore`);
@@ -632,44 +638,41 @@ export const undoLastAction = async (): Promise<{ success: boolean; message: str
       
       // Get timestamps for the most recent actions (if they exist)
       const [savedTimestamps, appliedTimestamps, declinedTimestamps] = await Promise.all([
-        getUserDataFromFirestore<Record<string, string>>(currentUser.uid, 'savedProjectsTimestamps', {}),
-        getUserDataFromFirestore<Record<string, string>>(currentUser.uid, 'appliedProjectsTimestamps', {}),
-        getUserDataFromFirestore<Record<string, string>>(currentUser.uid, 'declinedProjectsTimestamps', {})
+        getUserDataFromFirestore<Record<string, TimestampValue>>(currentUser.uid, 'savedProjectsTimestamps', {}),
+        getUserDataFromFirestore<Record<string, TimestampValue>>(currentUser.uid, 'appliedProjectsTimestamps', {}),
+        getUserDataFromFirestore<Record<string, TimestampValue>>(currentUser.uid, 'declinedProjectsTimestamps', {})
       ]);
       
-      // Create a list of all actions with their timestamps
-      const actions: Array<{type: 'save' | 'apply' | 'decline', projectId: string, timestamp: string}> = [];
+      // Since Firestore timestamps might not be directly comparable as dates,
+      // We'll just take the last item in each array as the most recent
       
-      // Add saved projects with timestamps
+      // Create a list of actions based on the last item in each array
+      const actions: Array<{type: 'save' | 'apply' | 'decline', projectId: string, index: number}> = [];
+      
+      // Add saved projects
       if (savedProjectIds.length > 0) {
-        const lastSavedId = savedProjectIds[savedProjectIds.length - 1];
-        const timestamp = savedTimestamps[lastSavedId] || new Date().toISOString(); // Fallback if no timestamp
         actions.push({
           type: 'save',
-          projectId: lastSavedId,
-          timestamp
+          projectId: savedProjectIds[savedProjectIds.length - 1],
+          index: savedProjectIds.length - 1
         });
       }
       
-      // Add applied projects with timestamps
+      // Add applied projects
       if (appliedProjectIds.length > 0) {
-        const lastAppliedId = appliedProjectIds[appliedProjectIds.length - 1];
-        const timestamp = appliedTimestamps[lastAppliedId] || new Date().toISOString(); // Fallback if no timestamp
         actions.push({
           type: 'apply',
-          projectId: lastAppliedId,
-          timestamp
+          projectId: appliedProjectIds[appliedProjectIds.length - 1],
+          index: appliedProjectIds.length - 1
         });
       }
       
-      // Add declined projects with timestamps
+      // Add declined projects
       if (declinedProjectIds.length > 0) {
-        const lastDeclinedId = declinedProjectIds[declinedProjectIds.length - 1];
-        const timestamp = declinedTimestamps[lastDeclinedId] || new Date().toISOString(); // Fallback if no timestamp
         actions.push({
           type: 'decline',
-          projectId: lastDeclinedId,
-          timestamp
+          projectId: declinedProjectIds[declinedProjectIds.length - 1],
+          index: declinedProjectIds.length - 1
         });
       }
       
@@ -678,8 +681,8 @@ export const undoLastAction = async (): Promise<{ success: boolean; message: str
         return { success: false, message: 'No actions to undo' };
       }
       
-      // Sort actions by timestamp (most recent first)
-      actions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      // Sort actions by index (higher index means more recent)
+      actions.sort((a, b) => b.index - a.index);
       
       // Get the most recent action
       const mostRecentAction = actions[0];
@@ -762,4 +765,4 @@ export const undoLastAction = async (): Promise<{ success: boolean; message: str
       message: error instanceof Error ? error.message : 'Unknown error' 
     };
   }
-}; 
+};

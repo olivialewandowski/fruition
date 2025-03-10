@@ -1,6 +1,8 @@
 import { auth, db } from "../config/firebase";
 import { User, UserWithId } from "../types";
 import { UserRecord } from "firebase-admin/auth";
+import { Timestamp } from "firebase-admin/firestore";
+import { ensureUniversityExists } from "../utils/universityUtils";
 
 /**
  * Retrieves a user record by email
@@ -48,11 +50,59 @@ export async function createUser(
   userId: string,
   userData: Partial<User>
 ): Promise<void> {
+  // If a university name is provided, ensure it exists and get its ID
+  let universityId = null;
+  if (userData.university) {
+    try {
+      // Ensure the university exists in our database
+      universityId = await ensureUniversityExists(userData.university);
+    } catch (error) {
+      console.error(`Error processing university: ${error}`);
+      // If we can't resolve the university, use the university name as-is
+      universityId = userData.university;
+    }
+  }
+
+  // Create user document with proper timestamps and university ID
   await db.collection("users").doc(userId).set({
     ...userData,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    // Store both the university name and ID
+    university: userData.university || null,
+    universityId: universityId,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
     activeProjects: [],
     archivedProjects: [],
+  });
+}
+
+/**
+ * Updates a user's profile
+ * @param userId - The user ID to update
+ * @param userData - The user data to update
+ * @return A promise that resolves when the user is updated
+ */
+export async function updateUser(
+  userId: string,
+  userData: Partial<User>
+): Promise<void> {
+  // If a university name is provided, ensure it exists and get its ID
+  if (userData.university) {
+    try {
+      // Ensure the university exists in our database
+      const universityId = await ensureUniversityExists(userData.university);
+      // Add the university ID to the update
+      userData.universityId = universityId;
+    } catch (error) {
+      console.error(`Error processing university: ${error}`);
+      // If we can't resolve the university, use the university name as-is
+      userData.universityId = userData.university;
+    }
+  }
+
+  // Update the user document
+  await db.collection("users").doc(userId).update({
+    ...userData,
+    updatedAt: Timestamp.now(),
   });
 }

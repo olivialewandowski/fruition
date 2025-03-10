@@ -1,96 +1,100 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // helper functions
-    function isAuthenticated() {
+    // Common functions
+    function isSignedIn() {
       return request.auth != null;
     }
-
-    function isSuperAdmin() {
-      return request.auth.token.role == 'superadmin';
-    }
-
-    function isResearchAdmin() {
-      return request.auth.token.role == 'admin';
-    }
-
-    function isFaculty() {
-      return request.auth.token.role == 'faculty';
-    }
-
-    function isStudent() {
-      return request.auth.token.role == 'student';
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isSameInstitution(institutionId) {
-      return request.auth.token.institution == institutionId;
-    }
-
-    // Default deny all (moved to top for clarity)
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // userData collection for storing user-specific data like saved/applied projects
-    match /userData/{userId} {
-      // Users can read and write their own data
-      allow read, write: if isAuthenticated() && isOwner(userId);
-      
-      // Admins can read user data from their institution
-      allow read: if isAuthenticated() && (isResearchAdmin() || isSuperAdmin());
-    }
-
-    // rules for joining the waitlist
-    match /waitlist/{entryId} {
-      // Anyone can create a waitlist entry
-      allow create: if request.resource.data.keys().hasAll(['email', 'firstName', 'lastName', 'institution', 'role', 'source'])
-        && request.resource.data.role in ['student', 'faculty', 'admin'];
-  
-      // Only admins can read or modify waitlist entries
-      allow read, update, delete: if isAuthenticated() && (isResearchAdmin() || isSuperAdmin());
-      }
     
-    //users collection
-    match /users/{userId} {
-      // Anyone authenticated can read basic user profiles
-      allow read: if isAuthenticated();
-      
-      // Users can create their own profile - simplified for Google sign-up
-      // Allow creation if the user ID matches the authenticated user
-      allow create: if request.auth != null && request.auth.uid == userId;
-      
-      // Users can update their own profile
-      // Research admins can update users from their institution
-      // Superadmins can update any user
-      allow update: if isAuthenticated() && (
-        isOwner(userId) || 
-        (isResearchAdmin() && isSameInstitution(resource.data.institution)) ||
-        isSuperAdmin()
-      );
-      
-      // Only superadmins can delete user profiles
-      allow delete: if isSuperAdmin();
+    function isUserRole(role) {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
-
-    // rules for other collections as needed
+    
+    function isAdmin() {
+      return isUserRole('admin');
+    }
+    
+    function isFaculty() {
+      return isUserRole('faculty');
+    }
+    
+    function isStudent() {
+      return isUserRole('student');
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isProjectMentor(projectId) {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/projects/$(projectId)) &&
+        get(/databases/$(database)/documents/projects/$(projectId)).data.mentorId == request.auth.uid;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // Projects collection - UPDATED TO ALLOW ANY AUTHENTICATED USER TO CREATE
     match /projects/{projectId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isFaculty() || isResearchAdmin() || isSuperAdmin());
-      allow update: if isAuthenticated() && (
-        (isFaculty() && resource.data.facultyId == request.auth.uid) ||
-        (isResearchAdmin() && isSameInstitution(resource.data.institution)) ||
-        isSuperAdmin()
+      allow read: if true; // Anyone can read project data
+      allow create: if isSignedIn(); // Any authenticated user can create projects
+      allow update: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
+      allow delete: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
+    }
+    
+    // Positions collection - UPDATED TO ALLOW ANY AUTHENTICATED USER TO CREATE
+    match /positions/{positionId} {
+      allow read: if true;
+      allow create: if isSignedIn(); // Any authenticated user can create positions
+      allow update: if isSignedIn() && (
+        resource.data.projectId == null || 
+        isProjectMentor(resource.data.projectId) || 
+        isAdmin()
       );
-      allow delete: if isAuthenticated() && (
-        (isFaculty() && resource.data.facultyId == request.auth.uid) ||
-        isResearchAdmin() ||
-        isSuperAdmin()
+      allow delete: if isSignedIn() && (
+        resource.data.projectId == null || 
+        isProjectMentor(resource.data.projectId) || 
+        isAdmin()
       );
+    }
+    
+    // Applications collection
+    match /applications/{applicationId} {
+      allow read: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || 
+        isProjectMentor(resource.data.projectId) || 
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || 
+        isProjectMentor(resource.data.projectId) || 
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        isProjectMentor(resource.data.projectId) || 
+        isAdmin()
+      );
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if isAdmin();
+    }
+    
+    // System stats - admin only
+    match /system/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }

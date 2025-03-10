@@ -38,9 +38,12 @@ const testEnv = functionsTest({
 
 // Import the triggers
 import {
-  onUserCreate,
+  onUserCreateOrUpdate,
   onProjectCreate,
   onApplicationUpdate,
+  onPositionCreate,
+  onProjectUpdate,
+  onApplicationCreate,
 } from "../triggers/firestoreTriggers";
 
 // Sample test data
@@ -53,7 +56,7 @@ const testUser = {
   role: "student",
   major: "Computer Science",
   year: "Junior",
-  university: "university1",
+  university: "university1", // Using university consistently
   interests: ["AI", "Machine Learning", "Web Development"],
   projectPreferences: {
     savedProjects: [],
@@ -70,7 +73,7 @@ const testFaculty = {
   role: "faculty",
   department: "department1",
   title: "Professor",
-  university: "university1",
+  university: "university1", // Using university consistently
   createdAt: admin.firestore.Timestamp.fromDate(new Date()),
   lastActive: admin.firestore.Timestamp.fromDate(new Date()),
 };
@@ -83,7 +86,8 @@ const testProject = {
   mentorId: "faculty1",
   departmentId: "department1",
   department: "department1",
-  universityId: "university1",
+  university: "university1", // Added university field for consistency
+  universityId: "university1", // Kept for backward compatibility
   isActive: true,
   status: "active",
   createdAt: admin.firestore.Timestamp.fromDate(new Date()),
@@ -118,11 +122,20 @@ async function runTests() {
     // Set up initial data
     await setupInitialData();
 
-    // Test onUserCreate trigger
+    // Test onUserCreateOrUpdate trigger (replaces onUserCreate)
     await testUserCreateTrigger();
 
     // Test onProjectCreate trigger
     await testProjectCreateTrigger();
+
+    // Test onPositionCreate trigger
+    await testPositionCreateTrigger();
+
+    // Test onProjectUpdate trigger
+    await testProjectUpdateTrigger();
+
+    // Test onApplicationCreate trigger
+    await testApplicationCreateTrigger();
 
     // Test onApplicationUpdate trigger
     await testApplicationUpdateTrigger();
@@ -200,7 +213,7 @@ async function setupInitialData() {
     lastName: "Two",
     role: "student",
     department: "department1",
-    university: "university1",
+    university: "university1", // Using university consistently
     interests: ["AI", "Machine Learning"],
     createdAt: admin.firestore.Timestamp.fromDate(new Date()),
     lastActive: admin.firestore.Timestamp.fromDate(new Date()),
@@ -208,14 +221,14 @@ async function setupInitialData() {
 }
 
 async function testUserCreateTrigger() {
-  console.log("\nTesting onUserCreate trigger...");
+  console.log("\nTesting onUserCreateOrUpdate trigger...");
 
   // Create the actual document first
   await db.collection("users").doc(testUser.id).set(testUser);
 
   // For v2 Firestore triggers, we need to use the v2 test SDK
   // The onDocumentCreated function is called with a single event object
-  const wrappedOnUserCreate = testEnv.wrap(onUserCreate);
+  const wrappedOnUserCreateOrUpdate = testEnv.wrap(onUserCreateOrUpdate);
 
   // Create the test event with the right structure for v2
   const testDocSnapshot = await db.collection("users").doc(testUser.id).get();
@@ -225,21 +238,10 @@ async function testUserCreateTrigger() {
   };
 
   // Call the function with the event object
-  await wrappedOnUserCreate(testEvent);
+  await wrappedOnUserCreateOrUpdate(testEvent);
 
   // Wait a moment for async operations to complete
   await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // Check that the university was updated
-  const universityDoc = await db.collection("universities").doc("university1").get();
-  const universityData = universityDoc.data();
-
-  if (universityData?.studentCount === 1 && universityData?.studentIds.includes(testUser.id)) {
-    console.log("✅ University student count updated");
-  } else {
-    console.error("❌ University student count not updated");
-    console.log("University data:", universityData);
-  }
 
   // Check that a welcome notification was created
   const notificationsSnapshot = await db.collection("notifications")
@@ -254,6 +256,14 @@ async function testUserCreateTrigger() {
     // Check if there are any notifications at all
     const allNotifications = await db.collection("notifications").get();
     console.log("Total notifications:", allNotifications.size);
+  }
+
+  // Check that system stats were updated
+  const statsDoc = await db.collection("system").doc("stats").get();
+  if (statsDoc.exists && statsDoc.data()?.totalUsers > 0) {
+    console.log("✅ System stats updated");
+  } else {
+    console.error("❌ System stats not updated");
   }
 }
 
@@ -278,17 +288,6 @@ async function testProjectCreateTrigger() {
 
   // Wait a moment for async operations to complete
   await new Promise((resolve) => setTimeout(resolve, 2000));
-
-  // Check that the department project count was updated
-  const departmentDoc = await db.collection("departments").doc("department1").get();
-  const departmentData = departmentDoc.data();
-
-  if (departmentData?.projectCount === 1) {
-    console.log("✅ Department project count updated");
-  } else {
-    console.error("❌ Department project count not updated");
-    console.log("Department data:", departmentData);
-  }
 
   // Check that notifications were created for matching students
   // Wait a moment for the notifications to be created
@@ -316,18 +315,163 @@ async function testProjectCreateTrigger() {
       console.log("Student:", doc.id, doc.data().interests);
     });
   }
+
+  // Check that system stats were updated
+  const statsDoc = await db.collection("system").doc("stats").get();
+  if (statsDoc.exists && statsDoc.data()?.totalProjects > 0) {
+    console.log("✅ System stats updated for projects");
+  } else {
+    console.error("❌ System stats not updated for projects");
+  }
+}
+
+async function testPositionCreateTrigger() {
+  console.log("\nTesting onPositionCreate trigger...");
+
+  // Create a new position
+  const positionData = {
+    title: "Student Researcher",
+    projectId: testProject.id,
+    qualifications: "Experience with Python and data analysis",
+    hoursPerWeek: 10,
+    createdAt: admin.firestore.Timestamp.fromDate(new Date()),
+  };
+
+  const positionRef = await db.collection("positions").add(positionData);
+
+  // Wrap the function
+  const wrappedOnPositionCreate = testEnv.wrap(onPositionCreate);
+
+  // Create the test event
+  const testDocSnapshot = await positionRef.get();
+  const testEvent = {
+    data: testDocSnapshot,
+    params: { positionId: positionRef.id },
+  };
+
+  // Call the function
+  await wrappedOnPositionCreate(testEvent);
+
+  // Wait a moment for async operations to complete
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Check if position count was updated on the project
+  const projectDoc = await db.collection("projects").doc(testProject.id).get();
+  const projectData = projectDoc.data();
+
+  if (projectData && projectData.positionCount && projectData.positionCount > 0) {
+    console.log("✅ Project position count updated");
+  } else {
+    console.error("❌ Project position count not updated");
+  }
+
+  // Check if mainPositionId was set
+  if (projectData && projectData.mainPositionId) {
+    console.log("✅ Project main position ID set");
+  } else {
+    console.error("❌ Project main position ID not set");
+  }
+}
+
+async function testProjectUpdateTrigger() {
+  console.log("\nTesting onProjectUpdate trigger...");
+
+  // First get current state
+  const projectRef = db.collection("projects").doc(testProject.id);
+  const beforeDoc = await projectRef.get();
+
+  // Update the project status
+  await projectRef.update({
+    status: "archived",
+    isActive: false,
+  });
+
+  const afterDoc = await projectRef.get();
+
+  // Wrap the function
+  const wrappedOnProjectUpdate = testEnv.wrap(onProjectUpdate);
+
+  // Create the test event
+  const testEvent = {
+    data: {
+      before: beforeDoc,
+      after: afterDoc,
+    },
+    params: { projectId: testProject.id },
+  };
+
+  // Call the function
+  await wrappedOnProjectUpdate(testEvent);
+
+  // Wait a moment for async operations to complete
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Check if the project was moved to archived projects for the faculty
+  const facultyDoc = await db.collection("users").doc(testFaculty.id).get();
+  const facultyData = facultyDoc.data();
+
+  if (facultyData && facultyData.archivedProjects && facultyData.archivedProjects.includes(testProject.id)) {
+    console.log("✅ Project moved to faculty's archived projects");
+  } else {
+    console.error("❌ Project not moved to faculty's archived projects");
+  }
+}
+
+async function testApplicationCreateTrigger() {
+  console.log("\nTesting onApplicationCreate trigger...");
+
+  // Create an application
+  const applicationData = {
+    ...testApplication,
+    status: "incoming", // Use incoming instead of pending
+  };
+
+  const applicationRef = await db.collection("applications").add(applicationData);
+
+  // Wrap the function
+  const wrappedOnApplicationCreate = testEnv.wrap(onApplicationCreate);
+
+  // Create the test event
+  const testDocSnapshot = await applicationRef.get();
+  const testEvent = {
+    data: testDocSnapshot,
+    params: { applicationId: applicationRef.id },
+  };
+
+  // Call the function
+  await wrappedOnApplicationCreate(testEvent);
+
+  // Wait a moment for async operations to complete
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Check if application count was updated on the project
+  const projectDoc = await db.collection("projects").doc(testProject.id).get();
+  const projectData = projectDoc.data();
+
+  if (projectData && projectData.applicationCount && projectData.applicationCount > 0) {
+    console.log("✅ Project application count updated");
+  } else {
+    console.error("❌ Project application count not updated");
+  }
+
+  // Check if notification was created for the mentor
+  const notificationsSnapshot = await db.collection("notifications")
+    .where("type", "==", "new_application")
+    .where("projectId", "==", testProject.id)
+    .get();
+
+  if (!notificationsSnapshot.empty) {
+    console.log("✅ Mentor notification created for application");
+  } else {
+    console.error("❌ Mentor notification not created for application");
+  }
 }
 
 async function testApplicationUpdateTrigger() {
   console.log("\nTesting onApplicationUpdate trigger...");
 
   // Application path
-  const applicationRef = db.collection("projects")
-    .doc(testProject.id)
-    .collection("positions")
-    .doc("position1")
-    .collection("applications")
-    .doc("application1");
+  const applicationRef = db.collection("applications").doc("application1");
 
   // Create an application
   await applicationRef.set(testApplication);
@@ -351,8 +495,6 @@ async function testApplicationUpdateTrigger() {
       after: afterSnapshot,
     },
     params: {
-      projectId: testProject.id,
-      positionId: "position1",
       applicationId: "application1",
     },
   };
@@ -387,8 +529,6 @@ async function testApplicationUpdateTrigger() {
       after: acceptedSnapshot,
     },
     params: {
-      projectId: testProject.id,
-      positionId: "position1",
       applicationId: "application1",
     },
   };

@@ -24,7 +24,7 @@ const LoginForm = () => {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         // Check if essential profile fields are filled
-        if (userData.role && userData.firstName && userData.lastName && userData.institution) {
+        if (userData.role && userData.firstName && userData.lastName && userData.university) {
           // Profile is complete, redirect to dashboard
           router.push('/development/dashboard');
         } else {
