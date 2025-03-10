@@ -5,20 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   createUserWithEmailAndPassword, 
-  signInWithPopup,
-  UserCredential,
   AuthError
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, DocumentSnapshot } from 'firebase/firestore';
-import { auth, db, googleProvider } from '@/config/firebase';
+import { auth } from '@/config/firebase';
+import { signInWithGoogle } from '@/services/authService';
 
 // Define proper types
 interface SignupFormData {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
-  role: 'student' | 'faculty' | 'admin' | 'user';
 }
 
 // Simple sanitization function to prevent XSS
@@ -49,9 +44,6 @@ const SignupForm = () => {
   const [formData, setFormData] = useState<SignupFormData>({
     email: '',
     password: '',
-    firstName: '',
-    lastName: '',
-    role: 'student',
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -72,24 +64,10 @@ const SignupForm = () => {
     try {
       // Sanitize inputs
       const sanitizedEmail = sanitizeInput(formData.email);
-      const sanitizedFirstName = sanitizeInput(formData.firstName);
-      const sanitizedLastName = sanitizeInput(formData.lastName);
       
       // Validate inputs
       if (!sanitizedEmail || !isValidEmail(sanitizedEmail)) {
         setError('Please enter a valid email address');
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!sanitizedFirstName) {
-        setError('First name is required');
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!sanitizedLastName) {
-        setError('Last name is required');
         setIsLoading(false);
         return;
       }
@@ -114,29 +92,22 @@ const SignupForm = () => {
         formData.password
       );
 
-      // Create complete user document with all fields
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        email: sanitizedEmail,
-        firstName: sanitizedFirstName,
-        lastName: sanitizedLastName,
-        role: formData.role,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        profileCompleted: true
-      });
+      // Important: No Firestore document creation here!
+      // We'll create the document in the ProfileCompletion component
+      // This avoids the Firestore trigger from running on an incomplete document
 
-      // Securely store token with httpOnly flag if possible
+      // Store token with httpOnly flag if possible
       try {
         const idToken = await userCredential.user.getIdToken();
         // Store in localStorage as a fallback
         localStorage.setItem('authToken', idToken);
         
-        // Navigate to dashboard
-        router.push('/development/dashboard');
+        // Navigate to profile completion
+        router.push('/development/complete-profile');
       } catch (tokenError) {
         console.error('Error getting ID token:', tokenError);
         // Still navigate even if token storage fails
-        router.push('/development/dashboard');
+        router.push('/development/complete-profile');
       }
     } catch (err: any) {
       console.error('Signup error:', err);
@@ -165,8 +136,12 @@ const SignupForm = () => {
     setIsLoading(true);
 
     try {
-      const result: UserCredential = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      // Use the improved signInWithGoogle function from services
+      const user = await signInWithGoogle();
+      
+      if (!user) {
+        throw new Error('Google sign-in failed');
+      }
       
       // Securely store token
       try {
@@ -177,66 +152,8 @@ const SignupForm = () => {
         // Continue even if token storage fails
       }
       
-      // Check if user document already exists
-      const userDoc: DocumentSnapshot = await getDoc(doc(db, 'users', user.uid));
-      
-      if (!userDoc.exists()) {
-        // Extract name parts from Google profile if available
-        let firstName = '';
-        let lastName = '';
-        
-        if (user.displayName) {
-          const nameParts = user.displayName.split(' ');
-          firstName = sanitizeInput(nameParts[0] || '');
-          lastName = sanitizeInput(nameParts.slice(1).join(' ') || '');
-        }
-        
-        // Create a more complete user document with default values
-        try {
-          await setDoc(doc(db, 'users', user.uid), {
-            email: user.email,
-            firstName: firstName,
-            lastName: lastName,
-            // Don't set role yet - will be set in profile completion
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          
-          // Verify the data was written
-          let attempts = 0;
-          const maxAttempts = 3;
-          
-          const verifyDataWritten = async () => {
-            try {
-              const docSnap = await getDoc(doc(db, 'users', user.uid));
-              if (docSnap.exists() && docSnap.data().firstName === firstName) {
-                console.log('Initial Google user data verified in Firestore');
-                router.push('/development/complete-profile');
-              } else if (attempts < maxAttempts) {
-                attempts++;
-                console.log(`Data not yet available, retrying... (${attempts}/${maxAttempts})`);
-                setTimeout(verifyDataWritten, 500);
-              } else {
-                console.log('Max verification attempts reached, redirecting anyway');
-                router.push('/development/complete-profile');
-              }
-            } catch (error) {
-              console.error('Error verifying initial user data:', error);
-              router.push('/development/complete-profile');
-            }
-          };
-          
-          // Start verification process
-          verifyDataWritten();
-        } catch (firestoreError) {
-          console.error('Error creating user document:', firestoreError);
-          // Still redirect to profile completion
-          router.push('/development/complete-profile');
-        }
-      } else {
-        // User document exists, redirect to profile completion
-        router.push('/development/complete-profile');
-      }
+      // Redirect to profile completion
+      router.push('/development/complete-profile');
     } catch (err: any) {
       console.error('Google Sign-in error:', err);
       
@@ -298,50 +215,6 @@ const SignupForm = () => {
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* First Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                First Name
-              </label>
-              <input
-                type="text"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                value={formData.firstName}
-                onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-              />
-            </div>
-
-            {/* Last Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Last Name
-              </label>
-              <input
-                type="text"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                value={formData.lastName}
-                onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-              />
-            </div>
-
-            {/* Role Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Role
-              </label>
-              <select
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value as 'student' | 'faculty' | 'admin' | 'user'})}
-              >
-                <option value="student">Student</option>
-                <option value="faculty">Faculty</option>
-              </select>
-            </div>
-
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -381,7 +254,7 @@ const SignupForm = () => {
                 ${!isLoading ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-400 cursor-not-allowed'}
                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500`}
             >
-              {isLoading ? 'Signing up...' : 'Sign up'}
+              {isLoading ? 'Signing up...' : 'Continue'}
             </button>
           </form>
           

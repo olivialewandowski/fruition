@@ -82,8 +82,22 @@ export const addAuthStateListener = (listener: (user: User | null) => void): () 
 // Sign in with Google
 export const signInWithGoogle = async (): Promise<User | null> => {
   try {
+    // Create a new provider for each sign-in attempt
     const provider = new GoogleAuthProvider();
+    
+    // Add scopes if needed
+    provider.addScope('profile');
+    provider.addScope('email');
+    
+    // Set custom parameters
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    
+    // Attempt sign in with popup
+    console.log('Attempting Google sign-in with popup');
     const result = await signInWithPopup(auth, provider);
+    console.log('Google sign-in successful');
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
@@ -98,4 +112,4 @@ export const signOut = async (): Promise<void> => {
   } catch (error) {
     console.error('Error signing out:', error);
   }
-}; 
+};

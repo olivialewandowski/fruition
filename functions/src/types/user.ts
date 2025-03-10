@@ -20,7 +20,8 @@ export interface User {
   firstName: string;
   lastName: string;
   role: "student" | "faculty" | "admin";
-  university: string;
+  university: string; // University name (display value)
+  universityId?: string; // University ID (reference value)
   createdAt: Timestamp;
   lastActive: Timestamp;
   activeProjects: string[];

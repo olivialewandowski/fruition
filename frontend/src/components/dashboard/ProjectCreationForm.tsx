@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Timestamp, collection, addDoc, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { createProjectDirect } from '@/services/directProjectService';
+import { createClientProject, createClientProjectBatched } from '@/services/clientProjectService';
+import { Position } from '@/types/position';
 
 // Helper function to remove undefined fields from an object
 const removeUndefinedFields = (obj: Record<string, any>): Record<string, any> => {
   return Object.fromEntries(
     Object.entries(obj)
-      .filter(([_, v]) => v !== undefined)
+      .filter(([_, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => [k, v])
   );
 };
@@ -42,21 +43,21 @@ interface ProjectFormValues {
 }
 
 const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { userData, user } = useAuth();
+  const { userData, user, refreshUserData } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentKeyword, setCurrentKeyword] = useState('');
+  const [creationMethod, setCreationMethod] = useState<'direct' | 'transaction' | 'batch'>('batch');
   
-  // Add debug output to check userData and role
+  // Debug logging
   useEffect(() => {
-    console.log('User Data from Auth Context:', userData);
-    console.log('User Role:', userData?.role);
-    console.log('User Object:', user);
-  }, [userData, user]);
+    console.log('Auth context data:', { userData, user });
+    console.log('Current creation method:', creationMethod);
+  }, [userData, user, creationMethod]);
   
   // Determine the user's role with a default fallback
-  const userRole = userData?.role || 'faculty';
+  const userRole = userData?.role || 'student';
   
   // Initialize form values with empty strings instead of undefined
   const [formValues, setFormValues] = useState<ProjectFormValues>({
@@ -64,13 +65,13 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     description: '',
     keywords: [],
     qualifications: '',
-    startDate: '',
-    endDate: '',
+    startDate: '', // Changed: No default start date
+    endDate: '', 
     hoursPerWeek: 10,
     positionTypes: [],
     compensationType: [],
     hourlyRate: 15, // Default hourly rate if applicable
-    rollingApplications: false,
+    rollingApplications: true, // Default to rolling applications
     applicationCloseDate: '',
     maxPositions: 1,
     mentorName: userData && userData.firstName && userData.lastName 
@@ -93,19 +94,16 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
           ? `${userData.firstName} ${userData.lastName}` 
           : prev.mentorName,
         mentorEmail: userData.email || prev.mentorEmail,
+        department: userData.department || prev.department,
       }));
     }
   }, [userData]);
 
-  // Define position types based on user role
-  const positionTypeOptions = userRole === 'faculty' || userRole === 'admin'
-    ? ['Research Assistant', 'Teaching Assistant', 'In-Person', 'Remote', 'Hybrid']
-    : ['In-Person', 'Remote', 'Hybrid'];
+  // Define position types options
+  const positionTypeOptions = ['Research Assistant', 'Teaching Assistant', 'In-Person', 'Remote', 'Hybrid'];
 
-  // Define compensation options based on user role
-  const compensationOptions = userRole === 'faculty' || userRole === 'admin'
-    ? ['Paid', 'Volunteer', 'Work-Study', 'Independent Study Credit']
-    : ['Paid', 'Volunteer'];
+  // Define compensation options
+  const compensationOptions = ['Paid', 'Volunteer', 'Work-Study', 'Independent Study Credit'];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -158,18 +156,23 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-
+  
     try {
       // Check if user is authenticated
       if (!user || !user.uid) {
         throw new Error('User not authenticated');
       }
-
+  
       console.log('Creating project as user:', user.uid);
       console.log('User role:', userRole);
-
+      
+      // Validate form data
+      if (formValues.compensationType.includes('Paid') && (!formValues.hourlyRate || formValues.hourlyRate <= 0)) {
+        throw new Error('Please specify an hourly rate for paid positions');
+      }
+  
       // Prepare project data
-      const projectData = {
+      const projectData = removeUndefinedFields({
         title: formValues.title,
         description: formValues.description,
         keywords: formValues.keywords,
@@ -180,93 +183,90 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         mentorName: formValues.mentorName,
         mentorEmail: formValues.mentorEmail,
         isPrincipalInvestigator: formValues.isPrincipalInvestigator,
-        principalInvestigatorName: formValues.isPrincipalInvestigator ? '' : formValues.principalInvestigatorName,
-        principalInvestigatorEmail: formValues.isPrincipalInvestigator ? '' : formValues.principalInvestigatorEmail,
+        principalInvestigatorName: formValues.isPrincipalInvestigator ? undefined : formValues.principalInvestigatorName,
+        principalInvestigatorEmail: formValues.isPrincipalInvestigator ? undefined : formValues.principalInvestigatorEmail,
         mentorTitle: formValues.mentorTitle,
         
-        // Required department and university info (with placeholders if necessary)
+        // Department and university info
         department: formValues.department || 'General',
-        departmentId: 'department1',
-        universityId: 'university1',
+        university: userData?.university || 'New York University',
         
         // Status information
         status: "active",
         isActive: true,
         responsibilities: formValues.qualifications,
-        teamMembers: [],
-        
-        // Timestamps
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
+      });
+  
       console.log('Project data to be created:', projectData);
-
-      // Create the project document
-      const projectRef = await addDoc(collection(db, 'projects'), projectData);
-      console.log('Project created with ID:', projectRef.id);
-
+  
+      // Convert dates to proper format
+      const startDate = formValues.startDate ? new Date(formValues.startDate) : undefined;
+      const endDate = formValues.endDate ? new Date(formValues.endDate) : undefined;
+      
+      // Default position title if no position types are selected
+      const positionTitle = formValues.positionTypes.length > 0 
+        ? `${formValues.positionTypes[0]} Position` 
+        : 'Research Position';
+      
       // Prepare position data
-      const positionData = {
-        projectId: projectRef.id,
-        startDate: formValues.startDate ? Timestamp.fromDate(new Date(formValues.startDate)) : Timestamp.now(),
-        endDate: formValues.endDate ? Timestamp.fromDate(new Date(formValues.endDate)) : Timestamp.now(),
+      const positionData: Partial<Position> = {
+        title: positionTitle,
+        qualifications: formValues.qualifications,
+        startDate,
+        endDate,
         hoursPerWeek: formValues.hoursPerWeek,
         positionTypes: formValues.positionTypes,
         compensation: {
           type: formValues.compensationType,
-          details: formValues.compensationType.includes('Paid') && formValues.hourlyRate 
-            ? `${formValues.hourlyRate}/hour` 
-            : ''
+          details: formValues.compensationType.includes('Paid') 
+            ? `${formValues.hourlyRate || 0}/hour` 
+            : "Unpaid"
         },
-        qualifications: formValues.qualifications,
         tags: formValues.keywords,
         maxPositions: formValues.maxPositions,
         filledPositions: 0,
         rollingApplications: formValues.rollingApplications,
-        applicationCloseDate: formValues.applicationCloseDate 
-          ? Timestamp.fromDate(new Date(formValues.applicationCloseDate)) 
-          : null,
-        
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+        // Don't include applicationCloseDate here by default
       };
-
-      console.log('Position data to be created:', positionData);
-
-      // Create the position document
-      await addDoc(collection(db, 'projects', projectRef.id, 'positions'), positionData);
-      console.log('Position created successfully');
-
-      // Update user's active projects
-      const userRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
       
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const activeProjects = userData.activeProjects || [];
-        
-        await updateDoc(userRef, {
-          activeProjects: [...activeProjects, projectRef.id],
-          updatedAt: Timestamp.now()
-        });
-        console.log('User active projects updated');
-      } else {
-        console.warn('User document does not exist, creating minimal user doc');
-        // Create a basic user document if it doesn't exist
-        await setDoc(userRef, {
-          email: user.email,
-          role: 'faculty', // Default role
-          activeProjects: [projectRef.id],
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
-        });
+      // Only add applicationCloseDate if rolling applications is false AND we have a date
+      if (!formValues.rollingApplications && formValues.applicationCloseDate) {
+        positionData.applicationCloseDate = new Date(formValues.applicationCloseDate);
       }
-
+      
+      // Apply removeUndefinedFields to ensure no undefined values
+      const cleanedPositionData = removeUndefinedFields(positionData);
+      
+      console.log('Position data to be created:', cleanedPositionData);
+  
+      // Use the selected creation method
+      let projectId: string;
+      
+      switch (creationMethod) {
+        case 'direct':
+          projectId = await createProjectDirect(projectData, cleanedPositionData);
+          break;
+        case 'transaction':
+          projectId = await createClientProject(projectData, cleanedPositionData);
+          break;
+        case 'batch':
+          projectId = await createClientProjectBatched(projectData, cleanedPositionData);
+          break;
+        default:
+          projectId = await createClientProjectBatched(projectData, cleanedPositionData);
+      }
+      
+      console.log(`Project created successfully with ID: ${projectId}`);
+      
+      // Refresh user data to get the updated activeProjects array
+      await refreshUserData();
+  
       // Reset form and close
       setIsLoading(false);
       onClose();
-      router.refresh();
+      
+      // Navigate to dashboard
+      router.push('/development/dashboard');
     } catch (err) {
       console.error('Error creating project:', err);
       setError(err instanceof Error ? err.message : 'Failed to create project');
@@ -274,15 +274,50 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     }
   };
 
+  // Determine which fields to show based on user role
+  const showPrincipalInvestigatorFields = userRole === 'faculty' || userRole === 'admin';
+  
+  // Check if paid compensation is selected
+  const isPaidSelected = formValues.compensationType.includes('Paid');
+
   return (
     <div className="bg-white rounded-lg shadow-lg max-h-[90vh] overflow-y-auto p-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Project</h2>
       
-      {/* Debug information - remove in production */}
-      <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
-        <p>User ID: {user?.uid || 'Not authenticated'}</p>
-        <p>User Role: {userRole}</p>
-      </div>
+      {/* ENVIRONMENT DEBUGGING - Can be removed in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-2 bg-gray-100 rounded text-xs space-y-1">
+          <p>User ID: {user?.uid || 'Not authenticated'}</p>
+          <p>User Role: {userRole}</p>
+          <p>University: {userData?.university || 'Not set'}</p>
+          <div className="mt-2">
+            <p className="font-medium">Creation method:</p>
+            <div className="flex space-x-2 mt-1">
+              <button 
+                onClick={() => setCreationMethod('direct')}
+                className={`px-2 py-1 text-xs rounded ${creationMethod === 'direct' ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}
+                type="button"
+              >
+                Direct (Cloud Function)
+              </button>
+              <button 
+                onClick={() => setCreationMethod('transaction')}
+                className={`px-2 py-1 text-xs rounded ${creationMethod === 'transaction' ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}
+                type="button"
+              >
+                Transaction
+              </button>
+              <button 
+                onClick={() => setCreationMethod('batch')}
+                className={`px-2 py-1 text-xs rounded ${creationMethod === 'batch' ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}
+                type="button"
+              >
+                Batch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Project Details */}
@@ -376,6 +411,9 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         {/* Position Details */}
         <div className="space-y-4">
           <h3 className="text-xl font-semibold text-gray-800">Position Details</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            This will create the first position for your project. You can add more positions later.
+          </p>
           
           <div>
             <label htmlFor="qualifications" className="block text-sm font-medium text-gray-700">Position Responsibilities/Requirements</label>
@@ -392,12 +430,13 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Start Date</label>
+              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
+                Start Date <span className="text-gray-400 text-xs">(optional)</span>
+              </label>
               <input
                 type="date"
                 id="startDate"
                 name="startDate"
-                required
                 value={formValues.startDate}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
@@ -405,12 +444,13 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
             </div>
             
             <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">End Date</label>
+              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
+                End Date <span className="text-gray-400 text-xs">(optional)</span>
+              </label>
               <input
                 type="date"
                 id="endDate"
                 name="endDate"
-                required
                 value={formValues.endDate}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
@@ -435,7 +475,9 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
             </div>
             
             <div>
-              <label htmlFor="maxPositions" className="block text-sm font-medium text-gray-700">Number of Positions</label>
+              <label htmlFor="maxPositions" className="block text-sm font-medium text-gray-700">
+                Number of Spots <span className="text-xs text-gray-500">(for this position)</span>
+              </label>
               <input
                 type="number"
                 id="maxPositions"
@@ -493,14 +535,14 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
             </div>
           </div>
           
-          {formValues.compensationType.includes('Paid') && (
+          {isPaidSelected && (
             <div>
               <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700">Hourly Rate ($)</label>
               <input
                 type="number"
                 id="hourlyRate"
                 name="hourlyRate"
-                required
+                required={isPaidSelected}
                 min="1"
                 step="0.01"
                 value={formValues.hourlyRate}
@@ -574,55 +616,55 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
             </div>
           </div>
           
-          {(userRole === 'faculty' || userRole === 'admin') && (
-          <>
-            <div className="flex items-start">
-              <div className="flex items-center h-5">
-                <input
-                  id="isPrincipalInvestigator"
-                  name="isPrincipalInvestigator"
-                  type="checkbox"
-                  checked={formValues.isPrincipalInvestigator}
-                  onChange={handleCheckboxChange}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-              </div>
-              <div className="ml-3 text-sm">
-                <label htmlFor="isPrincipalInvestigator" className="font-medium text-gray-700">I am the Principal Investigator</label>
-              </div>
-            </div>
-            
-            {!formValues.isPrincipalInvestigator && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="principalInvestigatorName" className="block text-sm font-medium text-gray-700">Principal Investigator Name</label>
+          {showPrincipalInvestigatorFields && (
+            <>
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
                   <input
-                    type="text"
-                    id="principalInvestigatorName"
-                    name="principalInvestigatorName"
-                    required={!formValues.isPrincipalInvestigator}
-                    value={formValues.principalInvestigatorName}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                    id="isPrincipalInvestigator"
+                    name="isPrincipalInvestigator"
+                    type="checkbox"
+                    checked={formValues.isPrincipalInvestigator}
+                    onChange={handleCheckboxChange}
+                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                   />
                 </div>
-                
-                <div>
-                  <label htmlFor="principalInvestigatorEmail" className="block text-sm font-medium text-gray-700">Principal Investigator Email</label>
-                  <input
-                    type="email"
-                    id="principalInvestigatorEmail"
-                    name="principalInvestigatorEmail"
-                    required={!formValues.isPrincipalInvestigator}
-                    value={formValues.principalInvestigatorEmail}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                  />
+                <div className="ml-3 text-sm">
+                  <label htmlFor="isPrincipalInvestigator" className="font-medium text-gray-700">I am the Principal Investigator</label>
                 </div>
               </div>
-            )}
-          </>
-        )}
+              
+              {!formValues.isPrincipalInvestigator && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="principalInvestigatorName" className="block text-sm font-medium text-gray-700">Principal Investigator Name</label>
+                    <input
+                      type="text"
+                      id="principalInvestigatorName"
+                      name="principalInvestigatorName"
+                      required={!formValues.isPrincipalInvestigator}
+                      value={formValues.principalInvestigatorName}
+                      onChange={handleChange}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="principalInvestigatorEmail" className="block text-sm font-medium text-gray-700">Principal Investigator Email</label>
+                    <input
+                      type="email"
+                      id="principalInvestigatorEmail"
+                      name="principalInvestigatorEmail"
+                      required={!formValues.isPrincipalInvestigator}
+                      value={formValues.principalInvestigatorEmail}
+                      onChange={handleChange}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         
           <div>
             <label htmlFor="mentorTitle" className="block text-sm font-medium text-gray-700">Mentor Title/Affiliation</label>
@@ -640,7 +682,9 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         </div>
         
         {error && (
-          <div className="text-red-600 text-sm">{error}</div>
+          <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200">
+            <strong>Error:</strong> {error}
+          </div>
         )}
         
         <div className="flex justify-end space-x-4">

@@ -12,6 +12,62 @@ import { hasPermission } from "../models/permissions";
 import { PROJECT_PERMISSIONS } from "../types/permissions";
 
 /**
+ * Get multiple projects by their IDs
+ * @param projectIds - Array of project IDs to fetch
+ * @returns Array of projects with their IDs
+ */
+export const getProjectsByIds = async (projectIds: string[]): Promise<ProjectWithId[]> => {
+  try {
+    const userId = await getAuthenticatedUserId();
+
+    // Check permission
+    const canView = await hasPermission(userId, PROJECT_PERMISSIONS.VIEW_APPLICATIONS);
+    if (!canView) {
+      throw new Error("Unauthorized: You don't have permission to view projects");
+    }
+
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    // Fetch projects (process in batches as Firestore has a limit for "in" queries)
+    const projects: ProjectWithId[] = [];
+
+    for (let i = 0; i < projectIds.length; i += 10) {
+      const batch = projectIds.slice(i, i + 10);
+
+      if (batch.length > 0) {
+        const projectsQuery = db.collection("projects")
+          .where(FieldPath.documentId(), "in", batch);
+
+        const projectsSnapshot = await projectsQuery.get();
+
+        projectsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data) {
+            projects.push({
+              id: doc.id,
+              mentorId: data.mentorId,
+              status: data.status,
+              isActive: data.isActive,
+              teamMembers: data.teamMembers,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              ...data,
+            } as ProjectWithId);
+          }
+        });
+      }
+    }
+
+    return projects;
+  } catch (error) {
+    console.error("Error getting projects by IDs:", error);
+    throw error;
+  }
+};
+
+/**
  * Create a new project with position
  * @param projectData - The project data
  * @param positionData - The position data

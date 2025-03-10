@@ -1,4 +1,3 @@
-// functions/src/types/permissions.ts
 import { Timestamp } from "firebase-admin/firestore";
 
 // basic permission interface
@@ -52,9 +51,12 @@ export interface RoleWithId extends Role {
   id: string;
 }
 
-// default role permissions mapping
+// default role permissions mapping - UPDATED to allow students to create projects
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionId[]> = {
   student: [
+    PERMISSIONS.CREATE_PROJECT, // Added permission for students to create projects
+    PERMISSIONS.EDIT_PROJECT, // Also add edit permission for their own projects
+    PERMISSIONS.VIEW_APPLICATIONS, // Allow viewing applications for their projects
     PERMISSIONS.SWIPE_PROJECTS,
     PERMISSIONS.SAVE_PROJECTS,
     PERMISSIONS.APPLY_TO_PROJECTS,

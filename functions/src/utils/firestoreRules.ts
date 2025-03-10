@@ -17,6 +17,10 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    function isServiceAccount() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    
     function isAdmin() {
       return isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -45,6 +49,11 @@ service cloud.firestore {
         get(/databases/$(database)/documents/projects/$(projectId)).data.facultyId == request.auth.uid;
     }
     
+    // Allow Cloud Functions service account full access
+    match /{document=**} {
+      allow read, write: if isServiceAccount();
+    }
+    
     // Users collection
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -61,7 +70,8 @@ service cloud.firestore {
     // Universities collection
     match /universities/{universityId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() || isServiceAccount();
+      allow delete: if isAdmin();
       
       // Departments subcollection
       match /departments/{departmentId} {
@@ -77,14 +87,14 @@ service cloud.firestore {
       allow read: if true;
       // Allow any authenticated user to create a project
       allow create: if isSignedIn();
-      allow update: if isAdmin() || isProjectOwner(projectId);
+      allow update: if isAdmin() || isProjectOwner(projectId) || isServiceAccount();
       allow delete: if isAdmin() || isProjectOwner(projectId);
       
       // Project positions subcollection
       match /positions/{positionId} {
         allow read: if true;
         allow create: if isSignedIn();
-        allow update: if isAdmin() || isProjectOwner(projectId);
+        allow update: if isAdmin() || isProjectOwner(projectId) || isServiceAccount();
         allow delete: if isAdmin() || isProjectOwner(projectId);
       }
       
@@ -92,12 +102,14 @@ service cloud.firestore {
       match /applications/{applicationId} {
         allow read: if isAdmin() || 
           isProjectOwner(projectId) || 
-          (isStudent() && resource.data.studentId == request.auth.uid);
+          (isStudent() && resource.data.studentId == request.auth.uid) ||
+          isServiceAccount();
         allow create: if isStudent();
         allow update: if isAdmin() || 
           isProjectOwner(projectId) || 
           (isStudent() && resource.data.studentId == request.auth.uid && 
-           resource.data.status == 'pending' && request.resource.data.status == 'pending');
+           resource.data.status == 'pending' && request.resource.data.status == 'pending') ||
+          isServiceAccount();
         allow delete: if isAdmin() || isProjectOwner(projectId);
       }
     }
@@ -108,8 +120,9 @@ service cloud.firestore {
         (isFaculty() && 
          resource.data.projectId in 
            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects) || 
-        (isStudent() && resource.data.studentId == request.auth.uid);
-      allow create: if isStudent();
+        (isStudent() && resource.data.studentId == request.auth.uid) ||
+        isServiceAccount();
+      allow create: if isStudent() || isServiceAccount();
       allow update: if isAdmin() || 
         (isFaculty() && 
          resource.data.projectId in 
@@ -117,8 +130,16 @@ service cloud.firestore {
         (isStudent() && 
          resource.data.studentId == request.auth.uid && 
          resource.data.status == 'pending' && 
-         request.resource.data.status == 'pending');
+         request.resource.data.status == 'pending') ||
+        isServiceAccount();
       allow delete: if isAdmin();
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update: if isServiceAccount();
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
     
     // User actions collection
@@ -130,6 +151,12 @@ service cloud.firestore {
            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.projects);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false; // Immutable
+    }
+    
+    // User permissions collection
+    match /userPermissions/{userId} {
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow write: if isAdmin() || isServiceAccount();
     }
     
     // Onboarding materials collection

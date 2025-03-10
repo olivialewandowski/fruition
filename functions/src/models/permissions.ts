@@ -1,182 +1,130 @@
 // src/models/permissions.ts
 import { db } from "../config/firebase";
+import { PROJECT_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from "../types/permissions";
 
-// import permission constants
-const PROJECT_PERMISSIONS = {
-  CREATE_PROJECT: "create_project",
-  EDIT_PROJECT: "edit_project",
-  DELETE_PROJECT: "delete_project",
-  VIEW_APPLICATIONS: "view_applications",
-  MANAGE_APPLICATIONS: "manage_applications",
+/**
+ * Check if a user has a specific permission
+ * This simplified version allows all authenticated users to create projects
+ *
+ * @param userId - The user ID
+ * @param permission - The permission to check
+ * @returns Whether the user has the permission
+ */
+export const hasPermission = async (userId: string, permission: string): Promise<boolean> => {
+  try {
+    console.log(`Checking permission "${permission}" for user "${userId}"`);
+
+    // If no user ID provided, deny permission
+    if (!userId) {
+      console.log("No user ID provided, denying permission");
+      return false;
+    }
+
+    // Get the user document
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      console.log(`User document ${userId} not found`);
+      return false;
+    }
+
+    const userData = userDoc.data();
+    if (!userData) {
+      console.log(`User data for ${userId} is empty`);
+      return false;
+    }
+
+    const userRole = userData.role;
+    console.log(`User ${userId} has role: ${userRole || "undefined"}`);
+
+    // If no role is defined, set default role and grant basic permissions
+    if (!userRole) {
+      console.log(`Setting default role for user ${userId}`);
+
+      // Determine default role based on email domain or other data
+      const defaultRole = userData.email && userData.email.endsWith(".edu") ? "faculty" : "student";
+
+      await userRef.update({
+        role: defaultRole,
+        updatedAt: new Date(),
+      });
+
+      // Get permissions for the default role
+      const defaultPermissions = DEFAULT_ROLE_PERMISSIONS[defaultRole] || [];
+      return defaultPermissions.includes(permission);
+    }
+
+    // Allow all authenticated users to create projects
+    if (permission === PROJECT_PERMISSIONS.CREATE_PROJECT) {
+      console.log(`Granting ${permission} to authenticated user ${userId}`);
+      return true;
+    }
+
+    // Get role permissions from the DEFAULT_ROLE_PERMISSIONS mapping
+    const rolePermissions = DEFAULT_ROLE_PERMISSIONS[userRole] || [];
+
+    // Check if the permission is in the list
+    const hasRequiredPermission = rolePermissions.includes(permission);
+    console.log(`User ${userId} permission check for ${permission}: ${hasRequiredPermission}`);
+
+    return hasRequiredPermission;
+  } catch (error) {
+    console.error(`Error checking permission: ${error}`);
+    // In case of error, deny permission
+    return false;
+  }
 };
 
-const CONNECT_PERMISSIONS = {
-  SWIPE_PROJECTS: "swipe_projects",
-  SAVE_PROJECTS: "save_projects",
-  APPLY_TO_PROJECTS: "apply_to_projects",
+/**
+ * Check if a user can manage a specific project
+ *
+ * @param userId - The user ID
+ * @param projectId - The project ID to check
+ * @returns Whether the user can manage the project
+ */
+export const canManageProject = async (userId: string, projectId: string): Promise<boolean> => {
+  try {
+    // If no user ID or project ID provided, deny permission
+    if (!userId || !projectId) {
+      return false;
+    }
+
+    // Get the user document
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return false;
+    }
+
+    const userData = userDoc.data();
+    if (!userData) {
+      return false;
+    }
+
+    // Admins can manage all projects
+    if (userData.role === "admin") {
+      return true;
+    }
+
+    // Get the project document
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectDoc = await projectRef.get();
+
+    if (!projectDoc.exists) {
+      return false;
+    }
+
+    const projectData = projectDoc.data();
+    if (!projectData) {
+      return false;
+    }
+
+    // Project creators/mentors can manage their own projects
+    return projectData.mentorId === userId;
+  } catch (error) {
+    console.error(`Error checking project management permission: ${error}`);
+    return false;
+  }
 };
-
-// combine all permissions
-const PERMISSIONS = {
-  ...PROJECT_PERMISSIONS,
-  ...CONNECT_PERMISSIONS,
-};
-
-/**
- * Initializes default permissions for a new user based on their role
- * @param userId - The user ID to set permissions for
- * @param role - The user's role (student, faculty, admin)
- */
-export async function initializeUserPermissions(userId: string, role: string): Promise<void> {
-  // default permissions mapping based on role
-  const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
-    student: [
-      CONNECT_PERMISSIONS.SWIPE_PROJECTS,
-      CONNECT_PERMISSIONS.SAVE_PROJECTS,
-      CONNECT_PERMISSIONS.APPLY_TO_PROJECTS,
-      PROJECT_PERMISSIONS.CREATE_PROJECT,
-      PROJECT_PERMISSIONS.EDIT_PROJECT,
-      PROJECT_PERMISSIONS.DELETE_PROJECT,
-      PROJECT_PERMISSIONS.VIEW_APPLICATIONS,
-      PROJECT_PERMISSIONS.MANAGE_APPLICATIONS,
-    ],
-    faculty: [
-      PROJECT_PERMISSIONS.CREATE_PROJECT,
-      PROJECT_PERMISSIONS.EDIT_PROJECT,
-      PROJECT_PERMISSIONS.DELETE_PROJECT,
-      PROJECT_PERMISSIONS.VIEW_APPLICATIONS,
-      PROJECT_PERMISSIONS.MANAGE_APPLICATIONS,
-    ],
-    admin: [
-      PROJECT_PERMISSIONS.CREATE_PROJECT,
-      PROJECT_PERMISSIONS.EDIT_PROJECT,
-      PROJECT_PERMISSIONS.DELETE_PROJECT,
-      PROJECT_PERMISSIONS.VIEW_APPLICATIONS,
-      PROJECT_PERMISSIONS.MANAGE_APPLICATIONS,
-      CONNECT_PERMISSIONS.SWIPE_PROJECTS,
-      CONNECT_PERMISSIONS.SAVE_PROJECTS,
-      CONNECT_PERMISSIONS.APPLY_TO_PROJECTS,
-    ],
-  };
-
-  // get default permissions for the role
-  const permissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
-
-  // create user permissions document
-  await db.collection("userPermissions").doc(userId).set({
-    userId,
-    role,
-    permissions,
-    customPermissions: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-}
-
-/**
- * Gets all permissions for a specific user
- * @param userId - The user ID to get permissions for
- * @returns Array of permission IDs
- */
-export async function getUserPermissions(userId: string): Promise<string[]> {
-  const doc = await db.collection("userPermissions").doc(userId).get();
-
-  if (!doc.exists) {
-    return [];
-  }
-
-  const data = doc.data();
-  return [...(data?.permissions || []), ...(data?.customPermissions || [])];
-}
-
-/**
- * Checks if a user has a specific permission
- * @param userId - The user ID to check permissions for
- * @param permissionId - The permission ID to check
- * @returns Boolean indicating if the user has the permission
- */
-export async function hasPermission(userId: string, permissionId: string): Promise<boolean> {
-  const permissions = await getUserPermissions(userId);
-  return permissions.includes(permissionId);
-}
-
-/**
- * Adds a custom permission to a user
- * @param userId - The user ID to add the permission to
- * @param permissionId - The permission ID to add
- */
-export async function addCustomPermission(userId: string, permissionId: string): Promise<void> {
-  const docRef = db.collection("userPermissions").doc(userId);
-  const doc = await docRef.get();
-
-  if (!doc.exists) {
-    throw new Error("User permissions not initialized");
-  }
-
-  const data = doc.data();
-  const customPermissions = data?.customPermissions || [];
-
-  if (!customPermissions.includes(permissionId)) {
-    await docRef.update({
-      customPermissions: [...customPermissions, permissionId],
-      updatedAt: new Date().toISOString(),
-    });
-  }
-}
-
-/**
- * Removes a custom permission from a user
- * @param userId - The user ID to remove the permission from
- * @param permissionId - The permission ID to remove
- */
-export async function removeCustomPermission(userId: string, permissionId: string): Promise<void> {
-  const docRef = db.collection("userPermissions").doc(userId);
-  const doc = await docRef.get();
-
-  if (!doc.exists) {
-    throw new Error("User permissions not initialized");
-  }
-
-  const data = doc.data();
-  const customPermissions = data?.customPermissions || [];
-
-  await docRef.update({
-    customPermissions: customPermissions.filter((perm: string) => perm !== permissionId),
-    updatedAt: new Date().toISOString(),
-  });
-}
-
-/**
- * Gets all available features for a specific user based on their permissions
- * @param userId - The user ID to get features for
- * @returns Array of feature IDs
- */
-export async function getUserFeatures(userId: string): Promise<string[]> {
-  // define features with required permissions
-  const FEATURES = [
-    {
-      id: "projects",
-      requiredPermissions: [PROJECT_PERMISSIONS.CREATE_PROJECT],
-    },
-    {
-      id: "connect",
-      requiredPermissions: [CONNECT_PERMISSIONS.SWIPE_PROJECTS],
-    },
-  ];
-
-  // get user's permissions
-  const permissions = await getUserPermissions(userId);
-
-  // filter features based on user permissions
-  return FEATURES
-    .filter((feature) => {
-      // check if user has any of the required permissions for this feature
-      return feature.requiredPermissions.some((permission) =>
-        permissions.includes(permission)
-      );
-    })
-    .map((feature) => feature.id);
-}
-
-// export constants for use in other files
-export { PROJECT_PERMISSIONS, CONNECT_PERMISSIONS, PERMISSIONS };

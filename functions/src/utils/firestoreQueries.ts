@@ -293,7 +293,7 @@ export async function searchProjects(query: string): Promise<ProjectWithId[]> {
     .filter((project) => {
       const title = project.title.toLowerCase();
       const description = project.description.toLowerCase();
-      const department = project.department.toLowerCase();
+      const department = project.department ? project.department.toLowerCase() : "";
 
       // Check if any search term is in the title, description, or department
       return queryTerms.some((term) =>

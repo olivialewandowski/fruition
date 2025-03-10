@@ -2,18 +2,25 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
-import { useAuth } from '@/contexts/AuthContext';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Define proper types for form data
 interface ProfileFormData {
   firstName: string;
   lastName: string;
-  institution: string;
-  role: string;
-  email?: string | null;
+  university: string; // Using university name for display
+  role: 'student' | 'faculty' | 'admin' | '';
+}
+
+function getUniversityId(universityName: string): string {
+  // For now, we only support NYU
+  if (universityName === "New York University") {
+    return "nyu";
+  }
+  // Default to using the name itself for any other university
+  return universityName;
 }
 
 // Simple sanitization function to prevent XSS
@@ -34,11 +41,10 @@ function sanitizeInput(input: string): string {
 
 const ProfileCompletion = () => {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const [formData, setFormData] = useState<ProfileFormData>({
     firstName: '',
     lastName: '',
-    institution: '',
+    university: '',
     role: ''
   });
   const [error, setError] = useState('');
@@ -62,7 +68,7 @@ const ProfileCompletion = () => {
           userDoc.data().role && 
           userDoc.data().firstName && 
           userDoc.data().lastName && 
-          userDoc.data().institution) {
+          userDoc.data().university) { // Check only for university field
         console.log('Profile is complete, redirecting to dashboard');
         // Use window.location to force a full page reload
         window.location.href = '/development/dashboard';
@@ -82,16 +88,9 @@ const ProfileCompletion = () => {
                       (currentUser.displayName ? sanitizeInput(currentUser.displayName.split(' ')[0]) : ''),
             lastName: docData.lastName ? sanitizeInput(docData.lastName) : 
                      (currentUser.displayName ? sanitizeInput(currentUser.displayName.split(' ').slice(1).join(' ')) : ''),
-            institution: docData.institution ? sanitizeInput(docData.institution) : '',
-            role: docData.role || ''
+            university: docData.university ? sanitizeInput(docData.university) : '',
+            role: (docData.role && ['student', 'faculty', 'admin'].includes(docData.role)) ? docData.role : ''
           }));
-          
-          if (currentUser.email) {
-            setFormData(prev => ({
-              ...prev,
-              email: currentUser.email
-            }));
-          }
         }
         return false;
       }
@@ -135,13 +134,8 @@ const ProfileCompletion = () => {
     };
   }, [router, checkUserProfile]);
 
-  const handleRoleSelect = (selectedRole: string) => {
-    // Validate role before setting
-    if (['student', 'faculty', 'admin', 'user'].includes(selectedRole)) {
-      setFormData({ ...formData, role: selectedRole });
-    } else {
-      setError('Invalid role selected');
-    }
+  const handleRoleSelect = (selectedRole: 'student' | 'faculty' | 'admin') => {
+    setFormData({ ...formData, role: selectedRole });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,7 +145,7 @@ const ProfileCompletion = () => {
     // Sanitize all input values
     const sanitizedFirstName = sanitizeInput(formData.firstName);
     const sanitizedLastName = sanitizeInput(formData.lastName);
-    const sanitizedInstitution = sanitizeInput(formData.institution);
+    const sanitizedUniversity = sanitizeInput(formData.university);
     
     // Validate all required fields
     if (!sanitizedFirstName) {
@@ -164,12 +158,12 @@ const ProfileCompletion = () => {
       return;
     }
     
-    if (!sanitizedInstitution) {
-      setError('Institution is required');
+    if (!formData.university) {
+      setError('University selection is required');
       return;
     }
     
-    if (!formData.role || !['student', 'faculty', 'admin', 'user'].includes(formData.role)) {
+    if (!formData.role || !['student', 'faculty', 'admin'].includes(formData.role)) {
       setError('Please select a valid role');
       return;
     }
@@ -182,11 +176,15 @@ const ProfileCompletion = () => {
         throw new Error('User not authenticated');
       }
 
+      // Get university ID from name
+      const universityId = getUniversityId(sanitizedUniversity);
+
       console.log('Updating user profile with data:', {
         firstName: sanitizedFirstName,
         lastName: sanitizedLastName,
         email: currentUser.email,
-        institution: sanitizedInstitution,
+        university: sanitizedUniversity,  // Store the university name
+        universityId: universityId,       // Also store the university ID
         role: formData.role,
         profileCompleted: true
       });
@@ -196,10 +194,11 @@ const ProfileCompletion = () => {
         firstName: sanitizedFirstName,
         lastName: sanitizedLastName,
         email: currentUser.email,
-        institution: sanitizedInstitution,
+        university: sanitizedUniversity,  // Store the university name
+        universityId: universityId,       // Also store the university ID
         role: formData.role,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         profileCompleted: true // Add a flag to explicitly mark profile as completed
       }, { merge: true });
 
@@ -286,48 +285,6 @@ const ProfileCompletion = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {/* Role Selection Buttons */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              I am a:
-            </label>
-            <div className="grid grid-cols-3 gap-4">
-              <button
-                type="button"
-                className={`py-2 px-4 rounded-md w-full ${
-                  formData.role === 'faculty'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => handleRoleSelect('faculty')}
-              >
-                Faculty
-              </button>
-              <button
-                type="button"
-                className={`py-2 px-4 rounded-md w-full ${
-                  formData.role === 'student'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => handleRoleSelect('student')}
-              >
-                Student
-              </button>
-              <button
-                type="button"
-                className={`py-2 px-4 rounded-md w-full ${
-                  formData.role === 'admin'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => handleRoleSelect('admin')}
-              >
-                Admin
-              </button>
-            </div>
-          </div>
-
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* First Name */}
             <div>
@@ -357,18 +314,62 @@ const ProfileCompletion = () => {
               />
             </div>
 
-            {/* Institution */}
+            {/* University */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Institution
+                University
               </label>
-              <input
-                type="text"
+              <select
                 required
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                value={formData.institution}
-                onChange={(e) => setFormData({...formData, institution: e.target.value})}
-              />
+                value={formData.university}
+                onChange={(e) => setFormData({...formData, university: e.target.value})}
+              >
+                <option value="">Select your university</option>
+                <option value="New York University">New York University</option>
+              </select>
+            </div>
+
+            {/* Role Selection Buttons */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                I am a:
+              </label>
+              <div className="grid grid-cols-3 gap-4">
+                <button
+                  type="button"
+                  className={`py-2 px-4 rounded-md w-full ${
+                    formData.role === 'faculty'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={() => handleRoleSelect('faculty')}
+                >
+                  Faculty
+                </button>
+                <button
+                  type="button"
+                  className={`py-2 px-4 rounded-md w-full ${
+                    formData.role === 'student'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={() => handleRoleSelect('student')}
+                >
+                  Student
+                </button>
+                <button
+                  type="button"
+                  className={`py-2 px-4 rounded-md w-full ${
+                    formData.role === 'admin'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={() => handleRoleSelect('admin')}
+                >
+                  Admin
+                </button>
+              </div>
             </div>
 
             {error && (

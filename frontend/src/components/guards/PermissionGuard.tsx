@@ -21,7 +21,7 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({
   fallback,
   redirectTo
 }) => {
-  const { hasPermission, loading } = useAuth();
+  const { hasPermission, loading, user, userData } = useAuth();
   const router = useRouter();
   
   // While loading auth state, show loading indicator
@@ -31,6 +31,11 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({
         <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
+  }
+  
+  // Special case to allow all authenticated users to create projects
+  if (permission === 'create_project' && user) {
+    return <>{children}</>;
   }
   
   // If user has permission, render children
@@ -84,7 +89,7 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
   fallback,
   redirectTo
 }) => {
-  const { hasFeature, loading } = useAuth();
+  const { hasFeature, loading, user } = useAuth();
   const router = useRouter();
   
   // While loading auth state, show loading indicator
@@ -94,6 +99,11 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
         <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
+  }
+  
+  // Special case to allow project creation feature for all users
+  if (featureId === 'projects' && user) {
+    return <>{children}</>;
   }
   
   // If user has access to the feature, render children
@@ -131,21 +141,24 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
 
 /**
  * Component that conditionally renders content based on user role
+ * Enhanced to treat project creation as special case
  */
 interface RoleGuardProps {
   children: ReactNode;
   roles: string[];
   fallback?: ReactNode;
   redirectTo?: string;
+  feature?: string; // Optional feature parameter
 }
 
 export const RoleGuard: React.FC<RoleGuardProps> = ({
   children,
   roles,
   fallback,
-  redirectTo
+  redirectTo,
+  feature
 }) => {
-  const { userData, loading } = useAuth();
+  const { userData, loading, user } = useAuth();
   const router = useRouter();
   
   // While loading auth state, show loading indicator
@@ -155,6 +168,11 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
         <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
+  }
+  
+  // Special case for project creation feature
+  if (feature === 'create_project' && user) {
+    return <>{children}</>;
   }
   
   // If user has required role, render children
