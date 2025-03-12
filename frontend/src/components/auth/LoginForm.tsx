@@ -191,14 +191,14 @@ const LoginForm = () => {
     <div className="flex min-h-screen">
       {/* Left Panel - Colored Background */}
       <motion.div 
-        className="hidden md:flex md:w-1/2 bg-zinc-800 flex-col justify-center items-center p-12 relative overflow-hidden"
+        className="hidden md:flex md:w-2/3 bg-zinc-800 flex-col justify-center items-center p-12 relative overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: isPageLoaded ? 1 : 0 }}
         transition={{ duration: 0.8, delay: 0.1 }}
       >
         {/* Background Blur Elements */}
         <motion.div 
-          className="absolute top-[5%] left-[80%] -translate-x-1/2 -translate-y-1/2 z-0 h-[30rem] w-[35rem] rounded-full blur-[8rem] bg-violet-800"
+          className="absolute top-[10%] left-[10%] -translate-x-1/2 -translate-y-1/2 z-0 h-[30rem] w-[35rem] rounded-full blur-[8rem] bg-fuchsia-800"
           animate={{
             scale: [1, 1.05, 1],
             opacity: [0.6, 0.7, 0.6]
@@ -210,7 +210,7 @@ const LoginForm = () => {
           }}
         ></motion.div>
         <motion.div 
-          className="absolute bottom-[5%] right-[5%] -translate-x-1/2 -translate-y-1/2 z-0 h-[25rem] w-[30rem] rounded-full blur-[10rem] bg-purple-500"
+          className="absolute bottom-[60%] right-[10%] -translate-x-1/2 -translate-y-1/2 z-0 h-[25rem] w-[30rem] rounded-full blur-[10rem] bg-purple-500"
           animate={{
             scale: [1, 1.1, 1],
             opacity: [0.5, 0.6, 0.5]
@@ -223,7 +223,7 @@ const LoginForm = () => {
           }}
         ></motion.div>
         <motion.div 
-          className="absolute top-[20%] right-[20%] -translate-x-1/2 -translate-y-1/2 z-0 h-[20rem] w-[25rem] rounded-full blur-[7rem] bg-fuchsia-600"
+          className="absolute top-[20%] right-[70%] -translate-x-1/2 -translate-y-1/2 z-0 h-[20rem] w-[25rem] rounded-full blur-[7rem] bg-violet-800"
           animate={{
             scale: [1, 1.08, 1],
             opacity: [0.4, 0.5, 0.4]
@@ -251,58 +251,44 @@ const LoginForm = () => {
           }}
         ></motion.div>
         
-        <div className="max-w-md text-white relative z-10">
-          <motion.h1 
-            className="text-6xl font-bold mb-20 text-center whitespace-nowrap"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            Welcome Back!
-          </motion.h1>
-          <div className="space-y-8">
-            <motion.div 
-              className="text-center mb-10"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.5 }}
-            >
-              <p className="text-xl">Your gateway to research opportunities</p>
-            </motion.div>
-            <motion.div 
-              className="bg-white/10 p-6 rounded-xl backdrop-blur-sm"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.7 }}
-            >
-              <h3 className="text-xl font-bold mb-4">Why Fruition?</h3>
-              <ul className="space-y-3">
-                <li className="flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Connect with leading researchers</span>
-                </li>
-                <li className="flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Discover projects that match your interests</span>
-                </li>
-                <li className="flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Streamlined application process</span>
-                </li>
-              </ul>
-            </motion.div>
+        <div className="w-full h-full flex flex-col justify-between relative z-10">
+          <div className="flex-grow flex flex-col justify-center items-center">
+            <div className="max-w-lg text-white">
+              <motion.div
+                className="flex items-center mb-8"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+              >
+                <h1 className="text-7xl font-bold whitespace-nowrap">Welcome Back!</h1>
+              </motion.div>
+              
+              <motion.div
+                className="mb-8"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+              >
+                <p className="text-xl leading-relaxed">
+                  Connect with researchers and temp texttemp textemp textemp textemp textemp textemp textemp textemp tex!
+                </p>
+              </motion.div>
+            </div>
           </div>
+          
+          <motion.div
+            className="text-sm text-white/70 self-start pl-4 pb-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 1 }}
+          >
+            © 2025 Fruition. All rights reserved.
+          </motion.div>
         </div>
       </motion.div>
 
       {/* Right Panel - Login Form */}
-      <div className="w-full md:w-1/2 flex flex-col justify-center px-4 sm:px-6 lg:px-8 py-12 bg-white">
+      <div className="w-full md:w-1/3 flex flex-col justify-center px-4 sm:px-6 lg:px-8 py-12 bg-white">
         <AnimatePresence>
           {isPageLoaded && (
             <motion.div 
@@ -330,53 +316,26 @@ const LoginForm = () => {
                 className="mt-2 text-center text-sm text-gray-600 mb-8"
                 variants={itemVariants}
               >
-                Welcome back! Please sign in to your account
+                Don't have an account?{' '}
+                <Link href="/development/signup" className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300">
+                  Sign Up
+                </Link>
               </motion.p>
 
               <motion.div 
                 className="space-y-6"
                 variants={itemVariants}
               >
-                {/* Google Sign-in Button */}
-                <motion.button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                  className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                  whileHover="hover"
-                  whileTap="tap"
-                  variants={buttonHoverVariants}
-                >
-                  <img 
-                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                    alt="Google" 
-                    className="w-5 h-5 mr-2"
-                  />
-                  Sign in with Google
-                </motion.button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">OR</span>
-                  </div>
-                </div>
-
                 <form className="space-y-4" onSubmit={handleSubmit}>
                   {/* Email */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Email
-                    </label>
                     <motion.input
                       type="email"
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 py-2 px-3"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      placeholder="you@company.com"
+                      placeholder="Email"
                       whileFocus="focus"
                       variants={inputFocusVariants}
                     />
@@ -384,15 +343,13 @@ const LoginForm = () => {
 
                   {/* Password */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Password
-                    </label>
                     <motion.input
                       type="password"
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 py-2 px-3"
                       value={formData.password}
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      placeholder="Password"
                       whileFocus="focus"
                       variants={inputFocusVariants}
                     />
@@ -417,9 +374,36 @@ const LoginForm = () => {
                     whileTap="tap"
                     variants={buttonHoverVariants}
                   >
-                    {isLoading ? 'Signing in...' : 'Sign in'}
+                    {isLoading ? 'Signing in...' : 'Log in'}
                   </motion.button>
                 </form>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">OR</span>
+                  </div>
+                </div>
+                
+                {/* Google Sign-in Button */}
+                <motion.button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  whileHover="hover"
+                  whileTap="tap"
+                  variants={buttonHoverVariants}
+                >
+                  <img 
+                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                    alt="Google" 
+                    className="w-5 h-5 mr-2"
+                  />
+                  Login with Google
+                </motion.button>
               </motion.div>
 
               <motion.div 
@@ -427,9 +411,9 @@ const LoginForm = () => {
                 variants={itemVariants}
               >
                 <p className="text-gray-600">
-                  Don't have an account?{' '}
-                  <Link href="/development/signup" className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300">
-                    Sign Up →
+                  Forgot password?{' '}
+                  <Link href="#" className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300">
+                    Click here
                   </Link>
                 </p>
               </motion.div>
