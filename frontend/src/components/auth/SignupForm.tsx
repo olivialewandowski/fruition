@@ -244,7 +244,7 @@ const SignupForm = () => {
   return (
     <div className="flex min-h-screen">
       {/* Left Panel - Sign Up Form */}
-      <div className="w-full md:w-1/2 flex flex-col justify-center px-4 sm:px-6 lg:px-8 py-12 bg-white">
+      <div className="w-full md:w-1/3 flex flex-col justify-center px-4 sm:px-6 lg:px-8 py-12 bg-white">
         <AnimatePresence>
           {isPageLoaded && (
             <motion.div 
@@ -382,7 +382,7 @@ const SignupForm = () => {
 
       {/* Right Panel - Features */}
       <motion.div 
-        className="hidden md:flex md:w-1/2 bg-zinc-800 flex-col justify-center items-center p-12 relative overflow-hidden"
+        className="hidden md:flex md:w-2/3 bg-zinc-800 flex-col justify-center items-center p-12 relative overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: isPageLoaded ? 1 : 0 }}
         transition={{ duration: 0.8, delay: 0.1 }}
@@ -442,70 +442,95 @@ const SignupForm = () => {
           }}
         ></motion.div>
         
-        <div className="max-w-md text-white relative z-10">
-          <motion.h1 
-            className="text-6xl font-bold mb-20 text-center whitespace-nowrap"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            Welcome to Fruition!
-          </motion.h1>
-          <div className="space-y-8">
-            {[
-              {
-                icon: (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-                ),
-                title: "Find Research Projects"
-              },
-              {
-                icon: (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                ),
-                title: "Connect with Faculty"
-              },
-              {
-                icon: (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                ),
-                title: "Apply with One Click"
-              },
-              {
-                icon: (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                ),
-                title: "Track Your Applications"
-              },
-              {
-                icon: (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                ),
-                title: "Build Your Research Profile"
-              }
-            ].map((feature, index) => (
-              <AnimatePresence key={index}>
-                {isPageLoaded && (
-                  <motion.div 
-                    className="flex items-center"
-                    custom={index}
-                    initial="hidden"
-                    animate="visible"
-                    variants={featureVariants}
-                  >
-                    <div className="bg-white/20 p-2 rounded-lg mr-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        {feature.icon}
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold">{feature.title}</h3>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            ))}
+        <div className="w-full h-full flex flex-col justify-between relative z-10">
+          <div className="flex-grow flex flex-col justify-center items-center">
+            <div className="max-w-lg text-white">
+              <motion.div
+                className="flex items-center mb-8"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+              >
+                <h1 className="text-5xl font-bold whitespace-nowrap">Welcome to Fruition!</h1>
+              </motion.div>
+              
+              <motion.div
+                className="mb-8"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+              >
+                <p className="text-xl leading-relaxed">
+                  Skip repetitive and manual research-matching tasks. Get highly productive through automation and save tons of time!
+                </p>
+              </motion.div>
+              
+              <div className="space-y-8">
+                {[
+                  {
+                    icon: (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                    ),
+                    title: "Find Research Projects"
+                  },
+                  {
+                    icon: (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    ),
+                    title: "Connect with Faculty"
+                  },
+                  {
+                    icon: (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                    ),
+                    title: "Apply with One Click"
+                  },
+                  {
+                    icon: (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    ),
+                    title: "Track Your Applications"
+                  },
+                  {
+                    icon: (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    ),
+                    title: "Build Your Research Profile"
+                  }
+                ].map((feature, index) => (
+                  <AnimatePresence key={index}>
+                    {isPageLoaded && (
+                      <motion.div 
+                        className="flex items-center"
+                        custom={index}
+                        initial="hidden"
+                        animate="visible"
+                        variants={featureVariants}
+                      >
+                        <div className="bg-white/20 p-2 rounded-lg mr-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            {feature.icon}
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold">{feature.title}</h3>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                ))}
+              </div>
+            </div>
           </div>
+          
+          <motion.div
+            className="text-sm text-white/70 self-start pl-4 pb-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 1 }}
+          >
+            © 2023 Fruition. All rights reserved.
+          </motion.div>
         </div>
       </motion.div>
     </div>
