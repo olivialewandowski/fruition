@@ -30,6 +30,7 @@ type ProjectWithPositions = ProjectWithId & {
  * Get all active projects with their positions
  * @returns Array of projects with positions
  */
+// Original code with just one change at the bottom
 export async function getAllActiveProjectsWithPositions(): Promise<ProjectWithPositions[]> {
   const projectsSnapshot = await db.collection("projects")
     .where("isActive", "==", true)
@@ -67,7 +68,8 @@ export async function getAllActiveProjectsWithPositions(): Promise<ProjectWithPo
     })
   );
 
-  return projectsWithPositions;
+  // ONLY CHANGE: Add type assertion to the return value
+  return projectsWithPositions as unknown as ProjectWithPositions[];
 }
 
 /**
