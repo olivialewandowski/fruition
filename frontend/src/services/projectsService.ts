@@ -649,54 +649,54 @@ export const getEmptyProjects = async (): Promise<ConnectProject[]> => {
 export const getSampleProjects = (): ConnectProject[] => {
   return [
     {
-      id: '1',
-      title: 'Predicting Housing Prices Using Advanced Machine Learning Models',
-      description: 'This project explores the application of machine learning techniques to predict housing prices based on features such as location, square footage, and neighborhood amenities.',
-      faculty: 'Dr. Jane Smith',
-      department: 'Computer Science',
-      skills: ['Python', 'Machine Learning', 'Data Analysis'],
-      duration: '3 months',
-      commitment: '10 hours/week'
+      id: "1",
+      title: "AI-Powered Healthcare Diagnostics",
+      description: "Develop machine learning algorithms to assist in early disease detection using medical imaging data. This project aims to improve diagnostic accuracy and reduce the workload of healthcare professionals.",
+      faculty: "School of Medicine",
+      department: "Biomedical Engineering",
+      skills: ["Machine Learning", "Python", "Medical Imaging", "Data Analysis"],
+      duration: "6-12 months",
+      commitment: "10-15 hours per week"
     },
     {
-      id: '2',
-      title: 'Modeling Climate Change Impact on Regional Crop Yields',
-      description: 'This project examines how climate change variables—temperature, precipitation, and CO₂ levels—affect crop yields using time-series analysis and geospatial modeling.',
-      faculty: 'Dr. Michael Kim',
-      department: 'Environmental Science',
-      skills: ['Python', 'TensorFlow', 'Geospatial Analysis'],
-      duration: '6 months',
-      commitment: '15 hours/week'
+      id: "2",
+      title: "Sustainable Urban Planning Simulation",
+      description: "Create an interactive simulation tool that helps urban planners visualize the impact of different development strategies on sustainability metrics like energy usage, transportation efficiency, and quality of life.",
+      faculty: "College of Environmental Design",
+      department: "Urban Studies",
+      skills: ["3D Modeling", "Data Visualization", "Sustainability", "JavaScript"],
+      duration: "3-6 months",
+      commitment: "8-12 hours per week"
     },
     {
-      id: '3',
-      title: 'Developing a Mobile App for Mental Health Monitoring',
-      description: 'This project involves creating a mobile application that helps users track their mental health metrics over time, providing insights and suggesting resources when needed.',
-      faculty: 'Dr. Sarah Johnson',
-      department: 'Psychology',
-      skills: ['React Native', 'JavaScript', 'UI/UX Design'],
-      duration: '4 months',
-      commitment: '12 hours/week'
+      id: "3",
+      title: "Quantum Computing Algorithm Development",
+      description: "Research and implement novel quantum algorithms for solving complex optimization problems that are intractable with classical computing approaches.",
+      faculty: "College of Engineering",
+      department: "Computer Science",
+      skills: ["Quantum Computing", "Algorithm Design", "Linear Algebra", "Programming"],
+      duration: "12+ months",
+      commitment: "15-20 hours per week"
     },
     {
-      id: '4',
-      title: 'Analyzing Social Media Discourse on Public Health Issues',
-      description: 'This project uses natural language processing to analyze how public health topics are discussed across different social media platforms and demographic groups.',
-      faculty: 'Dr. Robert Chen',
-      department: 'Public Health',
-      skills: ['NLP', 'Data Mining', 'Statistical Analysis'],
-      duration: '5 months',
-      commitment: '8 hours/week'
+      id: "4",
+      title: "Behavioral Economics Research Study",
+      description: "Design and conduct experiments to investigate how psychological factors influence economic decision-making, with applications in public policy and market design.",
+      faculty: "School of Business",
+      department: "Economics",
+      skills: ["Experimental Design", "Statistical Analysis", "Psychology", "Economics"],
+      duration: "3-9 months",
+      commitment: "5-10 hours per week"
     },
     {
-      id: '5',
-      title: 'Quantum Computing Algorithms for Optimization Problems',
-      description: 'This project explores how quantum computing can be applied to solve complex optimization problems that are computationally intensive for classical computers.',
-      faculty: 'Dr. Emily Rodriguez',
-      department: 'Physics',
-      skills: ['Quantum Computing', 'Algorithm Design', 'Linear Algebra'],
-      duration: '6 months',
-      commitment: '20 hours/week'
+      id: "5",
+      title: "Renewable Energy Storage Solutions",
+      description: "Develop and test innovative materials for next-generation batteries that can efficiently store renewable energy from intermittent sources like solar and wind power.",
+      faculty: "College of Chemistry",
+      department: "Materials Science",
+      skills: ["Chemistry", "Lab Work", "Data Analysis", "Renewable Energy"],
+      duration: "6-12 months",
+      commitment: "10-15 hours per week"
     }
   ];
 };

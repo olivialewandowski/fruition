@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Project } from '@/types/project';
 import ProjectCardWithScroll from './ProjectCardWithScroll';
+import MatchProjectDetail from './MatchProjectDetail';
+import dynamic from 'next/dynamic';
+import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 
 interface MatchProjectsListProps {
   projects: Project[];
@@ -11,6 +14,7 @@ interface MatchProjectsListProps {
   onUndoAction?: () => void;
 }
 
+// Create a client-only version of the component to avoid hydration issues
 const MatchProjectsList = ({ 
   projects, 
   onSaveProject, 
@@ -41,7 +45,6 @@ const MatchProjectsList = ({
         setSelectedProject(newFirstProject);
         const selectedElement = document.getElementById(`project-${newFirstProject.id}`);
         if (selectedElement && scrollContainerRef.current) {
-          const containerRect = scrollContainerRef.current.getBoundingClientRect();
           selectedElement.scrollIntoView({ 
             behavior: 'smooth',
             block: 'center'
@@ -54,30 +57,17 @@ const MatchProjectsList = ({
 
   // Handle project selection and scrolling
   const handleSelectProject = (project: Project) => {
-    if (selectedProject?.id === project.id) {
-      setSelectedProject(null);
-    } else {
-      setSelectedProject(project);
-      scrollToProject(project);
-    }
+    setSelectedProject(project);
+    scrollToProject(project);
   };
 
   // Scroll to a specific project
   const scrollToProject = (project: Project) => {
     const selectedElement = document.getElementById(`project-${project.id}`);
     if (selectedElement && scrollContainerRef.current) {
-      const containerRect = scrollContainerRef.current.getBoundingClientRect();
-      const elementRect = selectedElement.getBoundingClientRect();
-      
-      const scrollTop = 
-        elementRect.top + 
-        scrollContainerRef.current.scrollTop - 
-        containerRect.top - 
-        (containerRect.height - elementRect.height) / 2;
-        
-      scrollContainerRef.current.scrollTo({
-        top: scrollTop,
-        behavior: 'smooth'
+      selectedElement.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center'
       });
     }
   };
@@ -111,6 +101,48 @@ const MatchProjectsList = ({
     }
   };
 
+  // Animation variants for the project cards
+  const cardVariants = {
+    hidden: { 
+      opacity: 0, 
+      y: 50,
+      scale: 0.9,
+      filter: "blur(5px)"
+    },
+    show: { 
+      opacity: 1, 
+      y: 0,
+      scale: 1,
+      filter: "blur(0px)",
+      transition: { 
+        type: "spring",
+        stiffness: 80,
+        damping: 12,
+        duration: 0.7
+      }
+    }
+  };
+
+  // Animation variants for the detail panel
+  const detailVariants = {
+    hidden: {
+      opacity: 0,
+      x: 50,
+      scale: 0.95
+    },
+    show: {
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15,
+        duration: 0.6
+      }
+    }
+  };
+
   // Handle empty projects case
   if (!projects || projects.length === 0) {
     return (
@@ -120,18 +152,16 @@ const MatchProjectsList = ({
           <p className="text-lg text-gray-500 mt-4">Check back later for new opportunities!</p>
           
           {/* Add undo button */}
-          {onUndoAction && (
+          {isClient && onUndoAction && (
             <div className="mt-8 flex justify-center">
               <motion.button
                 onClick={handleUndo}
-                className="flex items-center justify-center bg-white text-purple-500 px-6 py-3 rounded-md hover:bg-purple-50 transition-colors border border-purple-200"
+                className="flex items-center justify-center bg-violet-600 text-white px-6 py-3 rounded-md hover:bg-violet-700 transition-colors"
                 aria-label="Undo last action"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                </svg>
+                <ArrowUturnLeftIcon className="h-5 w-5 mr-2" />
                 Undo Last Action
               </motion.button>
             </div>
@@ -155,71 +185,90 @@ const MatchProjectsList = ({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Scrollable project cards section */}
-      <div 
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-6 pt-8"
-        onScroll={() => {
-          const cards = document.querySelectorAll('.project-card-scroll');
-          cards.forEach(card => {
-            card.classList.remove('project-card-scroll');
-            void (card as HTMLElement).offsetWidth;
-            card.classList.add('project-card-scroll');
-          });
-        }}
-      >
-        <div className="w-full mx-auto">
+    <div className="h-full">
+      {/* Main content area with fixed height and proper layout for sticky behavior */}
+      <div className="flex flex-col md:flex-row h-[calc(100vh-200px)]">
+        {/* Left panel - Scrollable project cards section */}
+        <div 
+          ref={scrollContainerRef}
+          className="md:w-1/2 h-full overflow-y-auto px-4 pt-6 pb-8 flex-shrink-0"
+          onScroll={() => {
+            const cards = document.querySelectorAll('.project-card-scroll');
+            cards.forEach(card => {
+              card.classList.remove('project-card-scroll');
+              void (card as HTMLElement).offsetWidth;
+              card.classList.add('project-card-scroll');
+            });
+          }}
+        >
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="show"
-            className="space-y-16"
+            className="flex flex-col space-y-6"
           >
             {projects.map((project, index) => (
               <motion.div 
                 key={project.id} 
                 id={`project-${project.id}`}
-                className="project-card-scroll"
-                variants={{
-                  hidden: { 
-                    opacity: 0, 
-                    y: 50,
-                    scale: 0.9,
-                    filter: "blur(5px)"
-                  },
-                  show: { 
-                    opacity: 1, 
-                    y: 0,
-                    scale: 1,
-                    filter: "blur(0px)",
-                    transition: { 
-                      type: "spring",
-                      stiffness: 80,
-                      damping: 12,
-                      delay: index * 0.1,
-                      duration: 0.7
-                    }
-                  }
-                }}
+                className="project-card-scroll w-full"
+                variants={cardVariants}
+                custom={index}
+                animate="show"
+                initial="hidden"
               >
-                <ProjectCardWithScroll
-                  project={project}
-                  isSelected={selectedProject?.id === project.id}
-                  onSelect={() => handleSelectProject(project)}
-                  onSave={onSaveProject}
-                  onApply={onApplyProject}
-                  onDecline={onDeclineProject}
-                  onUndo={handleUndo}
-                  showUndo={true}
-                />
+                <div 
+                  className={`cursor-pointer transition-all duration-300`}
+                  onClick={() => handleSelectProject(project)}
+                >
+                  <ProjectCardWithScroll
+                    project={project}
+                    isSelected={selectedProject?.id === project.id}
+                    onSelect={() => handleSelectProject(project)}
+                    onSave={onSaveProject}
+                    onApply={onApplyProject}
+                    onDecline={onDeclineProject}
+                  />
+                </div>
               </motion.div>
             ))}
           </motion.div>
+        </div>
+
+        {/* Right panel - Fixed position Project details */}
+        <div className="md:w-1/2 md:sticky md:top-0 h-full px-4 pt-6 pb-8 flex-shrink-0">
+          <div className="h-full">
+            {selectedProject ? (
+              <motion.div
+                variants={detailVariants}
+                initial="hidden"
+                animate="show"
+                key={selectedProject.id}
+                className="h-full"
+              >
+                <MatchProjectDetail
+                  project={selectedProject}
+                  onDecline={onDeclineProject}
+                  onSave={onSaveProject}
+                  onApply={onApplyProject}
+                  onUndo={onUndoAction}
+                />
+              </motion.div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500 text-lg">Select a project to view details</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default MatchProjectsList; 
+// Create a client-only version of the component to avoid hydration issues
+const ClientOnlyMatchProjectsList = dynamic(() => Promise.resolve(MatchProjectsList), {
+  ssr: false
+});
+
+export default ClientOnlyMatchProjectsList; 
