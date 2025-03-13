@@ -195,25 +195,82 @@ const removeLastActionFromHistory = async (userId: string): Promise<void> => {
   }
 };
 
-// Get projects from the API
-export const getProjects = async (): Promise<ConnectProject[]> => {
-  // In development, immediately return sample data
-  if (IS_DEV) {
-    console.log('Development mode: Using sample projects data');
+// NEW: Fetch active projects from Firestore for the match feature
+const getActiveProjectsFromFirestore = async (): Promise<ConnectProject[]> => {
+  try {
+    // Check if Firestore is initialized
+    if (!db) {
+      console.error('Firestore not initialized');
+      return [];
+    }
     
-    // Use try-catch to handle potential auth state issues
+    console.log('Fetching active projects from Firestore for match feature');
+    
+    // Only fetch projects with active status
+    const projectsQuery = query(
+      collection(db, "projects"), 
+      where("status", "==", "active"),
+      where("isActive", "==", true),
+      orderBy("createdAt", "desc")
+    );
+    
+    const projectsSnapshot = await getDocs(projectsQuery);
+    
+    const projects: ConnectProject[] = [];
+    
+    projectsSnapshot.forEach(doc => {
+      const data = doc.data();
+      
+      // Map Firestore project to ConnectProject format
+      const connectProject: ConnectProject = {
+        id: doc.id,
+        title: data.title || 'Untitled Project',
+        description: data.description || 'No description provided',
+        faculty: data.faculty || data.university || 'Research Organization',
+        department: data.department || '',
+        skills: data.keywords || [],
+        duration: data.duration || '',
+        commitment: data.commitment || ''
+      };
+      
+      projects.push(connectProject);
+    });
+    
+    console.log(`Fetched ${projects.length} active projects from Firestore`);
+    return projects;
+  } catch (error) {
+    console.error('Error fetching active projects from Firestore:', error);
+    return [];
+  }
+};
+
+// Get projects from the API - MODIFIED to use Firestore directly in dev mode instead of just returning sample data
+export const getProjects = async (): Promise<ConnectProject[]> => {
+  // In development, use Firestore to get real projects
+  if (IS_DEV) {
+    console.log('Development mode: Fetching real projects from Firestore');
+    
     try {
       // Wait for auth to be initialized
       const authenticated = await isAuthenticated();
       if (!authenticated) {
-        console.log('No authenticated user, returning all sample projects');
+        console.log('No authenticated user, returning sample projects');
         return getSampleProjects();
       }
       
       const user = await getCurrentUser();
       if (!user) {
-        console.log('No authenticated user after check, returning all sample projects');
+        console.log('No authenticated user after check, returning sample projects');
         return getSampleProjects();
+      }
+      
+      // Get active projects from Firestore
+      let projects = await getActiveProjectsFromFirestore();
+      
+      // Fall back to sample data if no projects found
+      if (projects.length === 0) {
+        console.log('No active projects found in Firestore, using sample data');
+        projects = getSampleProjects();
       }
       
       // Get saved, applied, and declined project IDs from Firestore
@@ -224,11 +281,11 @@ export const getProjects = async (): Promise<ConnectProject[]> => {
       const excludedIds = [...savedProjectIds, ...appliedProjectIds, ...declinedProjectIds];
       
       // Filter out projects that are already saved, applied, or declined
-      return getSampleProjects().filter(project => !excludedIds.includes(project.id));
+      return projects.filter(project => !excludedIds.includes(project.id));
     } catch (error) {
-      console.error('Error fetching user data from Firestore:', error);
+      console.error('Error fetching projects from Firestore:', error);
       
-      // Fallback to all sample projects if Firestore fails
+      // Fallback to sample projects if Firestore fails
       return getSampleProjects();
     }
   }
@@ -334,8 +391,15 @@ export const getSavedProjects = async (): Promise<ConnectProject[]> => {
       const savedProjectIds = await getUserDataFromFirestore<string[]>(user.uid, 'savedProjects', []);
       console.log('Saved project IDs:', savedProjectIds);
       
+      // First try to get projects from Firestore
+      let allProjects = await getActiveProjectsFromFirestore();
+      if (allProjects.length === 0) {
+        // Fallback to sample projects if no real projects exist
+        allProjects = getSampleProjects();
+      }
+      
       // Return projects with these IDs
-      return getSampleProjects()
+      return allProjects
         .filter(project => savedProjectIds.includes(project.id))
         .map(project => ({
           ...project,
@@ -389,8 +453,15 @@ export const getAppliedProjects = async (): Promise<ConnectProject[]> => {
       const appliedProjectIds = await getUserDataFromFirestore<string[]>(user.uid, 'appliedProjects', []);
       console.log('Applied project IDs:', appliedProjectIds);
       
+      // First try to get projects from Firestore
+      let allProjects = await getActiveProjectsFromFirestore();
+      if (allProjects.length === 0) {
+        // Fallback to sample projects if no real projects exist
+        allProjects = getSampleProjects();
+      }
+      
       // Return projects with these IDs
-      return getSampleProjects()
+      return allProjects
         .filter(project => appliedProjectIds.includes(project.id))
         .map(project => ({
           ...project,

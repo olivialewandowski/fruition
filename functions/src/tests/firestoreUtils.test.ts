@@ -769,7 +769,7 @@ describe("Firestore Transactions", () => {
     expect(applicationData.statusHistory[0].updatedAt).toBeDefined();
 
     // Test with additional fields
-   // const applicationId2 = "testApplication2";
+    // const applicationId2 = "testApplication2";
     await adminDb.runTransaction(async (transaction) => {
       await createApplication(transaction, {
         studentId: testUser.id,

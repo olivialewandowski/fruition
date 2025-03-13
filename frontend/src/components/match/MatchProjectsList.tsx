@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Project } from '@/types/project';
 import ProjectCardWithScroll from './ProjectCardWithScroll';
 import MatchProjectDetail from './MatchProjectDetail';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 
@@ -22,6 +23,7 @@ const MatchProjectsList = ({
   onDeclineProject,
   onUndoAction 
 }: MatchProjectsListProps) => {
+  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isUndoInProgress, setIsUndoInProgress] = useState(false);
@@ -79,6 +81,12 @@ const MatchProjectsList = ({
       setIsUndoInProgress(true);
       await onUndoAction();
     }
+  };
+
+  // Handle apply button click - navigate to application form
+  const handleApplyClick = (project: Project) => {
+    // Navigate to the application form with the project ID
+    router.push(`/development/application?projectId=${project.id}`);
   };
 
   // Enhanced animation variants for the container
@@ -226,7 +234,7 @@ const MatchProjectsList = ({
                     isSelected={selectedProject?.id === project.id}
                     onSelect={() => handleSelectProject(project)}
                     onSave={onSaveProject}
-                    onApply={onApplyProject}
+                    onApply={handleApplyClick} // Use the new handler to navigate to application form
                     onDecline={onDeclineProject}
                   />
                 </div>
@@ -250,7 +258,7 @@ const MatchProjectsList = ({
                   project={selectedProject}
                   onDecline={onDeclineProject}
                   onSave={onSaveProject}
-                  onApply={onApplyProject}
+                  onApply={handleApplyClick} // Use the new handler to navigate to application form
                   onUndo={onUndoAction}
                 />
               </motion.div>
@@ -271,4 +279,4 @@ const ClientOnlyMatchProjectsList = dynamic(() => Promise.resolve(MatchProjectsL
   ssr: false
 });
 
-export default ClientOnlyMatchProjectsList; 
+export default ClientOnlyMatchProjectsList;

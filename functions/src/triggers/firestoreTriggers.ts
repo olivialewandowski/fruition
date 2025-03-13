@@ -251,7 +251,7 @@ export const onPositionCreate = onDocumentCreated("positions/{positionId}", asyn
 
         // Use server timestamp
         const serverTimestamp = getServerTimestamp();
-        
+
         // Update position count
         const updateData: Record<string, unknown> = {
           updatedAt: serverTimestamp,
