@@ -43,23 +43,23 @@ export async function getAllActiveProjectsWithPositions(): Promise<ProjectWithPo
 
       // Get positions for this project
       const positionsSnapshot = await doc.ref.collection("positions").get();
-      
+
       // Get positions with applications
       const positions = await Promise.all(
         positionsSnapshot.docs.map(async (posDoc) => {
           const position = { id: posDoc.id, ...posDoc.data() } as PositionWithId;
-          
+
           // Get applications for this position
           const applicationsSnapshot = await posDoc.ref.collection("applications").get();
-          const applications = applicationsSnapshot.docs.map(appDoc => ({
+          const applications = applicationsSnapshot.docs.map((appDoc) => ({
             id: appDoc.id,
-            ...appDoc.data()
+            ...appDoc.data(),
           }));
-          
+
           // Add applications to the position
-          return { 
-            ...position, 
-            applications: applications.length > 0 ? applications : [] 
+          return {
+            ...position,
+            applications: applications.length > 0 ? applications : [],
           };
         })
       );

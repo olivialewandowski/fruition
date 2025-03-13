@@ -74,6 +74,9 @@ export interface ConnectProject extends BaseProject {
   skills?: string[];
   duration?: string;
   commitment?: string;
+  // Add these fields to match what's being used in the code
+  responsibilities?: string;
+  outcomes?: string;
 }
 
 // Utility function to convert between project types

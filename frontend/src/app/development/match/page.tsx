@@ -85,6 +85,10 @@ export default function MatchPage() {
         setProjects(projectsData);
         setSavedProjects(savedProjectsData);
         setAppliedProjects(appliedProjectsData);
+        
+        console.log('Match page loaded projects:', projectsData.length);
+        console.log('Match page loaded saved projects:', savedProjectsData.length);
+        console.log('Match page loaded applied projects:', appliedProjectsData.length);
       } catch (error) {
         console.error('Error fetching projects:', error);
         toast.error('Failed to load projects. Please try again later.');
