@@ -316,7 +316,7 @@ const LoginForm = () => {
                 className="mt-2 text-center text-sm text-gray-600 mb-8"
                 variants={itemVariants}
               >
-                Don't have an account?{' '}
+                {"Don't"} have an account?{' '}
                 <Link href="/development/signup" className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300">
                   Sign Up
                 </Link>

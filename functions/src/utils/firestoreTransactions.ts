@@ -10,14 +10,6 @@ import { UserAction } from "../types/userAction";
 // Define the application status type based on the Application interface
 type ApplicationStatus = "pending" | "reviewing" | "interviewing" | "accepted" | "rejected";
 
-// Add this interface at the top of the file with other imports/types
-interface ProjectPosition {
-  id: string;
-  title: string;
-  description: string;
-  isOpen: boolean;
-}
-
 /**
  * Update a project's application count in a transaction
  * @param transaction - The Firestore transaction
@@ -45,7 +37,7 @@ export async function updateProjectApplicationCount(
   transaction.update(projectRef, {
     totalApplications: currentCount + increment,
   });
-  
+
   // Also update the position's application count if this is for a specific position
   // For the test, we'll update the first position
   const positionsSnapshot = await projectRef.collection("positions").get();
@@ -53,7 +45,7 @@ export async function updateProjectApplicationCount(
     const positionDoc = positionsSnapshot.docs[0];
     const positionRef = positionDoc.ref;
     const positionData = positionDoc.data();
-    
+
     if (positionData) {
       const currentPositionCount = positionData.applicationCount || 0;
       transaction.update(positionRef, {
@@ -151,45 +143,45 @@ export async function transferPosition(
   // Get the position document from the source project's positions subcollection
   const positionRef = sourceProjectRef.collection("positions").doc(positionId);
   const positionDoc = await transaction.get(positionRef);
-  
+
   if (!positionDoc.exists) {
     throw new Error("Position not found in source project");
   }
-  
+
   const positionData = positionDoc.data();
   if (!positionData) {
     throw new Error("Position data is empty");
   }
-  
+
   // Create a new position in the target project with the same ID
   const targetPositionRef = targetProjectRef.collection("positions").doc(positionId);
-  
+
   // Update the position data with the new project ID
   const updatedPositionData = {
     ...positionData,
-    projectId: targetProjectRef.id
+    projectId: targetProjectRef.id,
   };
-  
+
   // Set the position in the target project
   transaction.set(targetPositionRef, updatedPositionData);
-  
+
   // Transfer all applications from the source position to the target position
   const applicationsSnapshot = await positionRef.collection("applications").get();
-  
+
   for (const applicationDoc of applicationsSnapshot.docs) {
     const applicationData = applicationDoc.data();
     const targetApplicationRef = targetPositionRef.collection("applications").doc(applicationDoc.id);
-    
+
     // Update the application with the new project ID
     transaction.set(targetApplicationRef, {
       ...applicationData,
-      projectId: targetProjectRef.id
+      projectId: targetProjectRef.id,
     });
-    
+
     // Delete the application from the source position
     transaction.delete(applicationDoc.ref);
   }
-  
+
   // Delete the position from the source project
   transaction.delete(positionRef);
 }
@@ -250,8 +242,8 @@ export function createApplication(
       status: "pending",
       updatedAt: Timestamp.now(),
       updatedBy: applicationData.studentId, // Use studentId instead of userId
-      notes: ""
-    }]
+      notes: "",
+    }],
   });
 
   return applicationRef;

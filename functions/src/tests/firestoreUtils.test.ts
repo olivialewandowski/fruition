@@ -483,12 +483,12 @@ describe("Firestore Validation", () => {
       name: "",
       facultyCount: -1,
     };
-    
+
     const missingNameDepartment = {
       description: "Missing name department",
       facultyCount: 3,
     };
-    
+
     const tooLongNameDepartment = {
       name: "A".repeat(101), // Name longer than 100 characters
       description: "Too long name",
@@ -523,12 +523,12 @@ describe("Firestore Validation", () => {
       name: "",
       domain: "invalid",
     };
-    
+
     const missingNameUniversity = {
       domain: "missing-name.edu",
       studentCount: 100,
     };
-    
+
     const tooLongNameUniversity = {
       name: "A".repeat(101), // Name longer than 100 characters
       domain: "toolong.edu",
@@ -660,7 +660,7 @@ describe("Firestore Transactions", () => {
       studentId: testUser.id,
       status: "pending",
       submittedAt: admin.firestore.Timestamp.now(),
-      interestStatement: "Test application"
+      interestStatement: "Test application",
     });
 
     await adminDb.runTransaction(async (transaction) => {
@@ -671,7 +671,7 @@ describe("Firestore Transactions", () => {
     const oldPositionDoc = await positionRef.get();
     const newPositionRef = targetProjectRef.collection("positions").doc(testPosition.id);
     const newPositionDoc = await newPositionRef.get();
-    
+
     // Check if application was transferred
     const oldApplicationDoc = await applicationRef.get();
     const newApplicationDoc = await newPositionRef.collection("applications").doc("testApplication").get();
@@ -679,7 +679,7 @@ describe("Firestore Transactions", () => {
     expect(oldPositionDoc.exists).toBe(false);
     expect(newPositionDoc.exists).toBe(true);
     expect(newPositionDoc.data()?.projectId).toBe("targetProject");
-    
+
     // Application should be moved with the position
     expect(oldApplicationDoc.exists).toBe(false);
     expect(newApplicationDoc.exists).toBe(true);
@@ -748,11 +748,11 @@ describe("Firestore Transactions", () => {
       .get();
 
     expect(applicationsSnapshot.empty).toBe(false);
-    
+
     // Get the created application
     const applicationDoc = applicationsSnapshot.docs[0];
     const applicationData = applicationDoc.data();
-    
+
     // Verify all required fields are set
     expect(applicationData.studentId).toBe(testUser.id);
     expect(applicationData.projectId).toBe(testProject.id);
@@ -761,15 +761,15 @@ describe("Firestore Transactions", () => {
     expect(applicationData.status).toBe("pending");
     expect(applicationData.createdAt).toBeDefined();
     expect(applicationData.updatedAt).toBeDefined();
-    
+
     // Verify status history is created
     expect(Array.isArray(applicationData.statusHistory)).toBe(true);
     expect(applicationData.statusHistory.length).toBe(1);
     expect(applicationData.statusHistory[0].status).toBe("pending");
     expect(applicationData.statusHistory[0].updatedAt).toBeDefined();
-    
+
     // Test with additional fields
-    const applicationId2 = "testApplication2";
+   // const applicationId2 = "testApplication2";
     await adminDb.runTransaction(async (transaction) => {
       await createApplication(transaction, {
         studentId: testUser.id,
@@ -781,7 +781,7 @@ describe("Firestore Transactions", () => {
         availability: "Full-time",
       });
     });
-    
+
     const applicationsSnapshot2 = await adminDb.collection("projects")
       .doc(testProject.id)
       .collection("positions")
@@ -789,10 +789,10 @@ describe("Firestore Transactions", () => {
       .collection("applications")
       .where("resume", "==", "resume-url.pdf")
       .get();
-      
+
     expect(applicationsSnapshot2.empty).toBe(false);
     const applicationData2 = applicationsSnapshot2.docs[0].data();
-    
+
     // Verify additional fields are preserved
     expect(applicationData2.resume).toBe("resume-url.pdf");
     expect(applicationData2.coverLetter).toBe("cover-letter-url.pdf");
@@ -820,17 +820,17 @@ describe("Firestore Queries", () => {
       id: "inactiveProject",
       title: "Inactive Project",
       isActive: false,
-      status: "archived"
+      status: "archived",
     });
-    
+
     // Create a position for the inactive project
     await inactiveProjectRef.collection("positions").doc("inactivePosition").set({
       title: "Inactive Position",
       description: "This position is in an inactive project",
       isOpen: false,
-      projectId: "inactiveProject"
+      projectId: "inactiveProject",
     });
-    
+
     // Create another active project with multiple positions
     const anotherProjectRef = adminDb.collection("projects").doc("anotherProject");
     await anotherProjectRef.set({
@@ -838,59 +838,59 @@ describe("Firestore Queries", () => {
       id: "anotherProject",
       title: "Another Active Project",
       isActive: true,
-      status: "active"
+      status: "active",
     });
-    
+
     // Create multiple positions for the other project
     await anotherProjectRef.collection("positions").doc("position1").set({
       title: "Position 1",
       description: "First position",
       isOpen: true,
-      projectId: "anotherProject"
+      projectId: "anotherProject",
     });
-    
+
     await anotherProjectRef.collection("positions").doc("position2").set({
       title: "Position 2",
       description: "Second position",
       isOpen: true,
-      projectId: "anotherProject"
+      projectId: "anotherProject",
     });
-    
+
     // Add an application to one of the positions
     await anotherProjectRef.collection("positions").doc("position1")
       .collection("applications").doc("app1").set({
         studentId: testUser.id,
         status: "pending",
-        submittedAt: admin.firestore.Timestamp.now()
+        submittedAt: admin.firestore.Timestamp.now(),
       });
 
     const projects = await getAllActiveProjectsWithPositions();
 
     // Verify we get only active projects
     expect(projects.length).toBeGreaterThan(0);
-    const projectIds = projects.map(p => p.id);
+    const projectIds = projects.map((p) => p.id);
     expect(projectIds).toContain(testProject.id);
     expect(projectIds).toContain("anotherProject");
     expect(projectIds).not.toContain("inactiveProject");
-    
+
     // Find the project with multiple positions
-    const projectWithMultiplePositions = projects.find(p => p.id === "anotherProject");
+    const projectWithMultiplePositions = projects.find((p) => p.id === "anotherProject");
     expect(projectWithMultiplePositions).toBeDefined();
     expect(projectWithMultiplePositions?.positions.length).toBe(2);
-    
+
     // Verify position data structure
-    const position = projectWithMultiplePositions?.positions.find(p => p.id === "position1");
+    const position = projectWithMultiplePositions?.positions.find((p) => p.id === "position1");
     expect(position).toBeDefined();
     expect(position?.title).toBe("Position 1");
     expect(position?.isOpen).toBe(true);
-    
+
     // Verify applications are included
     expect(position?.applications).toBeDefined();
     expect(position?.applications?.length).toBeGreaterThan(0);
     expect(position?.applications?.[0].studentId).toBe(testUser.id);
-    
+
     // Verify original test project has its position
-    const originalProject = projects.find(p => p.id === testProject.id);
+    const originalProject = projects.find((p) => p.id === testProject.id);
     expect(originalProject).toBeDefined();
     expect(originalProject?.positions.length).toBeGreaterThan(0);
     expect(originalProject?.positions[0].id).toBe(testPosition.id);
@@ -947,30 +947,30 @@ describe("Firestore Queries", () => {
   test("getUniversityStats should return university statistics", async () => {
     // Create additional test data to verify counts
     const universityId = "university1";
-    
+
     // Create additional students
     await adminDb.collection("users").doc("student2").set({
       displayName: "Student 2",
       email: "student2@test.edu",
       role: "student",
-      universityId: universityId
+      universityId: universityId,
     });
-    
+
     // Create additional faculty
     await adminDb.collection("users").doc("faculty2").set({
       displayName: "Faculty 2",
       email: "faculty2@test.edu",
       role: "faculty",
-      universityId: universityId
+      universityId: universityId,
     });
-    
+
     // Create additional departments
     await adminDb.collection("universities").doc(universityId)
       .collection("departments").doc("department2").set({
         name: "Physics",
-        facultyCount: 1
+        facultyCount: 1,
       });
-    
+
     // Create additional active and inactive projects
     await adminDb.collection("projects").doc("activeProject2").set({
       title: "Active Project 2",
@@ -978,23 +978,23 @@ describe("Firestore Queries", () => {
       facultyId: "faculty2",
       universityId: universityId,
       isActive: true,
-      status: "active"
+      status: "active",
     });
-    
+
     await adminDb.collection("projects").doc("inactiveProject").set({
       title: "Inactive Project",
       description: "An inactive project",
       facultyId: "faculty1",
       universityId: universityId,
       isActive: false,
-      status: "archived"
+      status: "archived",
     });
-    
+
     // Update university document with counts
     await adminDb.collection("universities").doc(universityId).set({
       name: "Test University",
       studentCount: 2,
-      facultyCount: 2
+      facultyCount: 2,
     });
 
     const stats = await getUniversityStats(universityId);
@@ -1005,7 +1005,7 @@ describe("Firestore Queries", () => {
     expect(stats.projectCount).toBeGreaterThanOrEqual(3); // At least 3 projects
     expect(stats.departmentCount).toBe(2); // 2 departments
     expect(stats.activeProjectCount).toBeGreaterThanOrEqual(2); // At least 2 active projects
-    
+
     // Test with non-existent university
     try {
       await getUniversityStats("nonExistentUniversity");
