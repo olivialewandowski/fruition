@@ -42,6 +42,31 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
+    // UserData collection - UPDATED RULES
+    match /userData/{userId} {
+      allow read: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && (isOwner(userId) || isAdmin());
+      
+      // Explicitly allow access to specific fields for the owner
+      match /actionHistory {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+      
+      match /savedProjects {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+      
+      match /appliedProjects {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+      
+      match /declinedProjects {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+    }
+    
     // Projects collection - UPDATED TO ALLOW ANY AUTHENTICATED USER TO CREATE
     match /projects/{projectId} {
       allow read: if true; // Anyone can read project data

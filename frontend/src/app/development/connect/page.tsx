@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Project, ConnectProject } from '@/types/project';
 import BaseLayout from '@/components/layout/BaseLayout';
 import DiscoverTab from '@/components/connect/DiscoverTab';
@@ -15,8 +15,8 @@ import {
   applyToProject, 
   saveProject, 
   getSavedProjects, 
-  getAppliedProjects,
-  declineProject,
+  getAppliedProjects, 
+  declineProject, 
   removeProject,
   undoLastAction,
   getSampleProjects
@@ -34,6 +34,10 @@ export default function ConnectPage() {
   const [activeTab, setActiveTab] = useState<ConnectTab>('discover');
   const { user, userData } = useAuth();
   const router = useRouter();
+  
+  // Keep track of undone projects for multiple undos
+  const undoneProjectsRef = useRef<string[]>([]);
+  const allProjectsRef = useRef<Project[]>([]);
 
   // Define the tabs for connect navigation
   const connectTabs = [
@@ -104,10 +108,13 @@ export default function ConnectPage() {
       const success = await applyToProject(originalId);
       
       if (success) {
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
+        
         toast.success('Successfully applied to project!');
         
-        // Update the projects list
-        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        // Remove the project from the current list
+        setProjects(projects.filter(p => p.id !== project.id));
         
         // Add to applied projects
         setAppliedProjects(prev => [
@@ -131,10 +138,13 @@ export default function ConnectPage() {
       const success = await saveProject(originalId);
       
       if (success) {
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
+        
         toast.success('Project saved!');
         
-        // Update the projects list
-        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        // Remove the project from the current list
+        setProjects(projects.filter(p => p.id !== project.id));
         
         // Add to saved projects
         setSavedProjects(prev => [
@@ -158,10 +168,11 @@ export default function ConnectPage() {
       const success = await declineProject(originalId);
       
       if (success) {
-        toast.success('Project declined');
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
         
-        // Update the projects list
-        setProjects(prevProjects => prevProjects.filter(p => p.id !== project.id));
+        // Remove the project from the current list
+        setProjects(projects.filter(p => p.id !== project.id));
       } else {
         toast.error('Failed to decline project. Please try again.');
       }
@@ -174,20 +185,29 @@ export default function ConnectPage() {
   // Handle removing a saved project
   const handleRemoveSavedProject = async (project: Project) => {
     try {
+      // Ensure project.id is defined
+      if (!project.id) {
+        toast.error('Project ID is missing');
+        return;
+      }
+      
       // Extract the original project ID
       const originalId = extractOriginalId(project.id);
       const success = await removeProject(originalId);
       
       if (success) {
-        toast.success('Project removed from saved');
+        // Reset the undone projects stack when a new action is performed
+        undoneProjectsRef.current = [];
         
-        // Update the saved projects list
-        setSavedProjects(prev => prev.filter(p => p.id !== project.id));
+        toast.success('Project removed from saved list');
+        
+        // Remove from saved projects
+        setSavedProjects(savedProjects.filter(p => p.id !== project.id));
       } else {
         toast.error('Failed to remove project. Please try again.');
       }
     } catch (error) {
-      console.error('Error removing project:', error);
+      console.error('Error removing saved project:', error);
       toast.error('An error occurred while removing the project.');
     }
   };

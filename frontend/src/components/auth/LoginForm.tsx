@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/config/firebase';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const LoginForm = () => {
   const router = useRouter();
@@ -15,6 +16,22 @@ const LoginForm = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoaded, setIsPageLoaded] = useState(false);
+
+  // Add check for Firebase initialization and trigger animations after page load
+  useEffect(() => {
+    if (!auth?.config?.apiKey) {
+      console.error('Firebase not properly initialized');
+      setError('Authentication service not properly initialized');
+    }
+    
+    // Trigger animations after a short delay to ensure DOM is fully loaded
+    const timer = setTimeout(() => {
+      setIsPageLoaded(true);
+    }, 300); // Increased delay for better reliability
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Helper function to check if profile is complete and redirect accordingly
   const checkProfileAndRedirect = async (userId: string) => {
@@ -126,94 +143,283 @@ const LoginForm = () => {
     }
   };
 
+  // Framer Motion animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        when: "beforeChildren",
+        staggerChildren: 0.15,
+        duration: 0.6,
+        ease: "easeOut"
+      } 
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { 
+        duration: 0.8,
+        ease: "easeOut"
+      }
+    }
+  };
+
+  const buttonHoverVariants = {
+    hover: { 
+      scale: 1.01,
+      transition: { duration: 0.2 }
+    },
+    tap: { 
+      scale: 0.99,
+      transition: { duration: 0.1 }
+    }
+  };
+
+  const inputFocusVariants = {
+    focus: { 
+      scale: 1.01,
+      transition: { duration: 0.2 }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Log in to your account
-        </h2>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {/* Google Sign-in Button */}
-          <div className="mb-6">
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-              className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-            >
-              <img 
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                alt="Google" 
-                className="w-5 h-5 mr-2"
-              />
-              Sign in with Google
-            </button>
+    <div className="flex min-h-screen">
+      {/* Left Panel - Colored Background */}
+      <motion.div 
+        className="hidden md:flex md:w-2/3 bg-zinc-800 flex-col justify-center items-center p-12 relative overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isPageLoaded ? 1 : 0 }}
+        transition={{ duration: 0.8, delay: 0.1 }}
+      >
+        {/* Background Blur Elements */}
+        <motion.div 
+          className="absolute top-[10%] left-[10%] -translate-x-1/2 -translate-y-1/2 z-0 h-[30rem] w-[35rem] rounded-full blur-[8rem] bg-fuchsia-800"
+          animate={{
+            scale: [1, 1.05, 1],
+            opacity: [0.6, 0.7, 0.6]
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        ></motion.div>
+        <motion.div 
+          className="absolute bottom-[60%] right-[10%] -translate-x-1/2 -translate-y-1/2 z-0 h-[25rem] w-[30rem] rounded-full blur-[10rem] bg-purple-500"
+          animate={{
+            scale: [1, 1.1, 1],
+            opacity: [0.5, 0.6, 0.5]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1
+          }}
+        ></motion.div>
+        <motion.div 
+          className="absolute top-[20%] right-[70%] -translate-x-1/2 -translate-y-1/2 z-0 h-[20rem] w-[25rem] rounded-full blur-[7rem] bg-violet-800"
+          animate={{
+            scale: [1, 1.08, 1],
+            opacity: [0.4, 0.5, 0.4]
+          }}
+          transition={{
+            duration: 7,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2
+          }}
+        ></motion.div>
+        
+        {/* Additional blur element for more depth */}
+        <motion.div 
+          className="absolute top-[40%] right-[40%] -translate-x-1/2 -translate-y-1/2 z-0 h-[18rem] w-[22rem] rounded-full blur-[9rem] bg-violet-400/60"
+          animate={{
+            scale: [1, 1.12, 1],
+            opacity: [0.5, 0.6, 0.5]
+          }}
+          transition={{
+            duration: 9,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 3
+          }}
+        ></motion.div>
+        
+        <div className="w-full h-full flex flex-col justify-between relative z-10">
+          <div className="flex-grow flex flex-col justify-center items-center">
+            <div className="max-w-lg text-white">
+              <motion.div
+                className="flex items-center mb-8"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+              >
+                <h1 className="text-7xl font-bold whitespace-nowrap">Welcome Back!</h1>
+              </motion.div>
+              
+              <motion.div
+                className="mb-8"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+              >
+                <p className="text-xl leading-relaxed">
+                  Connect with researchers and temp texttemp textemp textemp textemp textemp textemp textemp textemp tex!
+                </p>
+              </motion.div>
+            </div>
           </div>
-
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with</span>
-            </div>
-          </div>
-
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 px-3 py-2"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 px-3 py-2"
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-              />
-            </div>
-
-            {error && (
-              <div className="text-red-600 text-sm">{error}</div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-950 hover:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                isLoading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
           
-          {/* Sign up link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              {"Don't have an account?"}{' '}
-              <Link href="/development/signup" className="font-medium text-purple-600 hover:text-purple-500">
-                Sign up
-              </Link>
-            </p>
-          </div>
+          <motion.div
+            className="text-sm text-white/70 self-start pl-4 pb-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 1 }}
+          >
+            © 2025 Fruition. All rights reserved.
+          </motion.div>
         </div>
+      </motion.div>
+
+      {/* Right Panel - Login Form */}
+      <div className="w-full md:w-1/3 flex flex-col justify-center px-4 sm:px-6 lg:px-8 py-12 bg-white">
+        <AnimatePresence>
+          {isPageLoaded && (
+            <motion.div 
+              className="mx-auto w-full max-w-md"
+              initial="hidden"
+              animate="visible"
+              variants={containerVariants}
+            >
+              {/* Logo */}
+              <motion.div 
+                className="flex justify-center mb-6"
+                variants={itemVariants}
+              >
+                <h1 className="text-4xl font-bold text-purple-800 font-montserrat-italic">fruition</h1>
+              </motion.div>
+              
+              <motion.h2 
+                className="mt-2 text-center text-3xl font-extrabold text-gray-900"
+                variants={itemVariants}
+              >
+                Sign in
+              </motion.h2>
+              
+              <motion.p 
+                className="mt-2 text-center text-sm text-gray-600 mb-8"
+                variants={itemVariants}
+              >
+                Don't have an account?{' '}
+                <Link href="/development/signup" className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300">
+                  Sign Up
+                </Link>
+              </motion.p>
+
+              <motion.div 
+                className="space-y-6"
+                variants={itemVariants}
+              >
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                  {/* Email */}
+                  <div>
+                    <motion.input
+                      type="email"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 py-2 px-3"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      placeholder="Email"
+                      whileFocus="focus"
+                      variants={inputFocusVariants}
+                    />
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <motion.input
+                      type="password"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 py-2 px-3"
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      placeholder="Password"
+                      whileFocus="focus"
+                      variants={inputFocusVariants}
+                    />
+                  </div>
+
+                  {error && (
+                    <motion.div 
+                      className="text-red-600 text-sm"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {error}
+                    </motion.div>
+                  )}
+
+                  <motion.button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-violet-700 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                    whileHover="hover"
+                    whileTap="tap"
+                    variants={buttonHoverVariants}
+                  >
+                    {isLoading ? 'Signing in...' : 'Log in'}
+                  </motion.button>
+                </form>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">OR</span>
+                  </div>
+                </div>
+                
+                {/* Google Sign-in Button */}
+                <motion.button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  whileHover="hover"
+                  whileTap="tap"
+                  variants={buttonHoverVariants}
+                >
+                  <img 
+                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                    alt="Google" 
+                    className="w-5 h-5 mr-2"
+                  />
+                  Login with Google
+                </motion.button>
+              </motion.div>
+
+              <motion.div 
+                className="mt-6 text-center text-sm"
+                variants={itemVariants}
+              >
+                <p className="text-gray-600">
+                  Forgot password?{' '}
+                  <Link href="#" className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300">
+                    Click here
+                  </Link>
+                </p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
