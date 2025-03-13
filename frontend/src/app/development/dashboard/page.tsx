@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopNavigation from '@/components/layout/TopNavigation';
 import ProjectSection from '@/components/dashboard/ProjectSection';
-import ProjectCreationModal from '@/components/dashboard/ProjectCreationModal';
+import ProjectCreationModal from '@/components/projects/ProjectCreationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProjects } from '@/services/clientProjectService';
 import { Project } from '@/types/project';

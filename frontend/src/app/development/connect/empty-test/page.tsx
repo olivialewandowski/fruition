@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Project } from '@/types/project';
-import BaseLayout from '@/components/layout/BaseLayout';
+import { toast } from 'react-hot-toast';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import Sidebar from '@/components/layout/Sidebar';
+import ConnectNavigation from '@/components/connect/ConnectNavigation';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
 import AppliedTab from '@/components/connect/AppliedTab';
@@ -17,10 +20,7 @@ import {
   undoLastAction,
   getSampleProjects
 } from '@/services/projectsService';
-import { toast } from 'react-hot-toast';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import Sidebar from '@/components/layout/Sidebar';
-import ConnectNavigation from '@/components/connect/ConnectNavigation';
+import { convertConnectProjectsToProjects, extractOriginalId } from '@/utils/connect-helper';
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';
@@ -32,25 +32,6 @@ export default function EmptyConnectTestPage() {
   const [appliedProjects, setAppliedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Define the tabs
-  const connectTabs = [
-    { 
-      id: 'discover', 
-      label: 'Discover',
-      isAvailable: (role?: string) => role === 'student'
-    },
-    { 
-      id: 'saved', 
-      label: 'Saved',
-      isAvailable: (role?: string) => role === 'student'
-    },
-    { 
-      id: 'applied', 
-      label: 'Applied',
-      isAvailable: (role?: string) => role === 'student'
-    }
-  ];
-
   // Fetch projects on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -58,14 +39,15 @@ export default function EmptyConnectTestPage() {
         setLoading(true);
         // Fetch all types of projects in parallel, but use empty projects for discover
         const [projectsData, savedProjectsData, appliedProjectsData] = await Promise.all([
-          getEmptyProjects(), // This will return an empty array
+          getEmptyProjects(), // This will return an empty array of ConnectProjects
           getSavedProjects(),
           getAppliedProjects()
         ]);
         
-        setProjects(projectsData);
-        setSavedProjects(savedProjectsData);
-        setAppliedProjects(appliedProjectsData);
+        // Convert empty projects to Project[]
+        setProjects(convertConnectProjectsToProjects(projectsData));
+        setSavedProjects(convertConnectProjectsToProjects(savedProjectsData));
+        setAppliedProjects(convertConnectProjectsToProjects(appliedProjectsData));
       } catch (error) {
         console.error('Error fetching projects:', error);
         toast.error('Failed to load projects. Please try again later.');
@@ -76,14 +58,15 @@ export default function EmptyConnectTestPage() {
 
     fetchData();
   }, []);
-
   // Handle applying to a project
   const handleApplyProject = async (project: Project) => {
     try {
-      await applyToProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      await applyToProject(originalId);
       
       // Update state to reflect the change
-      setAppliedProjects(prev => [...prev, project]);
+      setAppliedProjects(prev => [...prev, {...project, id: `applied_${originalId}`}]);
       
       // Remove from projects list to prevent showing again
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -98,10 +81,12 @@ export default function EmptyConnectTestPage() {
   // Handle saving a project
   const handleSaveProject = async (project: Project) => {
     try {
-      await saveProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      await saveProject(originalId);
       
       // Update state to reflect the change
-      setSavedProjects(prev => [...prev, project]);
+      setSavedProjects(prev => [...prev, {...project, id: `saved_${originalId}`}]);
       
       // Remove from projects list to prevent showing again
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -116,7 +101,9 @@ export default function EmptyConnectTestPage() {
   // Handle declining a project
   const handleDeclineProject = async (project: Project) => {
     try {
-      await declineProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      await declineProject(originalId);
       
       // Remove from projects list to prevent showing again
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -140,7 +127,7 @@ export default function EmptyConnectTestPage() {
         // and add it to the projects list
         if (result.undoneProjectId) {
           // Get the sample projects to find the undone project
-          const sampleProjects = getSampleProjects();
+          const sampleProjects = convertConnectProjectsToProjects(getSampleProjects());
           const undoneProject = sampleProjects.find(p => p.id === result.undoneProjectId);
           
           if (undoneProject) {
@@ -156,10 +143,20 @@ export default function EmptyConnectTestPage() {
         }
         
         // Fetch saved and applied projects
-        const [savedProjectsData, appliedProjectsData] = await Promise.all([
+        const [savedConnectProjects, appliedConnectProjects] = await Promise.all([
           getSavedProjects(),
           getAppliedProjects()
         ]);
+        
+        // Convert connect projects to full projects
+        const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
+          ...p,
+          id: `saved_${p.id}`
+        }));
+        const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
+          ...p,
+          id: `applied_${p.id}`
+        }));
         
         setSavedProjects(savedProjectsData);
         setAppliedProjects(appliedProjectsData);
@@ -176,7 +173,8 @@ export default function EmptyConnectTestPage() {
   const handleRemoveSavedProject = async (project: Project) => {
     try {
       // Call API to remove saved project
-      await removeProject(project.id);
+      const originalId = extractOriginalId(project.id);
+      await removeProject(originalId);
       
       // Update state to reflect the change
       setSavedProjects(prev => prev.filter(p => p.id !== project.id));

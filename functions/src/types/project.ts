@@ -59,7 +59,7 @@ export interface Project extends BaseProject {
 }
 
 // Interface specifically for projects with ID
-export interface ProjectWithId extends Omit<Project, 'id'> {
+export interface ProjectWithId extends Omit<Project, "id"> {
   id: string;
 }
 
@@ -79,12 +79,12 @@ export function convertToProjectWithId(project: Partial<Project> & { id: string 
   // Provide default values for required fields
   const result: ProjectWithId = {
     id: project.id,
-    title: project.title || '',
-    description: project.description || '',
-    mentorId: project.mentorId || '',
-    status: project.status || 'active',
+    title: project.title || "",
+    description: project.description || "",
+    mentorId: project.mentorId || "",
+    status: project.status || "active",
     isActive: project.isActive ?? true,
-    teamMembers: project.teamMembers || []
+    teamMembers: project.teamMembers || [],
   };
 
   // Copy all other properties
@@ -103,9 +103,9 @@ export function connectProjectToProject(connectProject: ConnectProject): Project
     duration: connectProject.duration,
     commitment: connectProject.commitment,
     // Default values for required fields
-    mentorId: '',
-    status: 'active',
+    mentorId: "",
+    status: "active",
     isActive: true,
-    teamMembers: []
+    teamMembers: [],
   };
 }

@@ -5,11 +5,20 @@ import { logger } from "firebase-functions/v2";
 import { Project } from "../types/project";
 import { User } from "../types/user";
 
+// Initialize admin if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
 // Get Firestore instance
 const db = admin.firestore();
 // Shortcuts for common Firestore operations
 const FieldValue = admin.firestore.FieldValue;
-const Timestamp = admin.firestore.Timestamp;
+
+// Helper function to get server timestamp safely
+function getServerTimestamp() {
+  return admin.firestore.FieldValue.serverTimestamp();
+}
 
 /**
  * Trigger that runs when a new project is created
@@ -34,11 +43,14 @@ export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (
       const statsRef = db.collection("system").doc("stats");
       const statsDoc = await statsRef.get();
 
+      // Use server timestamp
+      const serverTimestamp = getServerTimestamp();
+
       if (statsDoc.exists) {
         // Update existing stats
         await statsRef.update({
           totalProjects: FieldValue.increment(1),
-          updatedAt: Timestamp.now(),
+          updatedAt: serverTimestamp,
         });
       } else {
         // Create stats document if it doesn't exist
@@ -46,8 +58,8 @@ export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (
           totalProjects: 1,
           totalUsers: 0,
           totalApplications: 0,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
+          createdAt: serverTimestamp,
+          updatedAt: serverTimestamp,
         });
       }
       logger.log("Updated system stats counter");
@@ -102,7 +114,7 @@ export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (
             message: `A new project "${projectData.title}" was posted that matches your interests.`,
             projectId,
             read: false,
-            createdAt: Timestamp.now(),
+            createdAt: getServerTimestamp(),
           });
           notificationCount++;
         }
@@ -161,7 +173,7 @@ export const onProjectUpdate = onDocumentUpdated("projects/{projectId}", async (
               await userRef.update({
                 activeProjects: activeProjects.filter((id) => id !== projectId),
                 archivedProjects: [...archivedProjects, projectId],
-                updatedAt: Timestamp.now(),
+                updatedAt: getServerTimestamp(),
               });
               logger.log(`Moved project from active to archived for user ${afterData.mentorId}`);
             }
@@ -175,7 +187,7 @@ export const onProjectUpdate = onDocumentUpdated("projects/{projectId}", async (
               await userRef.update({
                 archivedProjects: archivedProjects.filter((id) => id !== projectId),
                 activeProjects: [...activeProjects, projectId],
-                updatedAt: Timestamp.now(),
+                updatedAt: getServerTimestamp(),
               });
               logger.log(`Moved project from archived to active for user ${afterData.mentorId}`);
             }
@@ -200,7 +212,7 @@ export const onProjectUpdate = onDocumentUpdated("projects/{projectId}", async (
           batch.update(positionDoc.ref, {
             projectTitle: afterData.title || "",
             projectDescription: afterData.description || "",
-            updatedAt: Timestamp.now(),
+            updatedAt: getServerTimestamp(),
           });
         });
 
@@ -237,9 +249,12 @@ export const onPositionCreate = onDocumentCreated("positions/{positionId}", asyn
       if (projectDoc.exists) {
         const projectData = projectDoc.data() as Project;
 
+        // Use server timestamp
+        const serverTimestamp = getServerTimestamp();
+        
         // Update position count
         const updateData: Record<string, unknown> = {
-          updatedAt: Timestamp.now(),
+          updatedAt: serverTimestamp,
         };
 
         // Add positionCount field if it doesn't exist or increment it
@@ -256,7 +271,7 @@ export const onPositionCreate = onDocumentCreated("positions/{positionId}", asyn
         if (!projectData.positionCount || projectData.positionCount === 0) {
           await projectRef.update({
             mainPositionId: positionId,
-            updatedAt: Timestamp.now(),
+            updatedAt: serverTimestamp,
           });
           logger.log(`Set main position ID for project ${positionData.projectId}`);
         }
@@ -287,12 +302,15 @@ export const onUserCreateOrUpdate = onDocumentCreated("users/{userId}", async (e
     const updates: Record<string, unknown> = {};
     let needsUpdate = false;
 
+    // Use server timestamp
+    const serverTimestamp = getServerTimestamp();
+
     if (!userData.createdAt) {
-      updates.createdAt = Timestamp.now();
+      updates.createdAt = serverTimestamp;
       needsUpdate = true;
     }
 
-    updates.updatedAt = Timestamp.now();
+    updates.updatedAt = serverTimestamp;
     needsUpdate = true;
 
     if (!userData.role) {
@@ -329,7 +347,7 @@ export const onUserCreateOrUpdate = onDocumentCreated("users/{userId}", async (e
       title: "Welcome to Fruition!",
       message: "Thank you for joining our research-matching platform.",
       read: false,
-      createdAt: Timestamp.now(),
+      createdAt: serverTimestamp,
     });
     logger.log(`Created welcome notification for user ${userId}`);
 
@@ -341,15 +359,15 @@ export const onUserCreateOrUpdate = onDocumentCreated("users/{userId}", async (e
       if (statsDoc.exists) {
         await statsRef.update({
           totalUsers: FieldValue.increment(1),
-          updatedAt: Timestamp.now(),
+          updatedAt: serverTimestamp,
         });
       } else {
         await statsRef.set({
           totalProjects: 0,
           totalUsers: 1,
           totalApplications: 0,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
+          createdAt: serverTimestamp,
+          updatedAt: serverTimestamp,
         });
       }
       logger.log("Updated user count in system stats");
@@ -385,9 +403,12 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
       if (projectDoc.exists) {
         const projectData = projectDoc.data() as Project;
 
+        // Use server timestamp
+        const serverTimestamp = getServerTimestamp();
+
         // Update application count
         const updateData: Record<string, unknown> = {
-          updatedAt: Timestamp.now(),
+          updatedAt: serverTimestamp,
         };
 
         // Add applicationCount field if it doesn't exist or increment it
@@ -432,7 +453,7 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
               applicationId,
               studentId: applicationData.studentId,
               read: false,
-              createdAt: Timestamp.now(),
+              createdAt: getServerTimestamp(),
             });
             logger.log(`Created notification for mentor ${mentorId}`);
           }
@@ -445,7 +466,7 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
       const statsRef = db.collection("system").doc("stats");
       await statsRef.update({
         totalApplications: FieldValue.increment(1),
-        updatedAt: Timestamp.now(),
+        updatedAt: getServerTimestamp(),
       });
       logger.log("Updated application count in system stats");
     } catch (statsError) {
@@ -499,7 +520,7 @@ export const onApplicationUpdate = onDocumentUpdated("applications/{applicationI
           projectId: afterData.projectId,
           applicationId,
           read: false,
-          createdAt: Timestamp.now(),
+          createdAt: getServerTimestamp(),
         });
         logger.log(`Created notification for student ${afterData.studentId}`);
 
@@ -518,20 +539,20 @@ export const onApplicationUpdate = onDocumentUpdated("applications/{applicationI
               userId: afterData.studentId,
               name: studentName,
               role: afterData.positionTitle || "Team Member",
-              joinedAt: Timestamp.now(),
+              joinedAt: getServerTimestamp(),
             };
 
             // Update project
             await projectRef.update({
               teamMembers: FieldValue.arrayUnion(teamMember),
-              updatedAt: Timestamp.now(),
+              updatedAt: getServerTimestamp(),
             });
             logger.log(`Added student ${afterData.studentId} to project team`);
 
             // Add project to student's active projects
             await studentRef.update({
               activeProjects: FieldValue.arrayUnion(afterData.projectId),
-              updatedAt: Timestamp.now(),
+              updatedAt: getServerTimestamp(),
             });
             logger.log("Added project to student's active projects");
           }
