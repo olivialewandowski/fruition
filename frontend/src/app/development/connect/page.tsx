@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Project } from '@/types/project';
+import { Project, ConnectProject } from '@/types/project';
 import BaseLayout from '@/components/layout/BaseLayout';
 import DiscoverTab from '@/components/connect/DiscoverTab';
 import SavedTab from '@/components/connect/SavedTab';
@@ -21,6 +21,7 @@ import {
   undoLastAction,
   getSampleProjects
 } from '@/services/projectsService';
+import { convertConnectProjectsToProjects, extractOriginalId } from '@/utils/connect-helper';
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';
@@ -64,11 +65,22 @@ export default function ConnectPage() {
         setIsLoading(true);
         
         // Fetch all types of projects in parallel
-        const [projectsData, savedProjectsData, appliedProjectsData] = await Promise.all([
+        const [connectProjects, savedConnectProjects, appliedConnectProjects] = await Promise.all([
           getProjects(),
           getSavedProjects(),
           getAppliedProjects()
         ]);
+        
+        // Convert connect projects to full projects
+        const projectsData = convertConnectProjectsToProjects(connectProjects);
+        const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
+          ...p,
+          id: `saved_${p.id}`
+        }));
+        const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
+          ...p,
+          id: `applied_${p.id}`
+        }));
         
         setProjects(projectsData);
         setSavedProjects(savedProjectsData);
@@ -87,7 +99,9 @@ export default function ConnectPage() {
   // Handle applying to a project
   const handleApplyProject = async (project: Project) => {
     try {
-      const success = await applyToProject(project.id);
+      // Extract original ID if it's a saved project
+      const originalId = extractOriginalId(project.id);
+      const success = await applyToProject(originalId);
       
       if (success) {
         toast.success('Successfully applied to project!');
@@ -98,7 +112,7 @@ export default function ConnectPage() {
         // Add to applied projects
         setAppliedProjects(prev => [
           ...prev, 
-          { ...project, id: `applied_${project.id}` }
+          { ...project, id: `applied_${originalId}` }
         ]);
       } else {
         toast.error('Failed to apply to project. Please try again.');
@@ -112,7 +126,9 @@ export default function ConnectPage() {
   // Handle saving a project
   const handleSaveProject = async (project: Project) => {
     try {
-      const success = await saveProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      const success = await saveProject(originalId);
       
       if (success) {
         toast.success('Project saved!');
@@ -123,7 +139,7 @@ export default function ConnectPage() {
         // Add to saved projects
         setSavedProjects(prev => [
           ...prev, 
-          { ...project, id: `saved_${project.id}` }
+          { ...project, id: `saved_${originalId}` }
         ]);
       } else {
         toast.error('Failed to save project. Please try again.');
@@ -137,7 +153,9 @@ export default function ConnectPage() {
   // Handle declining a project
   const handleDeclineProject = async (project: Project) => {
     try {
-      const success = await declineProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      const success = await declineProject(originalId);
       
       if (success) {
         toast.success('Project declined');
@@ -157,7 +175,7 @@ export default function ConnectPage() {
   const handleRemoveSavedProject = async (project: Project) => {
     try {
       // Extract the original project ID
-      const originalId = project.id.replace('saved_', '');
+      const originalId = extractOriginalId(project.id);
       const success = await removeProject(originalId);
       
       if (success) {
@@ -183,31 +201,37 @@ export default function ConnectPage() {
         toast.success('Action undone successfully');
         
         // Refresh all project lists to reflect the changes
-        const [projectsData, savedProjectsData, appliedProjectsData] = await Promise.all([
+        const [connectProjects, savedConnectProjects, appliedConnectProjects] = await Promise.all([
           getProjects(),
           getSavedProjects(),
           getAppliedProjects()
         ]);
         
+        // Convert connect projects to full projects
+        let projectsData = convertConnectProjectsToProjects(connectProjects);
+        const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
+          ...p,
+          id: `saved_${p.id}`
+        }));
+        const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
+          ...p,
+          id: `applied_${p.id}`
+        }));
+        
         // If we have an undone project ID, find that project in the sample data
         // and add it to the top of the projects list
         if (result.undoneProjectId) {
           // Get the sample projects to find the undone project
-          const sampleProjects = getSampleProjects();
-          const undoneProject = sampleProjects.find((p: Project) => p.id === result.undoneProjectId);
+          const sampleProjects = convertConnectProjectsToProjects(getSampleProjects());
+          const undoneProject = sampleProjects.find(p => p.id === result.undoneProjectId);
           
           if (undoneProject) {
             // Add the undone project to the top of the list
-            setProjects([undoneProject, ...projectsData.filter(p => p.id !== result.undoneProjectId)]);
-          } else {
-            // If we can't find the undone project, just use the fetched projects
-            setProjects(projectsData);
+            projectsData = [undoneProject, ...projectsData.filter(p => p.id !== result.undoneProjectId)];
           }
-        } else {
-          // If no undone project ID, just use the fetched projects
-          setProjects(projectsData);
         }
         
+        setProjects(projectsData);
         setSavedProjects(savedProjectsData);
         setAppliedProjects(appliedProjectsData);
       } else {

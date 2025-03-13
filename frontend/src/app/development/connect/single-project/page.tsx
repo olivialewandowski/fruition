@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Project } from '@/types/project';
-import BaseLayout from '@/components/layout/BaseLayout';
-import DiscoverTab from '@/components/connect/DiscoverTab';
-import SavedTab from '@/components/connect/SavedTab';
-import AppliedTab from '@/components/connect/AppliedTab';
 import { toast } from 'react-hot-toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Sidebar from '@/components/layout/Sidebar';
 import ConnectNavigation from '@/components/connect/ConnectNavigation';
+import DiscoverTab from '@/components/connect/DiscoverTab';
+import SavedTab from '@/components/connect/SavedTab';
+import AppliedTab from '@/components/connect/AppliedTab';
 import { 
   applyToProject, 
   saveProject, 
@@ -19,6 +18,7 @@ import {
   removeProject,
   undoLastAction
 } from '@/services/projectsService';
+import { convertConnectProjectsToProjects, extractOriginalId } from '@/utils/connect-helper';
 
 // Define the tabs for the connect page
 type ConnectTab = 'discover' | 'saved' | 'applied';
@@ -32,7 +32,12 @@ const singleProject: Project = {
   department: 'Test Department',
   skills: ['Testing', 'Edge Cases', 'React'],
   duration: '1 month',
-  commitment: '5 hours/week'
+  commitment: '5 hours/week',
+  // Required fields for Project type
+  mentorId: 'test-mentor',
+  status: 'active',
+  isActive: true,
+  teamMembers: []
 };
 
 export default function SingleProjectTestPage() {
@@ -42,35 +47,26 @@ export default function SingleProjectTestPage() {
   const [appliedProjects, setAppliedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Define the tabs
-  const connectTabs = [
-    { 
-      id: 'discover', 
-      label: 'Discover',
-      isAvailable: (role?: string) => role === 'student'
-    },
-    { 
-      id: 'saved', 
-      label: 'Saved',
-      isAvailable: (role?: string) => role === 'student'
-    },
-    { 
-      id: 'applied', 
-      label: 'Applied',
-      isAvailable: (role?: string) => role === 'student'
-    }
-  ];
-
   // Fetch projects on component mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         // Fetch saved and applied projects
-        const [savedProjectsData, appliedProjectsData] = await Promise.all([
+        const [savedConnectProjects, appliedConnectProjects] = await Promise.all([
           getSavedProjects(),
           getAppliedProjects()
         ]);
+        
+        // Convert connect projects to full projects
+        const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
+          ...p,
+          id: `saved_${p.id}`
+        }));
+        const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
+          ...p,
+          id: `applied_${p.id}`
+        }));
         
         setSavedProjects(savedProjectsData);
         setAppliedProjects(appliedProjectsData);
@@ -88,10 +84,12 @@ export default function SingleProjectTestPage() {
   // Handle applying to a project
   const handleApplyProject = async (project: Project) => {
     try {
-      await applyToProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      await applyToProject(originalId);
       
       // Update state to reflect the change
-      setAppliedProjects(prev => [...prev, project]);
+      setAppliedProjects(prev => [...prev, {...project, id: `applied_${originalId}`}]);
       
       // Remove from projects list to prevent showing again
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -106,10 +104,12 @@ export default function SingleProjectTestPage() {
   // Handle saving a project
   const handleSaveProject = async (project: Project) => {
     try {
-      await saveProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      await saveProject(originalId);
       
       // Update state to reflect the change
-      setSavedProjects(prev => [...prev, project]);
+      setSavedProjects(prev => [...prev, {...project, id: `saved_${originalId}`}]);
       
       // Remove from projects list to prevent showing again
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -124,7 +124,9 @@ export default function SingleProjectTestPage() {
   // Handle declining a project
   const handleDeclineProject = async (project: Project) => {
     try {
-      await declineProject(project.id);
+      // Extract original ID
+      const originalId = extractOriginalId(project.id);
+      await declineProject(originalId);
       
       // Remove from projects list to prevent showing again
       setProjects(prev => prev.filter(p => p.id !== project.id));
@@ -144,20 +146,24 @@ export default function SingleProjectTestPage() {
       if (result.success) {
         toast.success('Action undone successfully');
         
-        // If we have an undone project ID, set it as the current project
-        if (result.undoneProjectId) {
-          // Set the single project with the undone project ID
-          setProjects([singleProject]);
-        } else {
-          // If no undone project ID, just reset to the single project
-          setProjects([singleProject]);
-        }
+        // Reset to the single project
+        setProjects([singleProject]);
         
         // Fetch saved and applied projects
-        const [savedProjectsData, appliedProjectsData] = await Promise.all([
+        const [savedConnectProjects, appliedConnectProjects] = await Promise.all([
           getSavedProjects(),
           getAppliedProjects()
         ]);
+        
+        // Convert connect projects to full projects
+        const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
+          ...p,
+          id: `saved_${p.id}`
+        }));
+        const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
+          ...p,
+          id: `applied_${p.id}`
+        }));
         
         setSavedProjects(savedProjectsData);
         setAppliedProjects(appliedProjectsData);
@@ -173,8 +179,9 @@ export default function SingleProjectTestPage() {
   // Handle removing a saved project
   const handleRemoveSavedProject = async (project: Project) => {
     try {
-      // Call API to remove saved project
-      await removeProject(project.id);
+      // Call API to remove saved project with original ID
+      const originalId = extractOriginalId(project.id);
+      await removeProject(originalId);
       
       // Update state to reflect the change
       setSavedProjects(prev => prev.filter(p => p.id !== project.id));
@@ -187,8 +194,8 @@ export default function SingleProjectTestPage() {
   };
 
   // Handle tab change
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId as ConnectTab);
+  const handleTabChange = (tab: ConnectTab) => {
+    setActiveTab(tab);
   };
 
   return (
@@ -202,14 +209,14 @@ export default function SingleProjectTestPage() {
             
             <ConnectNavigation 
               activeTab={activeTab} 
-              onTabChange={setActiveTab} 
+              onTabChange={handleTabChange}
               savedCount={savedProjects.length}
               appliedCount={appliedProjects.length}
             />
             
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div>
+                <LoadingSpinner size="large" />
               </div>
             ) : (
               <>

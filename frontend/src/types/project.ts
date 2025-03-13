@@ -1,26 +1,31 @@
 // src/types/project.ts
 import { Timestamp, FieldValue } from "firebase/firestore";
 
+// Helper type to handle different timestamp formats
+export type TimestampValue = Timestamp | Date | string | number | FieldValue;
+
 export interface TeamMember {
-  userId: string;
+  id: string;
   name: string;
+  email?: string;
   role?: string;
-  joinedAt?: Timestamp | FieldValue;
+  joinedDate?: TimestampValue;
 }
 
 // Base Project interface with common properties
 export interface BaseProject {
-  id?: string;
   title: string;
   description: string;
   keywords?: string[];
-  createdAt?: Timestamp | FieldValue | any;
-  updatedAt?: Timestamp | FieldValue | any;
+  createdAt?: TimestampValue;
+  updatedAt?: TimestampValue;
 }
 
 // Project interface for main project creation/dashboard
 export interface Project extends BaseProject {
+  id: string; // Made required for all Project instances
   // Faculty/mentor information
+  facultyId?: string;
   mentorId: string;
   mentorName?: string;
   mentorEmail?: string;
@@ -28,7 +33,7 @@ export interface Project extends BaseProject {
   isPrincipalInvestigator?: boolean;
   principalInvestigatorName?: string;
   principalInvestigatorEmail?: string;
-  faculty?: string; // Added for Connect compatibility
+  faculty?: string;
 
   // Department/university info
   department?: string;
@@ -37,7 +42,7 @@ export interface Project extends BaseProject {
   universityId?: string;
 
   // Project metadata
-  status: "active" | "archived" | "draft";
+  status: "active" | "archived" | "draft" | "inactive";
   isActive: boolean;
 
   // Keywords and skills
@@ -58,20 +63,17 @@ export interface Project extends BaseProject {
   outcomes?: string;
 }
 
-// Interface specifically for projects with ID
-export interface ProjectWithId extends Omit<Project, 'id'> {
-  id: string;
-}
+// ProjectWithId type - an alias for Project with guaranteed ID
+export type ProjectWithId = Project;
 
 // For Connect feature - simpler version of Project
 export interface ConnectProject extends BaseProject {
-  id: string; // Required for Connect projects
+  id: string;
   faculty?: string;
   department?: string;
   skills?: string[];
   duration?: string;
   commitment?: string;
-  // No required fields like mentorId, status, etc.
 }
 
 // Utility function to convert between project types
@@ -88,7 +90,7 @@ export function convertToProjectWithId(project: Partial<Project> & { id: string 
   };
 
   // Copy all other properties
-  return { ...project, ...result };
+  return { ...result, ...project };
 }
 
 // Utility function to convert Connect project to full Project
@@ -108,4 +110,13 @@ export function connectProjectToProject(connectProject: ConnectProject): Project
     isActive: true,
     teamMembers: []
   };
+}
+
+// Helper function to extract the original ID (remove prefixes like 'saved_' or 'applied_')
+export function extractOriginalId(id?: string): string {
+  // If id is undefined, return empty string
+  if (!id) return '';
+  
+  // Remove saved_ or applied_ prefix
+  return id.replace(/^(saved_|applied_)/, '');
 }

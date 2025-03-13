@@ -1,5 +1,5 @@
 import React from 'react';
-import ProjectCreationForm from './ProjectCreationForm';
+import ProjectCreationForm from '../dashboard/ProjectCreationForm';
 
 interface ProjectCreationModalProps {
   isOpen: boolean;
