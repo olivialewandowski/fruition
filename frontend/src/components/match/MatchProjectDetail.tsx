@@ -187,7 +187,31 @@ const MatchProjectDetail = ({
       {/* Action buttons */}
       <div className="border-t border-gray-200 bg-gray-50 p-4 flex-shrink-0">
         <div className="flex flex-col sm:flex-row gap-3 justify-between">
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
+            {/* Apply button */}
+            <button 
+              onClick={() => onApply(project)}
+              className="bg-violet-700 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors font-medium flex items-center justify-center text-sm"
+              aria-label="Apply to project"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Apply
+            </button>
+            
+            {/* Save button */}
+            <button 
+              onClick={() => onSave(project)}
+              className="border border-violet-700 text-violet-700 px-4 py-2 rounded-md hover:bg-purple-50 transition-colors font-medium flex items-center justify-center text-sm"
+              aria-label="Save project for later"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              Save
+            </button>
+            
             {/* Decline button */}
             <button 
               onClick={() => onDecline(project)}
@@ -199,44 +223,20 @@ const MatchProjectDetail = ({
               </svg>
               Decline
             </button>
-            
+          </div>
+          
+          <div className="flex items-center">
             {/* Undo button */}
             {onUndo && (
               <button
                 onClick={onUndo}
-                className="ml-4 text-violet-600 hover:text-violet-800 transition-colors font-medium flex items-center justify-center text-sm"
+                className="text-violet-700 hover:text-violet-800 transition-colors font-medium flex items-center justify-center text-sm"
                 aria-label="Undo last action"
               >
                 <ArrowUturnLeftIcon className="h-4 w-4 mr-1" />
                 Undo
               </button>
             )}
-          </div>
-          
-          <div className="flex gap-3">
-            {/* Save button */}
-            <button 
-              onClick={() => onSave(project)}
-              className="border border-violet-600 text-violet-600 px-4 py-2 rounded-md hover:bg-violet-50 transition-colors font-medium flex items-center justify-center text-sm"
-              aria-label="Save project for later"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
-              Save
-            </button>
-            
-            {/* Apply button */}
-            <button 
-              onClick={() => onApply(project)}
-              className="bg-violet-600 text-white px-4 py-2 rounded-md hover:bg-violet-700 transition-colors font-medium flex items-center justify-center text-sm"
-              aria-label="Apply to project"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Apply
-            </button>
           </div>
         </div>
       </div>

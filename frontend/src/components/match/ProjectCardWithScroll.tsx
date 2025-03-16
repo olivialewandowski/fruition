@@ -133,21 +133,23 @@ const ProjectCardWithScroll = ({
       {/* Action buttons - horizontal layout */}
       {isMounted && (
         <div 
-          className={`px-4 py-3 border-t border-gray-100 mt-auto flex justify-between space-x-2 ${
+          className={`px-4 py-3 border-t border-gray-100 mt-auto flex justify-start space-x-2 ${
             isSelected || isHovered ? 'opacity-100' : 'opacity-0'
           } transition-opacity duration-300`}
         >
-          {/* Decline button */}
+          {/* Apply button */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              onDecline(project);
+              onApply(project);
             }}
-            className="text-red-500 hover:text-red-700 transition-colors font-medium flex items-center justify-center text-sm"
-            aria-label="Decline project"
+            className="bg-violet-600 text-white px-3 py-1 rounded-md hover:bg-violet-700 transition-colors font-medium flex items-center justify-center text-sm"
+            aria-label="Apply to project"
           >
-            <XMarkIcon className="h-5 w-5 mr-1" />
-            Decline
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Apply
           </button>
           
           {/* Save button */}
@@ -165,19 +167,17 @@ const ProjectCardWithScroll = ({
             Save
           </button>
           
-          {/* Apply button */}
+          {/* Decline button */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              onApply(project);
+              onDecline(project);
             }}
-            className="bg-violet-600 text-white px-3 py-1 rounded-md hover:bg-violet-700 transition-colors font-medium flex items-center justify-center text-sm"
-            aria-label="Apply to project"
+            className="text-red-500 hover:text-red-700 transition-colors font-medium flex items-center justify-center text-sm"
+            aria-label="Decline project"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Apply
+            <XMarkIcon className="h-5 w-5 mr-1" />
+            Decline
           </button>
         </div>
       )}
