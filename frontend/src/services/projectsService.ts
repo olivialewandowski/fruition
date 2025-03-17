@@ -430,9 +430,9 @@ export const getSavedProjects = async (): Promise<ConnectProject[]> => {
 
 // Get applied projects from the API
 export const getAppliedProjects = async (): Promise<ConnectProject[]> => {
-  // In development, immediately return sample data
+  // In development, use real Firestore data
   if (IS_DEV) {
-    console.log('Development mode: Using sample applied projects data');
+    console.log('Development mode: Fetching applied projects from Firestore');
     
     // Use try-catch to handle potential auth state issues
     try {
@@ -449,9 +449,79 @@ export const getAppliedProjects = async (): Promise<ConnectProject[]> => {
         return [];
       }
       
-      // Get applied project IDs from Firestore
-      const appliedProjectIds = await getUserDataFromFirestore<string[]>(user.uid, 'appliedProjects', []);
-      console.log('Applied project IDs:', appliedProjectIds);
+      // FIX: Check multiple locations for applied projects
+      // 1. First try user document projectPreferences.appliedProjects
+      const userRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userRef);
+      let appliedProjectIds: string[] = [];
+      
+      if (userDoc.exists()) {
+        // Check projectPreferences first
+        const prefs = userDoc.data().projectPreferences;
+        if (prefs && Array.isArray(prefs.appliedProjects)) {
+          appliedProjectIds = prefs.appliedProjects;
+          console.log('Found applied project IDs in projectPreferences:', appliedProjectIds);
+        } 
+        // Then fall back to appliedProjects at root level
+        else if (Array.isArray(userDoc.data().appliedProjects)) {
+          appliedProjectIds = userDoc.data().appliedProjects;
+          console.log('Found applied project IDs at root level:', appliedProjectIds);
+        }
+      }
+      
+      // 2. If no projects found, try userData collection as a fallback
+      if (appliedProjectIds.length === 0) {
+        const userDataRef = doc(db, "userData", user.uid);
+        const userDataDoc = await getDoc(userDataRef);
+        
+        if (userDataDoc.exists() && Array.isArray(userDataDoc.data().appliedProjects)) {
+          appliedProjectIds = userDataDoc.data().appliedProjects;
+          console.log('Found applied project IDs in userData collection:', appliedProjectIds);
+        }
+      }
+      
+      // 3. If still no projects, check direct applications
+      if (appliedProjectIds.length === 0) {
+        console.log('No applied project IDs found in user document, checking applications collection');
+        const applicationsQuery = query(
+          collection(db, "applications"),
+          where("studentId", "==", user.uid)
+        );
+        const applicationsSnapshot = await getDocs(applicationsQuery);
+        
+        if (!applicationsSnapshot.empty) {
+          const projectIds: string[] = [];
+          
+          applicationsSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.projectId && !projectIds.includes(data.projectId)) {
+              projectIds.push(data.projectId);
+            }
+          });
+          
+          if (projectIds.length > 0) {
+            appliedProjectIds = projectIds;
+            console.log('Found project IDs from applications collection:', appliedProjectIds);
+            
+            // Since we found IDs in applications but not in user document, update the user document
+            try {
+              await updateDoc(userRef, {
+                'projectPreferences.appliedProjects': projectIds,
+                updatedAt: serverTimestamp()
+              });
+              console.log('Updated user document with applied projects from applications');
+            } catch (updateErr) {
+              console.error('Error updating user document with applied projects:', updateErr);
+            }
+          }
+        }
+      }
+      
+      console.log('Final applied project IDs:', appliedProjectIds);
+      
+      if (appliedProjectIds.length === 0) {
+        return [];
+      }
       
       // First try to get projects from Firestore
       let allProjects = await getActiveProjectsFromFirestore();
@@ -461,12 +531,15 @@ export const getAppliedProjects = async (): Promise<ConnectProject[]> => {
       }
       
       // Return projects with these IDs
-      return allProjects
+      const appliedProjects = allProjects
         .filter(project => appliedProjectIds.includes(project.id))
         .map(project => ({
           ...project,
-          id: `applied_${project.id}` // Ensure unique IDs for React keys
+          id: project.id // Don't add prefix here, it's handled by the page component
         }));
+      
+      console.log(`Returning ${appliedProjects.length} applied projects`);
+      return appliedProjects;
     } catch (error) {
       console.error('Error fetching applied projects from Firestore:', error);
       return [];

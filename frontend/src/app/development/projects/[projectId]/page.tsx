@@ -23,6 +23,9 @@ import TeamManager from '@/components/projects/TeamManager';
 import MaterialsManager from '@/components/projects/MaterialsManager';
 import ProjectDeleteModal from '@/components/projects/ProjectDeleteModal';
 import ProjectArchiveModal from '@/components/projects/ProjectArchiveModal';
+import NotificationIndicator from '@/components/ui/NotificationIndicator';
+import { collection, query, where, getDocs, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -103,6 +106,44 @@ export default function ProjectDetailPage() {
   // Handle tab change
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
+    
+    // Mark notifications as read for this tab
+    if (user && tabId === 'applications') {
+      markNotificationsAsRead(projectId as string);
+    }
+  };
+  
+  // Mark notifications as read for the project's applications
+  const markNotificationsAsRead = async (projectId: string) => {
+    if (!user) return;
+    
+    try {
+      // Query for unread notifications for this user and project
+      const notificationsQuery = query(
+        collection(db, "notifications"),
+        where("userId", "==", user.uid),
+        where("isRead", "==", false),
+        where("projectId", "==", projectId),
+        where("type", "==", "new_application")
+      );
+      
+      const snapshot = await getDocs(notificationsQuery);
+      
+      if (!snapshot.empty) {
+        // Create a batch to update all notifications at once
+        const batch = writeBatch(db);
+        
+        snapshot.docs.forEach(document => {
+          const notificationRef = doc(db, "notifications", document.id);
+          batch.update(notificationRef, { isRead: true });
+        });
+        
+        await batch.commit();
+        console.log(`Marked ${snapshot.size} application notifications as read for project ${projectId}`);
+      }
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+    }
   };
 
   // Handle project archive
@@ -139,10 +180,14 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Define tabs
+  // Define tabs with notification indicators
   const tabs = [
     { id: 'details', label: 'Project Details' },
-    { id: 'applications', label: 'Applications' },
+    { 
+      id: 'applications', 
+      label: 'Applications',
+      indicator: user ? <NotificationIndicator tab={`project_${projectId}`} /> : null
+    },
     { id: 'team', label: 'Team' },
     { id: 'materials', label: 'Materials' }
   ];

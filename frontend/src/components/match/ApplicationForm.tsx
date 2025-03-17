@@ -1,35 +1,17 @@
-'use client';
-
+// Updated ApplicationForm component (components/match/ApplicationForm.tsx)
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { toast } from 'react-hot-toast';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { extractOriginalId } from '@/utils/connect-helper';
 
-interface ApplicationFormProps {
+export interface ApplicationFormProps {
   projectId: string;
   projectTitle: string;
   positionId?: string;
-  onSuccess?: () => void;
-  onCancel?: () => void;
-}
-
-// Add a type for the user data
-interface UserData {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  university?: string;
-  major?: string;
-  graduationYear?: string;
-  skills?: string[];
-  interests?: string[];
-  resumeURL?: string;
-  resumeName?: string;
-  [key: string]: any; // Allow any other properties
+  onSuccess: () => void;
+  onCancel: () => void;
 }
 
 const ApplicationForm: React.FC<ApplicationFormProps> = ({
@@ -39,230 +21,209 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({
   onSuccess,
   onCancel
 }) => {
-  const router = useRouter();
-  const { user, userData } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [interestStatement, setInterestStatement] = useState('');
-  const [charCount, setCharCount] = useState(0);
-  const [projectData, setProjectData] = useState<any>(null);
-  const MAX_CHARS = 600; // About 150 words
-
-  // Cast userData to our defined type
-  const typedUserData = userData as unknown as UserData;
-
-  // Clean the project ID (remove any prefixes)
+  const [message, setMessage] = useState('');
+  const [positions, setPositions] = useState<any[]>([]);
+  const [selectedPosition, setSelectedPosition] = useState<string>(positionId || '');
+  const [studentDetails, setStudentDetails] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    university: ''
+  });
+  
+  // Clean the project ID
   const cleanProjectId = extractOriginalId(projectId);
-
+  
+  // Fetch positions and student details on mount
   useEffect(() => {
-    const loadProjectDetails = async () => {
-      if (!cleanProjectId) return;
+    const fetchData = async () => {
+      if (!user) return;
       
-      setIsLoading(true);
       try {
-        // Get project details
-        const projectRef = doc(db, "projects", cleanProjectId);
-        const projectDoc = await getDoc(projectRef);
+        // Fetch student details
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
         
-        if (projectDoc.exists()) {
-          setProjectData(projectDoc.data());
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setStudentDetails({
+            firstName: userData.firstName || '',
+            lastName: userData.lastName || '',
+            email: userData.email || user.email || '',
+            university: userData.university || ''
+          });
         }
         
-        // If no positionId provided, try to get the main position
-        if (!positionId && projectDoc.exists()) {
-          const projectData = projectDoc.data();
-          if (projectData.mainPositionId) {
-            const positionRef = doc(db, "positions", projectData.mainPositionId);
-            const positionDoc = await getDoc(positionRef);
-            if (positionDoc.exists()) {
-              // Could set position data here if needed
-            }
+        // Fetch positions for this project
+        if (cleanProjectId) {
+          const positionsQuery = query(
+            collection(db, 'positions'),
+            where('projectId', '==', cleanProjectId)
+          );
+          
+          const positionsSnapshot = await getDocs(positionsQuery);
+          
+          const positionsData = positionsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data
+            };
+          });
+          
+          setPositions(positionsData);
+          
+          // Select first position if none provided and positions exist
+          if (!positionId && positionsData.length > 0) {
+            setSelectedPosition(positionsData[0].id);
           }
         }
-      } catch (err) {
-        console.error("Error loading project details:", err);
-        setError("Failed to load project details. Please try again.");
-      } finally {
-        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast.error('Failed to load application data');
       }
     };
-
-    loadProjectDetails();
-  }, [cleanProjectId, positionId]);
-
-  // Update character count when interest statement changes
-  useEffect(() => {
-    setCharCount(interestStatement.length);
-  }, [interestStatement]);
-
+    
+    fetchData();
+  }, [user, cleanProjectId, positionId]);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user) {
-      toast.error("You must be logged in to apply");
+      toast.error('You must be logged in to apply');
       return;
     }
     
-    if (!userData) {
-      toast.error("Your profile information is missing");
-      return;
-    }
-    
-    if (interestStatement.trim().length < 50) {
-      setError("Please provide a more detailed interest statement (at least 50 characters)");
-      return;
-    }
-    
-    if (interestStatement.length > MAX_CHARS) {
-      setError(`Your statement exceeds the maximum character limit of ${MAX_CHARS}`);
+    if (!selectedPosition) {
+      toast.error('Please select a position');
       return;
     }
     
     setIsSubmitting(true);
-    setError('');
     
     try {
-      const applicationData = {
+      // Find position details
+      const position = positions.find(p => p.id === selectedPosition);
+      const positionTitle = position?.title || 'Unknown Position';
+      
+      // Create application document in Firestore
+      const applicationRef = collection(db, 'applications');
+      const newApplication = {
         projectId: cleanProjectId,
-        positionId: positionId || (projectData?.mainPositionId || ''),
+        positionId: selectedPosition,
+        positionTitle: positionTitle,
         studentId: user.uid,
-        studentName: `${typedUserData.firstName || ''} ${typedUserData.lastName || ''}`.trim(),
-        studentEmail: typedUserData.email || user.email,
+        studentName: `${studentDetails.firstName} ${studentDetails.lastName}`.trim(),
+        studentEmail: studentDetails.email,
+        studentUniversity: studentDetails.university,
+        message: message,
         status: 'pending',
-        interestStatement: interestStatement,
         submittedAt: serverTimestamp(),
-        // Add student profile information
-        studentInfo: {
-          major: typedUserData.major || '',
-          year: typedUserData.graduationYear || '',
-          university: typedUserData.university || '',
-          skills: typedUserData.skills || [],
-          interests: typedUserData.interests || [],
-          resumeURL: typedUserData.resumeURL || '',
-          resumeName: typedUserData.resumeName || ''
-        }
+        lastUpdated: serverTimestamp()
       };
       
-      // Add to Firestore
-      await addDoc(collection(db, "applications"), applicationData);
+      await addDoc(applicationRef, newApplication);
+      toast.success('Application submitted successfully!');
       
-      toast.success("Application submitted successfully!");
-      
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        // Navigate to dashboard or applied projects page
-        router.push('/development/dashboard');
-      }
-    } catch (err) {
-      console.error("Error submitting application:", err);
-      setError("Failed to submit application. Please try again.");
-    } finally {
+      // Call onSuccess callback
+      onSuccess();
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      toast.error('Failed to submit application. Please try again later.');
       setIsSubmitting(false);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center py-10">
-        <LoadingSpinner size="large" />
-      </div>
-    );
-  }
-
+  
   return (
-    <div className="bg-white shadow-md rounded-lg p-6 max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Apply to Project</h2>
+    <div className="bg-white shadow-md rounded-lg p-8">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">
+        {`Apply for "${projectTitle}"`}
+      </h2>
       
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-700">{projectTitle}</h3>
-        {projectData && (
-          <p className="text-sm text-gray-500 mt-1">
-            {projectData.department || projectData.faculty || "Research Project"}
-          </p>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Position selection */}
+        {positions.length > 0 && (
+          <div>
+            <label htmlFor="position" className="block text-sm font-medium text-gray-700 mb-1">
+              Position
+            </label>
+            <select
+              id="position"
+              value={selectedPosition}
+              onChange={(e) => setSelectedPosition(e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500"
+              required
+            >
+              <option value="" disabled>Select a position</option>
+              {positions.map((position) => (
+                <option key={position.id} value={position.id}>
+                  {position.title}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
-      </div>
-      
-      {/* Applicant Information */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-6">
-        <h3 className="text-md font-medium text-gray-700 mb-3">Your Profile Information</h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="block text-gray-500">Name</span>
-            <span className="font-medium">{typedUserData?.firstName} {typedUserData?.lastName}</span>
-          </div>
-          <div>
-            <span className="block text-gray-500">Email</span>
-            <span>{typedUserData?.email || user?.email}</span>
-          </div>
-          <div>
-            <span className="block text-gray-500">University</span>
-            <span>{typedUserData?.university || "Not specified"}</span>
-          </div>
-          <div>
-            <span className="block text-gray-500">Major</span>
-            <span>{typedUserData?.major || "Not specified"}</span>
-          </div>
-          <div>
-            <span className="block text-gray-500">Graduation Year</span>
-            <span>{typedUserData?.graduationYear || "Not specified"}</span>
-          </div>
-          <div>
-            <span className="block text-gray-500">Resume</span>
-            <span>{typedUserData?.resumeName ? typedUserData.resumeName : "No resume uploaded"}</span>
-          </div>
-        </div>
-        <div className="mt-3 text-xs text-violet-600">
-          <a href="/development/profile" target="_blank" rel="noopener noreferrer">
-            Review or update your profile
-          </a>
-        </div>
-      </div>
-      
-      <form onSubmit={handleSubmit}>
-        <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2">
-            Why are you interested in this project, and how will you apply your skills to the project?
+        
+        {/* Message */}
+        <div>
+          <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+            Why are you interested in this project?
           </label>
           <textarea
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500"
-            rows={6}
-            value={interestStatement}
-            onChange={(e) => setInterestStatement(e.target.value)}
-            placeholder="Describe your interest in this project and the specific skills you will contribute..."
+            id="message"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={5}
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-violet-500 focus:border-violet-500"
+            required
+            placeholder="Explain why you are interested in this project and how your skills and experience make you a good fit."
           />
-          <div className="flex justify-between mt-2 text-sm">
-            <span className={charCount > MAX_CHARS ? "text-red-500" : "text-gray-500"}>
-              {charCount}/{MAX_CHARS} characters (approximately {Math.round(charCount / 4)} words)
-            </span>
-            <span className="text-gray-500">
-              Aim for around 150 words
-            </span>
-          </div>
         </div>
         
-        {error && (
-          <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4">
-            {error}
+        {/* Student information - readonly summary */}
+        <div className="border rounded-md p-4 bg-gray-50">
+          <h3 className="text-md font-medium text-gray-700 mb-2">Your Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Name</p>
+              <p className="text-sm font-medium">
+                {studentDetails.firstName} {studentDetails.lastName}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Email</p>
+              <p className="text-sm font-medium">{studentDetails.email}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">University</p>
+              <p className="text-sm font-medium">{studentDetails.university}</p>
+            </div>
           </div>
-        )}
+          <p className="text-xs text-gray-500 mt-2">
+            This information will be included with your application.
+            To update your profile, visit your account settings.
+          </p>
+        </div>
         
+        {/* Submit buttons */}
         <div className="flex justify-end space-x-4">
           <button
             type="button"
-            onClick={onCancel || (() => router.back())}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            onClick={onCancel}
+            className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
             disabled={isSubmitting}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-50"
+            className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Submitting..." : "Submit Application"}
+            {isSubmitting ? 'Submitting...' : 'Submit Application'}
           </button>
         </div>
       </form>

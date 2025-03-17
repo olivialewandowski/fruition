@@ -4,6 +4,8 @@ import { Position } from '@/types/position';
 import { Application, ApplicationStatus, isValidApplicationStatus } from '@/types/application';
 import { User } from '@/types/user';
 import { updateApplicationStatus, hireApplicant } from '@/services/clientProjectService';
+import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 interface ApplicationsManagerProps {
   projectId: string;
@@ -46,12 +48,71 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
     }
   }, [actionMessages]);
 
+  // Create a notification for the student based on application status change
+  const createStatusChangeNotification = async (
+    studentId: string, 
+    type: string, 
+    title: string,
+    message: string, 
+    applicationId: string
+  ) => {
+    if (!studentId) {
+      console.error('Missing studentId for notification');
+      return;
+    }
+    
+    try {
+      // Check if a similar notification already exists to avoid duplicates
+      const existingQuery = query(
+        collection(db, "notifications"),
+        where("applicationId", "==", applicationId),
+        where("type", "==", type),
+        where("userId", "==", studentId)
+      );
+      
+      const existingSnapshot = await getDocs(existingQuery);
+      
+      if (!existingSnapshot.empty) {
+        console.log(`Similar notification already exists for ${type}, not creating a duplicate`);
+        return;
+      }
+      
+      const notificationRef = collection(db, "notifications");
+      await addDoc(notificationRef, {
+        userId: studentId,
+        type: type,
+        title: title,
+        message: message,
+        projectId: projectId,
+        applicationId: applicationId,
+        isRead: false,
+        tabContext: 'applied', // Ensure this shows in the applied tab
+        createdAt: serverTimestamp()
+      });
+      
+      console.log(`Created ${type} notification for student ${studentId}`);
+    } catch (notifyError) {
+      console.error('Error creating notification:', notifyError);
+      // Non-critical error, don't stop the flow
+    }
+  };
+
   // Handle status change
   const handleStatusChange = async (applicationId: string, newStatus: 'pending' | 'rejected' | 'accepted' | 'hired') => {
     setIsLoading(true);
     setError(null);
     
     try {
+      // Find the application to get student ID
+      const application = applications.find(app => app.id === applicationId);
+      if (!application) {
+        throw new Error('Application not found');
+      }
+      
+      if (!application.studentId) {
+        throw new Error('Application is missing studentId field');
+      }
+      
       // Update application status
       await updateApplicationStatus(applicationId, newStatus);
       
@@ -68,6 +129,45 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
         message: `Application status updated to ${newStatus}`,
         type: 'success'
       }]);
+      
+      // Create a notification for the student based on status
+      let notificationType = '';
+      let notificationTitle = '';
+      let notificationMessage = '';
+      
+      switch (newStatus) {
+        case 'accepted':
+          notificationType = 'application_accepted';
+          notificationTitle = 'Application Accepted';
+          notificationMessage = `Your application for this project has been accepted! Please watch for further instructions.`;
+          break;
+        case 'rejected':
+          notificationType = 'application_rejected';
+          notificationTitle = 'Application Status Update';
+          notificationMessage = `Your application was not selected for this project at this time.`;
+          break;
+        case 'pending':
+          notificationType = 'application_update';
+          notificationTitle = 'Application Status Update';
+          notificationMessage = `Your application status has been updated to pending review.`;
+          break;
+        case 'hired':
+          notificationType = 'application_hired';
+          notificationTitle = 'You\'ve Been Hired!';
+          notificationMessage = `Congratulations! You've been hired for this project!`;
+          break;
+      }
+      
+      // Only send notification for status changes (not for initial submission)
+      if (notificationType && application.studentId) {
+        await createStatusChangeNotification(
+          application.studentId,
+          notificationType,
+          notificationTitle,
+          notificationMessage,
+          applicationId
+        );
+      }
       
     } catch (err) {
       console.error('Error updating application status:', err);
@@ -122,6 +222,10 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
         throw new Error('Application not found');
       }
       
+      if (!application.studentId) {
+        throw new Error('Application is missing studentId field');
+      }
+      
       // Hire the applicant
       const result = await hireApplicant(projectId, applicationId);
       
@@ -135,6 +239,17 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
       // Add the team member to the team
       if (result.teamMember) {
         onTeamUpdated([result.teamMember]);
+        
+        // Create a notification for the student
+        if (application.studentId) {
+          await createStatusChangeNotification(
+            application.studentId,
+            'application_hired',
+            'You\'ve Been Hired!',
+            `Congratulations! You've been hired for this project and are now part of the team!`,
+            applicationId
+          );
+        }
       }
       
       // Show success message
@@ -225,10 +340,10 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
                     <div className="flex items-center">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {application.studentName}
+                          {application.studentName || 'Unknown Student'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {application.studentEmail}
+                          {application.studentEmail || 'No email provided'}
                         </div>
                       </div>
                     </div>
@@ -249,7 +364,7 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
                       ${application.status === 'hired' ? 'bg-purple-100 text-purple-800' : ''}
                       ${application.status === 'interviewing' ? 'bg-blue-100 text-blue-800' : ''}
                     `}>
-                      {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                      {application.status ? application.status.charAt(0).toUpperCase() + application.status.slice(1) : 'Pending'}
                     </span>
                     {/* Action message */}
                     {application.id && actionMessages.find(msg => msg.id === application.id) && (
