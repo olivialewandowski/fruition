@@ -1,5 +1,5 @@
 import { auth } from '@/config/firebase';
-import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail as firebaseSendPasswordResetEmail } from 'firebase/auth';
 
 // Create a promise that resolves when auth is initialized
 let authInitialized = false;
@@ -111,5 +111,60 @@ export const signOut = async (): Promise<void> => {
     await auth.signOut();
   } catch (error) {
     console.error('Error signing out:', error);
+  }
+};
+
+// Helper function to check if we're in development mode
+const isDevelopmentMode = (): boolean => {
+  return process.env.NODE_ENV === 'development' || 
+         (typeof window !== 'undefined' && window.location.hostname === 'localhost');
+};
+
+// Send password reset email
+export const sendPasswordResetEmail = async (email: string): Promise<{ 
+  success: boolean; 
+  error?: string;
+  isDevMode?: boolean;
+  devModeMessage?: string;
+}> => {
+  // Check if we're in development mode
+  const isDevMode = isDevelopmentMode();
+  
+  try {
+    await firebaseSendPasswordResetEmail(auth, email);
+    
+    // In development mode, provide additional information
+    if (isDevMode) {
+      console.log(`[DEV MODE] Password reset email for ${email} would be sent in production.`);
+      
+      return { 
+        success: true,
+        isDevMode: true,
+        devModeMessage: `In development mode, password reset emails are not actually sent. In production, a real email would be sent to ${email}. Check Firebase Auth Emulator logs for the reset link if you're using emulators.`
+      };
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error sending password reset email:', error);
+    
+    let errorMessage = 'Failed to send reset email. Please try again.';
+    
+    // Map Firebase error codes to user-friendly messages
+    if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Invalid email address format.';
+    } else if (error.code === 'auth/user-not-found') {
+      errorMessage = 'No account found with this email.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many requests. Please try again later.';
+    } else if (error.code === 'auth/network-request-failed') {
+      errorMessage = 'Network error. Please check your connection and try again.';
+    }
+    
+    return { 
+      success: false, 
+      error: errorMessage,
+      isDevMode: isDevMode
+    };
   }
 };
