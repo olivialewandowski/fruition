@@ -706,6 +706,47 @@ export const getProjectApplications = async (projectId: string): Promise<Applica
       }
     }
     
+    // If no applications were found through positions, try direct project query as fallback
+    if (applications.length === 0) {
+      try {
+        console.log(`No applications found through positions, trying direct project query for ${projectId}`);
+        const directQuery = query(collection(db, "applications"), where("projectId", "==", projectId));
+        const directSnapshot = await getDocs(directQuery);
+        
+        directSnapshot.docs.forEach(doc => {
+          try {
+            if (doc.exists()) {
+              const rawData = doc.data();
+              console.log(`Processing direct application ${doc.id}:`, rawData);
+              
+              // Create a sanitized version with default values for required fields
+              const safeApplication: Application = {
+                id: doc.id,
+                projectId: projectId,
+                positionId: rawData.positionId || 'unknown',
+                studentId: rawData.studentId || 'unknown',
+                studentName: rawData.studentName || 'Unknown Student',
+                studentEmail: rawData.studentEmail || 'no-email@example.com',
+                status: rawData.status || 'pending',
+                submittedAt: rawData.submittedAt || new Date(),
+              };
+              
+              applications.push({
+                ...rawData,
+                ...safeApplication
+              } as Application);
+              
+              console.log(`Successfully added direct application ${doc.id} to results`);
+            }
+          } catch (appErr) {
+            console.error(`Error processing direct application ${doc.id}:`, appErr);
+          }
+        });
+      } catch (directErr) {
+        console.error(`Error in direct project applications query:`, directErr);
+      }
+    }
+    
     console.log(`Returning ${applications.length} total applications`);
     return applications;
   } catch (error) {

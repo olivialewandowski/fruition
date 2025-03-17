@@ -15,9 +15,12 @@ const db = admin.firestore();
 // Shortcuts for common Firestore operations
 const FieldValue = admin.firestore.FieldValue;
 
-// Helper function to get server timestamp safely
-function getServerTimestamp() {
-  return admin.firestore.FieldValue.serverTimestamp();
+/**
+ * FIX: Replace serverTimestamp() with a regular Date
+ * This fixes the "Cannot read properties of undefined (reading 'now')" error
+ */
+function getSafeTimestamp() {
+  return new Date(); // Using regular Date object instead of serverTimestamp
 }
 
 /**
@@ -43,14 +46,14 @@ export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (
       const statsRef = db.collection("system").doc("stats");
       const statsDoc = await statsRef.get();
 
-      // Use server timestamp
-      const serverTimestamp = getServerTimestamp();
+      // Use safe timestamp instead of serverTimestamp
+      const now = getSafeTimestamp();
 
       if (statsDoc.exists) {
         // Update existing stats
         await statsRef.update({
           totalProjects: FieldValue.increment(1),
-          updatedAt: serverTimestamp,
+          updatedAt: now,
         });
       } else {
         // Create stats document if it doesn't exist
@@ -58,8 +61,8 @@ export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (
           totalProjects: 1,
           totalUsers: 0,
           totalApplications: 0,
-          createdAt: serverTimestamp,
-          updatedAt: serverTimestamp,
+          createdAt: now,
+          updatedAt: now,
         });
       }
       logger.log("Updated system stats counter");
@@ -114,7 +117,8 @@ export const onProjectCreate = onDocumentCreated("projects/{projectId}", async (
             message: `A new project "${projectData.title}" was posted that matches your interests.`,
             projectId,
             read: false,
-            createdAt: getServerTimestamp(),
+            createdAt: getSafeTimestamp(), // Use safe timestamp
+            tabContext: "discover", // Add tab context for UI notifications
           });
           notificationCount++;
         }
@@ -173,7 +177,7 @@ export const onProjectUpdate = onDocumentUpdated("projects/{projectId}", async (
               await userRef.update({
                 activeProjects: activeProjects.filter((id) => id !== projectId),
                 archivedProjects: [...archivedProjects, projectId],
-                updatedAt: getServerTimestamp(),
+                updatedAt: getSafeTimestamp(), // Use safe timestamp
               });
               logger.log(`Moved project from active to archived for user ${afterData.mentorId}`);
             }
@@ -187,7 +191,7 @@ export const onProjectUpdate = onDocumentUpdated("projects/{projectId}", async (
               await userRef.update({
                 archivedProjects: archivedProjects.filter((id) => id !== projectId),
                 activeProjects: [...activeProjects, projectId],
-                updatedAt: getServerTimestamp(),
+                updatedAt: getSafeTimestamp(), // Use safe timestamp
               });
               logger.log(`Moved project from archived to active for user ${afterData.mentorId}`);
             }
@@ -212,7 +216,7 @@ export const onProjectUpdate = onDocumentUpdated("projects/{projectId}", async (
           batch.update(positionDoc.ref, {
             projectTitle: afterData.title || "",
             projectDescription: afterData.description || "",
-            updatedAt: getServerTimestamp(),
+            updatedAt: getSafeTimestamp(), // Use safe timestamp
           });
         });
 
@@ -249,12 +253,12 @@ export const onPositionCreate = onDocumentCreated("positions/{positionId}", asyn
       if (projectDoc.exists) {
         const projectData = projectDoc.data() as Project;
 
-        // Use server timestamp
-        const serverTimestamp = getServerTimestamp();
+        // Use safe timestamp
+        const now = getSafeTimestamp();
 
         // Update position count
         const updateData: Record<string, unknown> = {
-          updatedAt: serverTimestamp,
+          updatedAt: now,
         };
 
         // Add positionCount field if it doesn't exist or increment it
@@ -271,7 +275,7 @@ export const onPositionCreate = onDocumentCreated("positions/{positionId}", asyn
         if (!projectData.positionCount || projectData.positionCount === 0) {
           await projectRef.update({
             mainPositionId: positionId,
-            updatedAt: serverTimestamp,
+            updatedAt: now,
           });
           logger.log(`Set main position ID for project ${positionData.projectId}`);
         }
@@ -302,15 +306,15 @@ export const onUserCreateOrUpdate = onDocumentCreated("users/{userId}", async (e
     const updates: Record<string, unknown> = {};
     let needsUpdate = false;
 
-    // Use server timestamp
-    const serverTimestamp = getServerTimestamp();
+    // Use safe timestamp
+    const now = getSafeTimestamp();
 
     if (!userData.createdAt) {
-      updates.createdAt = serverTimestamp;
+      updates.createdAt = now;
       needsUpdate = true;
     }
 
-    updates.updatedAt = serverTimestamp;
+    updates.updatedAt = now;
     needsUpdate = true;
 
     if (!userData.role) {
@@ -347,7 +351,8 @@ export const onUserCreateOrUpdate = onDocumentCreated("users/{userId}", async (e
       title: "Welcome to Fruition!",
       message: "Thank you for joining our research-matching platform.",
       read: false,
-      createdAt: serverTimestamp,
+      createdAt: now,
+      tabContext: "dashboard", // Add tab context for UI notifications
     });
     logger.log(`Created welcome notification for user ${userId}`);
 
@@ -359,15 +364,15 @@ export const onUserCreateOrUpdate = onDocumentCreated("users/{userId}", async (e
       if (statsDoc.exists) {
         await statsRef.update({
           totalUsers: FieldValue.increment(1),
-          updatedAt: serverTimestamp,
+          updatedAt: now,
         });
       } else {
         await statsRef.set({
           totalProjects: 0,
           totalUsers: 1,
           totalApplications: 0,
-          createdAt: serverTimestamp,
-          updatedAt: serverTimestamp,
+          createdAt: now,
+          updatedAt: now,
         });
       }
       logger.log("Updated user count in system stats");
@@ -395,6 +400,9 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
   try {
     logger.log(`Application created: ${applicationId} for project ${applicationData.projectId}`);
 
+    // Use safe timestamp
+    const now = getSafeTimestamp();
+
     // Update application count on the project
     if (applicationData.projectId) {
       const projectRef = db.collection("projects").doc(applicationData.projectId);
@@ -403,12 +411,9 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
       if (projectDoc.exists) {
         const projectData = projectDoc.data() as Project;
 
-        // Use server timestamp
-        const serverTimestamp = getServerTimestamp();
-
         // Update application count
         const updateData: Record<string, unknown> = {
-          updatedAt: serverTimestamp,
+          updatedAt: now,
         };
 
         // Add applicationCount field if it doesn't exist or increment it
@@ -420,6 +425,67 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
 
         await projectRef.update(updateData);
         logger.log(`Updated application count for project ${applicationData.projectId}`);
+      }
+    }
+
+    // Update the user's applied projects in multiple places for redundancy
+    if (applicationData.studentId && applicationData.projectId) {
+      try {
+        // Update in users collection
+        const userRef = db.collection("users").doc(applicationData.studentId);
+        const userDoc = await userRef.get();
+
+        if (userDoc.exists) {
+          // Update appliedProjects array
+          await userRef.update({
+            appliedProjects: FieldValue.arrayUnion(applicationData.projectId),
+            updatedAt: now,
+          });
+
+          // Update projectPreferences.appliedProjects if it exists
+          const userData = userDoc.data() || {};
+          if (userData.projectPreferences) {
+            await userRef.update({
+              "projectPreferences.appliedProjects": FieldValue.arrayUnion(applicationData.projectId),
+              "updatedAt": now,
+            });
+          } else {
+            // Create projectPreferences if it doesn't exist
+            await userRef.update({
+              projectPreferences: {
+                appliedProjects: [applicationData.projectId],
+                savedProjects: [],
+                rejectedProjects: [],
+              },
+              updatedAt: now,
+            });
+          }
+
+          logger.log(`Updated user's applied projects: ${applicationData.studentId}`);
+        }
+
+        // Also update in userData collection for redundancy
+        const userDataRef = db.collection("userData").doc(applicationData.studentId);
+        const userDataDoc = await userDataRef.get();
+
+        if (userDataDoc.exists) {
+          await userDataRef.update({
+            appliedProjects: FieldValue.arrayUnion(applicationData.projectId),
+            updatedAt: now,
+          });
+        } else {
+          // Create userData document if it doesn't exist
+          await userDataRef.set({
+            userId: applicationData.studentId,
+            appliedProjects: [applicationData.projectId],
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+
+        logger.log(`Updated userData's applied projects: ${applicationData.studentId}`);
+      } catch (userError) {
+        logger.error(`Error updating user's applied projects: ${userError}`);
       }
     }
 
@@ -453,11 +519,38 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
               applicationId,
               studentId: applicationData.studentId,
               read: false,
-              createdAt: getServerTimestamp(),
+              createdAt: now,
+              tabContext: "applications", // Add tab context for UI notifications
             });
             logger.log(`Created notification for mentor ${mentorId}`);
           }
         }
+      }
+    }
+
+    // Create notification for student
+    if (applicationData.studentId && applicationData.projectId) {
+      // Get project details
+      const projectRef = db.collection("projects").doc(applicationData.projectId);
+      const projectDoc = await projectRef.get();
+
+      if (projectDoc.exists) {
+        const projectData = projectDoc.data() as Project;
+
+        // Create notification for student
+        const notificationRef = db.collection("notifications").doc();
+        await notificationRef.set({
+          userId: applicationData.studentId,
+          type: "application_submitted",
+          title: "Application Submitted",
+          message: `Your application for "${projectData.title}" has been submitted successfully.`,
+          projectId: applicationData.projectId,
+          applicationId,
+          read: false,
+          createdAt: now,
+          tabContext: "applied", // Add tab context for UI notifications
+        });
+        logger.log(`Created notification for student ${applicationData.studentId}`);
       }
     }
 
@@ -466,7 +559,7 @@ export const onApplicationCreate = onDocumentCreated("applications/{applicationI
       const statsRef = db.collection("system").doc("stats");
       await statsRef.update({
         totalApplications: FieldValue.increment(1),
-        updatedAt: getServerTimestamp(),
+        updatedAt: now,
       });
       logger.log("Updated application count in system stats");
     } catch (statsError) {
@@ -501,6 +594,9 @@ export const onApplicationUpdate = onDocumentUpdated("applications/{applicationI
       `Application status changed from ${beforeData.status} to ${afterData.status} for ${applicationId}`
     );
 
+    // Use safe timestamp
+    const now = getSafeTimestamp();
+
     // Create notification for student
     if (afterData.studentId && afterData.projectId) {
       // Get project details
@@ -510,17 +606,40 @@ export const onApplicationUpdate = onDocumentUpdated("applications/{applicationI
       if (projectDoc.exists) {
         const projectData = projectDoc.data() as Project;
 
+        // Generate appropriate message based on status
+        let message = "";
+        let notificationType = "application_update";
+
+        switch (afterData.status) {
+        case "accepted":
+          message = `Your application for "${projectData.title}" has been accepted! 
+          You can now proceed with the next steps.`;
+          notificationType = "application_accepted";
+          break;
+        case "rejected":
+          message = `Your application for "${projectData.title}" was not selected at this time.`;
+          notificationType = "application_rejected";
+          break;
+        case "hired":
+          message = `Congratulations! You've been hired for "${projectData.title}"!`;
+          notificationType = "application_hired";
+          break;
+        default:
+          message = `Your application for "${projectData.title}" status has been updated to ${afterData.status}.`;
+        }
+
         // Create notification
         const notificationRef = db.collection("notifications").doc();
         await notificationRef.set({
           userId: afterData.studentId,
-          type: "application_update",
+          type: notificationType,
           title: `Application ${afterData.status.charAt(0).toUpperCase() + afterData.status.slice(1)}`,
-          message: `Your application for "${projectData.title}" has been ${afterData.status}.`,
+          message: message,
           projectId: afterData.projectId,
           applicationId,
           read: false,
-          createdAt: getServerTimestamp(),
+          createdAt: now,
+          tabContext: "applied", // Add tab context for UI notifications
         });
         logger.log(`Created notification for student ${afterData.studentId}`);
 
@@ -539,20 +658,20 @@ export const onApplicationUpdate = onDocumentUpdated("applications/{applicationI
               userId: afterData.studentId,
               name: studentName,
               role: afterData.positionTitle || "Team Member",
-              joinedAt: getServerTimestamp(),
+              joinedAt: now,
             };
 
             // Update project
             await projectRef.update({
               teamMembers: FieldValue.arrayUnion(teamMember),
-              updatedAt: getServerTimestamp(),
+              updatedAt: now,
             });
             logger.log(`Added student ${afterData.studentId} to project team`);
 
             // Add project to student's active projects
             await studentRef.update({
               activeProjects: FieldValue.arrayUnion(afterData.projectId),
-              updatedAt: getServerTimestamp(),
+              updatedAt: now,
             });
             logger.log("Added project to student's active projects");
           }

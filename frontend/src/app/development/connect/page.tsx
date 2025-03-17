@@ -52,6 +52,42 @@ export default function ConnectPage() {
     setActiveTab(tabId as ConnectTab);
   };
 
+  // Fetch projects function to be called after actions or on load
+  const fetchAllProjects = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch all types of projects in parallel
+      const [connectProjects, savedConnectProjects, appliedConnectProjects] = await Promise.all([
+        getProjects(),
+        getSavedProjects(),
+        getAppliedProjects()
+      ]);
+      
+      // Convert connect projects to full projects
+      const projectsData = convertConnectProjectsToProjects(connectProjects);
+      const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
+        ...p,
+        id: `saved_${p.id}`
+      }));
+      const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
+        ...p,
+        id: `applied_${p.id}`
+      }));
+      
+      setProjects(projectsData);
+      setSavedProjects(savedProjectsData);
+      setAppliedProjects(appliedProjectsData);
+      
+      console.log('Projects refreshed - Applied projects:', appliedProjectsData.length);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast.error('Failed to load projects. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Redirect non-student users
   useEffect(() => {
     if (userData && userData.role !== 'student' && !isLoading) {
@@ -63,41 +99,7 @@ export default function ConnectPage() {
   // Fetch projects when user is authenticated
   useEffect(() => {
     if (!user) return;
-
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Fetch all types of projects in parallel
-        const [connectProjects, savedConnectProjects, appliedConnectProjects] = await Promise.all([
-          getProjects(),
-          getSavedProjects(),
-          getAppliedProjects()
-        ]);
-        
-        // Convert connect projects to full projects
-        const projectsData = convertConnectProjectsToProjects(connectProjects);
-        const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
-          ...p,
-          id: `saved_${p.id}`
-        }));
-        const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
-          ...p,
-          id: `applied_${p.id}`
-        }));
-        
-        setProjects(projectsData);
-        setSavedProjects(savedProjectsData);
-        setAppliedProjects(appliedProjectsData);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-        toast.error('Failed to load projects. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchAllProjects();
   }, [user]);
 
   // Handle applying to a project
@@ -116,11 +118,16 @@ export default function ConnectPage() {
         // Remove the project from the current list
         setProjects(projects.filter(p => p.id !== project.id));
         
-        // Add to applied projects
-        setAppliedProjects(prev => [
-          ...prev, 
-          { ...project, id: `applied_${originalId}` }
-        ]);
+        // Remove from saved projects if it was a saved project
+        if (project.id.startsWith('saved_')) {
+          setSavedProjects(prev => prev.filter(p => p.id !== project.id));
+        }
+        
+        // Refresh all projects to ensure applied projects are up to date
+        await fetchAllProjects();
+        
+        // Switch to applied tab to show the result
+        setActiveTab('applied');
       } else {
         toast.error('Failed to apply to project. Please try again.');
       }
@@ -220,40 +227,8 @@ export default function ConnectPage() {
       if (result.success) {
         toast.success('Action undone successfully');
         
-        // Refresh all project lists to reflect the changes
-        const [connectProjects, savedConnectProjects, appliedConnectProjects] = await Promise.all([
-          getProjects(),
-          getSavedProjects(),
-          getAppliedProjects()
-        ]);
-        
-        // Convert connect projects to full projects
-        let projectsData = convertConnectProjectsToProjects(connectProjects);
-        const savedProjectsData = convertConnectProjectsToProjects(savedConnectProjects).map(p => ({
-          ...p,
-          id: `saved_${p.id}`
-        }));
-        const appliedProjectsData = convertConnectProjectsToProjects(appliedConnectProjects).map(p => ({
-          ...p,
-          id: `applied_${p.id}`
-        }));
-        
-        // If we have an undone project ID, find that project in the sample data
-        // and add it to the top of the projects list
-        if (result.undoneProjectId) {
-          // Get the sample projects to find the undone project
-          const sampleProjects = convertConnectProjectsToProjects(getSampleProjects());
-          const undoneProject = sampleProjects.find(p => p.id === result.undoneProjectId);
-          
-          if (undoneProject) {
-            // Add the undone project to the top of the list
-            projectsData = [undoneProject, ...projectsData.filter(p => p.id !== result.undoneProjectId)];
-          }
-        }
-        
-        setProjects(projectsData);
-        setSavedProjects(savedProjectsData);
-        setAppliedProjects(appliedProjectsData);
+        // Refresh all projects
+        await fetchAllProjects();
       } else {
         toast.error(result.message || 'Failed to undo action. Please try again.');
       }
