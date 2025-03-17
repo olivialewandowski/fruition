@@ -7,6 +7,7 @@ import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/config/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { sendPasswordResetEmail } from '@/services/authService';
 
 const LoginForm = () => {
   const router = useRouter();
@@ -14,9 +15,14 @@ const LoginForm = () => {
     email: '',
     password: '',
   });
+  const [resetEmail, setResetEmail] = useState('');
   const [error, setError] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetLoading, setIsResetLoading] = useState(false);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   // Add check for Firebase initialization and trigger animations after page load
   useEffect(() => {
@@ -141,6 +147,62 @@ const LoginForm = () => {
       
       setIsLoading(false);
     }
+  };
+
+  // Add a new function to handle password reset
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess(false);
+    setIsResetLoading(true);
+    
+    try {
+      // Validate the email
+      if (!resetEmail || !resetEmail.includes('@')) {
+        setResetError('Please enter a valid email address');
+        setIsResetLoading(false);
+        return;
+      }
+      
+      // Send password reset email using our authService
+      const result = await sendPasswordResetEmail(resetEmail);
+      
+      if (result.success) {
+        // Show success message
+        setResetSuccess(true);
+        setResetEmail('');
+        
+        // If we're in development mode, store the development message
+        if (result.isDevMode && result.devModeMessage) {
+          // Set the dev mode message as the reset error, but with a different styling
+          setResetError(result.devModeMessage);
+          // Don't auto-close in dev mode so user can see the message
+        } else {
+          // Auto-close modal after successful reset in production
+          setTimeout(() => {
+            setIsResetModalOpen(false);
+            setResetSuccess(false);
+            setResetError('');
+          }, 5000);
+        }
+      } else {
+        // Handle error from service
+        setResetError(result.error || 'Failed to send reset email. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      setResetError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsResetLoading(false);
+    }
+  };
+
+  // Function to close the modal
+  const closeResetModal = () => {
+    setIsResetModalOpen(false);
+    setResetError('');
+    setResetSuccess(false);
+    setResetEmail('');
   };
 
   // Framer Motion animation variants
@@ -412,15 +474,123 @@ const LoginForm = () => {
               >
                 <p className="text-gray-600">
                   Forgot password?{' '}
-                  <Link href="#" className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300">
+                  <button 
+                    onClick={() => setIsResetModalOpen(true)} 
+                    className="font-medium text-purple-600 hover:text-violet-800 transition-colors duration-300"
+                  >
                     Click here
-                  </Link>
+                  </button>
                 </p>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+      
+      {/* Password Reset Modal */}
+      <AnimatePresence>
+        {isResetModalOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div 
+              className="fixed inset-0 bg-black/50 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeResetModal}
+            />
+            
+            {/* Modal */}
+            <motion.div 
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-full max-w-md z-50 p-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                Reset Your Password
+              </h3>
+              
+              {resetSuccess ? (
+                <div className="mb-4 p-3 bg-green-50 border border-green-100 text-green-700 rounded">
+                  <p>
+                    Password reset email sent! Please check your inbox and follow the instructions to reset your password.
+                  </p>
+                  
+                  {/* Development mode message */}
+                  {resetError && (
+                    <div className="mt-3 p-2 bg-blue-50 border border-blue-100 text-blue-700 rounded text-sm">
+                      <p className="font-semibold mb-1">Developer Information:</p>
+                      <p>{resetError}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <p className="text-gray-600 mb-4">
+                    Enter your email address below and we'll send you a link to reset your password.
+                  </p>
+                  
+                  {/* Development mode testing instructions */}
+                  <div className="mb-4 p-2 bg-blue-50 border border-blue-100 text-blue-700 rounded text-xs">
+                    <p className="font-semibold">Development Testing:</p>
+                    <p>In development mode, no actual emails are sent. Check console logs for details.</p>
+                  </div>
+                </>
+              )}
+              
+              <form onSubmit={handlePasswordReset}>
+                <div className="mb-4">
+                  <input
+                    type="email"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 py-2 px-3"
+                    placeholder="Email address"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    disabled={resetSuccess}
+                  />
+                </div>
+                
+                {!resetSuccess && resetError && (
+                  <div className="mb-4 text-red-600 text-sm">
+                    {resetError}
+                  </div>
+                )}
+                
+                <div className="flex justify-end space-x-2">
+                  <button
+                    type="button"
+                    className="px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    onClick={closeResetModal}
+                    disabled={isResetLoading}
+                  >
+                    Cancel
+                  </button>
+                  
+                  <button
+                    type="submit"
+                    className="px-4 py-2 border border-transparent rounded text-sm font-medium text-white bg-violet-700 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                    disabled={isResetLoading || resetSuccess}
+                  >
+                    {isResetLoading ? 'Sending...' : resetSuccess ? 'Sent!' : 'Send Reset Link'}
+                  </button>
+                  
+                  {resetSuccess && (
+                    <button
+                      type="button"
+                      className="px-4 py-2 border border-transparent rounded text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                      onClick={closeResetModal}
+                    >
+                      Done
+                    </button>
+                  )}
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
