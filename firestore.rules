@@ -28,6 +28,18 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
+    // PUBLIC COLLECTIONS FOR LANDING PAGE 
+    // Allow full access to waitlistprojects collection WITHOUT authentication
+    match /waitlistprojects/{projectId} {
+      allow read, write: if true;
+    }
+    
+    // Allow full access to waitlist collection WITHOUT authentication
+    match /waitlist/{docId} {
+      allow read, write: if true;
+    }
+    
+    // Rest of your rules...
     function isProjectMentor(projectId) {
       return isSignedIn() && 
         exists(/databases/$(database)/documents/projects/$(projectId)) &&
@@ -42,7 +54,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
-    // UserData collection - UPDATED RULES
+    // UserData collection
     match /userData/{userId} {
       allow read: if isSignedIn() && isOwner(userId);
       allow create: if isSignedIn() && isOwner(userId);
@@ -67,7 +79,7 @@ service cloud.firestore {
       }
     }
     
-    // Projects collection - UPDATED TO ALLOW ANY AUTHENTICATED USER TO CREATE
+    // Projects collection
     match /projects/{projectId} {
       allow read: if true; // Anyone can read project data
       allow create: if isSignedIn(); // Any authenticated user can create projects
@@ -75,7 +87,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
     }
     
-    // Positions collection - UPDATED TO ALLOW ANY AUTHENTICATED USER TO CREATE
+    // Positions collection
     match /positions/{positionId} {
       allow read: if true;
       allow create: if isSignedIn(); // Any authenticated user can create positions

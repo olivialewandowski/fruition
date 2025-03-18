@@ -1,0 +1,126 @@
+/* app/forstudents/forstudents.css */
+
+/* Import Montserrat and Montserrat Alternates fonts */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Montserrat+Alternates:ital,wght@0,400;0,600;0,700;1,600;1,700&display=swap');
+
+/* Define scrollbar styles for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(91, 33, 182, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(91, 33, 182, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(91, 33, 182, 0.7);
+}
+
+/* Define animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(168, 85, 247, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Add utility classes */
+.float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.float-slow {
+  animation: float 8s ease-in-out infinite;
+}
+
+.float-fast {
+  animation: float 4s ease-in-out infinite;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+.gradient-animate {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* Custom font classes */
+.font-montserrat {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.font-montserrat-alternates {
+  font-family: 'Montserrat Alternates', sans-serif;
+}
+
+/* Custom glow effects */
+.text-glow {
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.text-glow-purple {
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.7);
+}
+
+.card-glow {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+}
+
+.button-glow {
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+/* Background patterns */
+.dots-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .float, .float-slow, .float-fast {
+    animation: none;
+  }
+  
+  .gradient-animate {
+    background-size: 100% 100%;
+    animation: none;
+  }
+}

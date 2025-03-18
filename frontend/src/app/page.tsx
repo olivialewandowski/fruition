@@ -5,14 +5,14 @@ export default async function Home() {
   try {
     // Add a small delay to ensure proper handling
     await new Promise(resolve => setTimeout(resolve, 100));
-    redirect('/students');
+    redirect('/forstudents');
   } catch (error) {
     console.error('Redirect error:', error);
     // Fallback redirect using client-side navigation
     return (
       <script
         dangerouslySetInnerHTML={{
-          __html: 'window.location.href = "/students"',
+          __html: 'window.location.href = "/forstudents"',
         }}
       />
     );

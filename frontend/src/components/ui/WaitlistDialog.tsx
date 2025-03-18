@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,11 +18,29 @@ import {
 export interface WaitlistDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  source?: 'waitlist' | 'getStarted' | 'demo';
+  source?: 'waitlist' | 'getStarted' | 'demo' | 'postProject';
   prefilledEmail?: string;
+  projectId?: string | null;
 }
 
-export function WaitlistDialog({ isOpen, onClose, source = 'waitlist', prefilledEmail = '' }: WaitlistDialogProps) {
+// Define a type for our payload to handle the optional projectId correctly
+type WaitlistPayload = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  institution: string;
+  role: string;
+  source: 'waitlist' | 'getStarted' | 'demo' | 'postProject';
+  projectId?: string;
+};
+
+export function WaitlistDialog({ 
+  isOpen, 
+  onClose, 
+  source = 'waitlist', 
+  prefilledEmail = '',
+  projectId
+}: WaitlistDialogProps) {
   const [formData, setFormData] = React.useState({
     email: prefilledEmail,
     firstName: '',
@@ -34,11 +52,19 @@ export function WaitlistDialog({ isOpen, onClose, source = 'waitlist', prefilled
   const [error, setError] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
-  React.useEffect(() => {
-    if (prefilledEmail) {
-      setFormData(prev => ({ ...prev, email: prefilledEmail }));
+  // Reset form data when dialog is opened
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        email: prefilledEmail,
+        firstName: '',
+        lastName: '',
+        role: '',
+        institution: ''
+      });
+      setError('');
     }
-  }, [prefilledEmail]);
+  }, [isOpen, prefilledEmail]);
 
   const validateEmail = (email: string) => {
     return email.toLowerCase().endsWith('.edu');
@@ -48,6 +74,8 @@ export function WaitlistDialog({ isOpen, onClose, source = 'waitlist', prefilled
     switch (source) {
       case 'demo':
         return 'Request a Demo';
+      case 'postProject':
+        return 'Sign up to post project';
       default:
         return 'Join the Waitlist';
     }
@@ -57,6 +85,8 @@ export function WaitlistDialog({ isOpen, onClose, source = 'waitlist', prefilled
     switch (source) {
       case 'demo':
         return 'Thank you for your request! We will contact you shortly with further details.';
+      case 'postProject':
+        return 'Thank you for signing up! We will reach out shortly with the link to our portal.';
       default:
         return "We've added you to our waitlist. We'll notify you as soon as we launch!";
     }
@@ -74,31 +104,80 @@ export function WaitlistDialog({ isOpen, onClose, source = 'waitlist', prefilled
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://us-central1-fruition-4e3f8.cloudfunctions.net/api/waitlist/join', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://fruitionresearch.com'
-        },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          institution: formData.institution.trim(),
-          role: formData.role,
-          source
-        }),
-      });
+      // Create a base payload 
+      const basePayload: WaitlistPayload = {
+        email: formData.email.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        institution: formData.institution.trim(),
+        role: formData.role,
+        source
+      };
 
-      const data = await response.json();
+      // Only add projectId if it's a valid string
+      if (typeof projectId === 'string' && projectId.trim().length > 0) {
+        basePayload.projectId = projectId.trim();
+        console.log("Including projectId in payload:", projectId);
+      } else {
+        console.log("No projectId included in payload");
+      }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to join waitlist');
+      console.log("Submitting waitlist form with payload:", basePayload);
+
+      // Try direct Firestore approach first as it's more reliable
+      try {
+        const { collection, addDoc } = await import("firebase/firestore");
+        const { db } = await import("@/config/firebase");
+        
+        const docRef = await addDoc(collection(db, 'waitlist'), {
+          ...basePayload,
+          createdAt: new Date().toISOString()
+        });
+        
+        console.log("Added to waitlist with ID:", docRef.id);
+        
+        // If this has a project ID, update the project with user info
+        if (basePayload.projectId) {
+          try {
+            const { doc, updateDoc } = await import("firebase/firestore");
+            const projectRef = doc(db, 'waitlistprojects', basePayload.projectId);
+            await updateDoc(projectRef, {
+              userEmail: basePayload.email,
+              userFirstName: basePayload.firstName,
+              userLastName: basePayload.lastName,
+              updatedAt: new Date().toISOString(),
+              status: 'submitted'
+            });
+            console.log(`Updated project ${basePayload.projectId} with user info`);
+          } catch (projectError) {
+            console.error("Error updating project:", projectError);
+            // Continue even if project update fails
+          }
+        }
+      } catch (firestoreError) {
+        console.error("Direct Firestore approach failed:", firestoreError);
+        
+        // Fall back to API approach
+        console.log("Trying API approach as fallback");
+        const response = await fetch('/api/waitlist/join', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(basePayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to join waitlist');
+        }
+
+        const data = await response.json();
+        console.log("Waitlist join API response:", data);
       }
 
       setShowSuccess(true);
-
     } catch (err) {
       console.error('Waitlist error:', err);
       setError(err instanceof Error ? err.message : 'Failed to join waitlist');

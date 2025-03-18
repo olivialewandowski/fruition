@@ -8,6 +8,10 @@ import { requestLogger } from "./middleware/auth";
 import * as functions from "firebase-functions";
 import { db } from "./config/firebase";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
+// Import the projectsRouter
+import { projectsRouter } from "./routes/projects";
+// Import the waitlistProjects router
+import { waitlistProjectsRouter } from "./routes/waitlistProjects";
 
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
@@ -166,10 +170,56 @@ export const createProjectDirect = functions.https.onCall(async (data: any, cont
 });
 
 const app = express();
-app.use(cors({ origin: true }));
+app.use(cors({
+  origin: ["https://fruitionresearch.com", "http://localhost:3000"],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin"],
+}));
 app.use(express.json());
 app.use(requestLogger);
+
+// Add waitlistProjects router to handle waitlist project submissions (no auth required)
+app.use("/waitlist/projects", waitlistProjectsRouter);
+
+// Add projects router to the Express app (with auth)
+app.use("/projects", projectsRouter);
+
+// Use the main router
 app.use(router);
+
+// Add a direct test endpoint for debugging
+app.post("/test-waitlist-project", async (req, res) => {
+  try {
+    console.log("Received test project data:", req.body);
+    const { title, description, qualifications, positionType } = req.body;
+
+    if (!title || !description) {
+      return res.status(400).json({ error: "Project title and description are required" });
+    }
+
+    // Add project to waitlistprojects collection
+    const docRef = await db.collection("waitlistprojects").add({
+      title,
+      description,
+      qualifications,
+      positionType,
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log("Test project added with ID:", docRef.id);
+
+    return res.status(201).json({
+      message: "Successfully added test project to waitlist",
+      id: docRef.id,
+    });
+  } catch (error) {
+    console.error("Error adding test project:", error);
+    return res.status(500).json({
+      error: "Failed to add test project",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
 
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Error:", err);
