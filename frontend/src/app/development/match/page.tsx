@@ -50,6 +50,7 @@ export default function MatchPage() {
   const [activeTab, setActiveTab] = useState<MatchTab>('discover');
   const { user, userData } = useAuth();
   const router = useRouter();
+  const [isUndoing, setIsUndoing] = useState(false);
   
   // Define the tabs for match navigation with notification indicators
   const matchTabs = [
@@ -252,49 +253,65 @@ export default function MatchPage() {
     markNotificationsAsRead(activeTab);
   }, [user, activeTab]);
 
-  // Handle saving a project
-  const handleSaveProject = async (project: Project) => {
+  // Special handler for applying to projects
+  const handleApplyProject = async (project: Project) => {
+    // Normalize the project ID (remove any prefixes)
+    const originalId = extractOriginalId(project.id);
+    
     try {
-      // Extract original ID
-      const originalId = extractOriginalId(project.id);
-      const success = await saveProject(originalId);
+      // Apply to the project
+      await applyToProject(originalId);
       
-      if (success) {
-        toast.success('Project saved!');
-        
-        // Remove the project from the current list
-        setProjects(projects.filter(p => p.id !== project.id));
-        
-        // Add to saved projects
-        setSavedProjects(prev => [
-          ...prev, 
-          { ...project, id: `saved_${originalId}` }
-        ]);
-      } else {
-        toast.error('Failed to save project. Please try again.');
-      }
+      // Show success message
+      toast.success('Successfully applied to project!');
+      
+      // Refresh projects to update the lists
+      await fetchAllProjects();
+      
+      // Switch to applied tab to show the user their application
+      handleTabChange('applied');
     } catch (error) {
-      console.error('Error saving project:', error);
-      toast.error('An error occurred while saving the project.');
+      if (error instanceof Error) {
+        toast.error(error.message || 'Failed to apply to project');
+      } else {
+        toast.error('Failed to apply to project');
+      }
     }
   };
-
-  // Handle declining a project
+  
+  // Save project handler
+  const handleSaveProject = async (project: Project) => {
+    try {
+      // Get original ID (without prefixes)
+      const originalId = extractOriginalId(project.id);
+      
+      await saveProject(originalId);
+      
+      toast.success('Project saved!');
+      
+      // Refresh to update UI
+      await fetchAllProjects();
+    } catch (error) {
+      console.error('Error saving project:', error);
+      toast.error('Failed to save project');
+    }
+  };
+  
+  // Decline project handler
   const handleDeclineProject = async (project: Project) => {
     try {
-      // Extract original ID
+      // Get original ID (without prefixes)
       const originalId = extractOriginalId(project.id);
-      const success = await declineProject(originalId);
       
-      if (success) {
-        // Remove the project from the current list
-        setProjects(projects.filter(p => p.id !== project.id));
-      } else {
-        toast.error('Failed to decline project. Please try again.');
-      }
+      await declineProject(originalId);
+      
+      toast.success('Project declined');
+      
+      // Refresh to update UI
+      await fetchAllProjects();
     } catch (error) {
       console.error('Error declining project:', error);
-      toast.error('An error occurred while declining the project.');
+      toast.error('Failed to decline project');
     }
   };
 
@@ -375,17 +392,19 @@ export default function MatchPage() {
               <MatchProjectsList 
                 projects={projects} 
                 onSaveProject={handleSaveProject}
-                onApplyProject={() => {}} // This will be handled by the route
+                onApplyProject={handleApplyProject}
                 onDeclineProject={handleDeclineProject}
                 onUndoAction={handleUndoAction}
+                appliedProjectIds={appliedProjects.map(p => extractOriginalId(p.id))}
               />
             )}
             
             {activeTab === 'saved' && (
               <SavedTab 
                 savedProjects={savedProjects} 
-                onApplyProject={() => {}} // This will be handled by the route
+                onApplyProject={handleApplyProject}
                 onRemoveProject={handleRemoveSavedProject}
+                appliedProjectIds={appliedProjects.map(p => extractOriginalId(p.id))}
               />
             )}
             

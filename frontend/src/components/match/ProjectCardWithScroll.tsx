@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { Project } from '@/types/project';
 import { useState, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, BookmarkIcon, ArrowUpRightIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { BookmarkIcon as BookmarkSolidIcon } from '@heroicons/react/24/solid';
 
 interface ProjectCardWithScrollProps {
   project: Project;
@@ -10,6 +11,7 @@ interface ProjectCardWithScrollProps {
   onSave: (project: Project) => void;
   onApply: (project: Project) => void;
   onDecline: (project: Project) => void;
+  hasApplied?: boolean;
 }
 
 const ProjectCardWithScroll = ({ 
@@ -18,10 +20,12 @@ const ProjectCardWithScroll = ({
   onSelect,
   onSave,
   onApply,
-  onDecline
+  onDecline,
+  hasApplied = false
 }: ProjectCardWithScrollProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Set isMounted to true when component mounts on client
   useEffect(() => {
@@ -78,6 +82,22 @@ const ProjectCardWithScroll = ({
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
+  const handleSaveClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsSaved(true);
+    onSave(project);
+  };
+  
+  const handleApplyClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onApply(project);
+  };
+  
+  const handleDeclineClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDecline(project);
+  };
+
   // Base card content without animations for server-side rendering
   const cardContent = (
     <div 
@@ -91,7 +111,31 @@ const ProjectCardWithScroll = ({
         {/* Compact project card content */}
         <div className="flex flex-col h-full">
           {/* Project title */}
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">{project.title}</h2>
+          <div className="flex justify-between items-start">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">{project.title}</h2>
+            
+            {/* Action buttons */}
+            <div className="flex space-x-2 ml-2">
+              {!isSaved && !hasApplied && (
+                <motion.button
+                  onClick={handleSaveClick}
+                  className="text-violet-600 hover:text-violet-800 focus:outline-none"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <BookmarkIcon className="h-5 w-5" />
+                </motion.button>
+              )}
+              {isSaved && !hasApplied && (
+                <motion.button
+                  className="text-violet-600 hover:text-violet-800 focus:outline-none"
+                  disabled
+                >
+                  <BookmarkSolidIcon className="h-5 w-5" />
+                </motion.button>
+              )}
+            </div>
+          </div>
           
           {/* Faculty and Department */}
           <p className="text-sm text-violet-600 font-medium mb-4">
@@ -138,47 +182,31 @@ const ProjectCardWithScroll = ({
           } transition-opacity duration-300`}
         >
           {/* Apply button */}
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onApply(project);
-            }}
-            className="bg-violet-600 text-white px-3 py-1 rounded-md hover:bg-violet-700 transition-colors font-medium flex items-center justify-center text-sm"
-            aria-label="Apply to project"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Apply
-          </button>
-          
-          {/* Save button */}
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onSave(project);
-            }}
-            className="border border-violet-600 text-violet-600 px-3 py-1 rounded-md hover:bg-violet-50 transition-colors font-medium flex items-center justify-center text-sm"
-            aria-label="Save project for later"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-            Save
-          </button>
-          
-          {/* Decline button */}
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onDecline(project);
-            }}
-            className="text-red-500 hover:text-red-700 transition-colors font-medium flex items-center justify-center text-sm"
-            aria-label="Decline project"
-          >
-            <XMarkIcon className="h-5 w-5 mr-1" />
-            Decline
-          </button>
+          {!hasApplied && (
+            <>
+              <button 
+                onClick={handleDeclineClick}
+                className="text-red-500 hover:text-red-700 transition-colors font-medium flex items-center justify-center text-sm"
+                aria-label="Decline project"
+              >
+                <XMarkIcon className="h-5 w-5 mr-1" />
+                Decline
+              </button>
+              <button 
+                onClick={handleApplyClick}
+                className="px-3 py-1 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-md"
+                aria-label="Apply to project"
+              >
+                Apply <ArrowUpRightIcon className="inline-block h-3 w-3 ml-1" />
+              </button>
+            </>
+          )}
+          {hasApplied && (
+            <div className="flex items-center text-green-600 text-sm">
+              <CheckCircleIcon className="h-5 w-5 mr-1" />
+              Applied
+            </div>
+          )}
         </div>
       )}
     </div>

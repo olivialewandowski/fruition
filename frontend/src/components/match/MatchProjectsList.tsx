@@ -13,6 +13,7 @@ interface MatchProjectsListProps {
   onApplyProject: (project: Project) => void;
   onDeclineProject: (project: Project) => void;
   onUndoAction?: () => void;
+  appliedProjectIds?: string[];
 }
 
 // Create a client-only version of the component to avoid hydration issues
@@ -21,7 +22,8 @@ const MatchProjectsList = ({
   onSaveProject, 
   onApplyProject, 
   onDeclineProject,
-  onUndoAction 
+  onUndoAction,
+  appliedProjectIds
 }: MatchProjectsListProps) => {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
@@ -236,6 +238,7 @@ const MatchProjectsList = ({
                     onSave={onSaveProject}
                     onApply={handleApplyClick} // Use the new handler to navigate to application form
                     onDecline={onDeclineProject}
+                    hasApplied={appliedProjectIds?.includes(project.id.replace(/^(saved_|applied_)/, ''))}
                   />
                 </div>
               </motion.div>
