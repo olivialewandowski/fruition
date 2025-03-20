@@ -25,6 +25,7 @@ const ActiveProjectsDropdown: React.FC<ActiveProjectsDropdownProps> = ({
   // Filter only active applications (not yet marked as top)
   const activeApplications = applications.filter(app => 
     !topProjects.includes(app.project.id) && 
+    // Only show active applications eligible for top choices 
     ['pending', 'reviewing', 'interviewing', 'accepted'].includes(app.status)
   );
   

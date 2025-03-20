@@ -5,7 +5,6 @@ import Sidebar from '@/components/layout/Sidebar';
 import TopNavigation from '@/components/layout/TopNavigation';
 import ProjectSection from '@/components/dashboard/ProjectSection';
 import ProjectCreationModal from '@/components/projects/ProjectCreationModal';
-import TopChoicesWidget from '@/components/student/TopChoicesWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProjects } from '@/services/clientProjectService';
 import { Project } from '@/types/project';
@@ -131,9 +130,6 @@ const ProjectsPage: React.FC = () => {
     setRefreshKey(prev => prev + 1);
   };
   
-  // Determine if we should show top choices widget - only for students
-  const shouldShowTopChoices = userData?.role === 'student';
-
   // Rendered component based on loading state
   const renderLoadingState = () => (
     <div className="text-center py-12">
@@ -141,17 +137,6 @@ const ProjectsPage: React.FC = () => {
       <p className="mt-4 text-gray-600">Loading projects...</p>
     </div>
   );
-  
-  // Render the top choices widget with error boundary
-  const renderTopChoicesWidget = () => {
-    if (!shouldShowTopChoices) return null;
-    
-    return (
-      <div className="mb-6">
-        <TopChoicesWidget />
-      </div>
-    );
-  };
 
   return (
     <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
@@ -190,9 +175,6 @@ const ProjectsPage: React.FC = () => {
               <>
                 {activeTab === 'active' && (
                   <>
-                    {/* Top Choices Widget */}
-                    {renderTopChoicesWidget()}
-                    
                     {/* Student Applications Section (only for students) */}
                     {userData?.role === 'student' && (
                       <StudentActiveTabApplications onRefresh={handleRefresh} />
@@ -214,9 +196,6 @@ const ProjectsPage: React.FC = () => {
                 
                 {activeTab === 'applied' && userData?.role === 'student' && (
                   <div className="space-y-6">
-                    {/* Top Choices Widget */}
-                    {renderTopChoicesWidget()}
-                    
                     {/* Applied Projects Tab */}
                     <StudentAppliedProjectsTab 
                       onRefresh={handleRefresh} 
@@ -227,9 +206,6 @@ const ProjectsPage: React.FC = () => {
                 
                 {activeTab === 'archived' && (
                   <>
-                    {/* Top Choices Widget */}
-                    {renderTopChoicesWidget()}
-                    
                     {/* Archived Projects */}
                     {projectsToShow.length > 0 ? (
                       <ProjectSection title="" projects={projectsToShow} hideTitle={true} />

@@ -10,6 +10,7 @@ import {
   arrayUnion,
   arrayRemove,
   writeBatch,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { getAuth } from "firebase/auth";
@@ -375,19 +376,55 @@ export const getStudentTopProjects = async (): Promise<string[]> => {
       throw new Error("User not authenticated");
     }
     
-    // Get user document
+    // Get user document to retrieve top projects
     const userRef = doc(db, "users", user.uid);
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
+      console.log("User document does not exist for", user.uid);
       return [];
     }
     
+    // Extract top projects
     const userData = userDoc.data();
-    return userData.projectPreferences?.topProjects || [];
+    let topProjects = userData?.projectPreferences?.topProjects || [];
+    
+    // Ensure it's an array
+    if (!Array.isArray(topProjects)) {
+      console.warn("Top projects is not an array:", topProjects);
+      topProjects = [];
+    }
+    
+    // Get all student applications to filter out rejected ones
+    const applications = await getStudentApplications();
+    if (applications.length > 0) {
+      // Create a map of project ID to application status
+      const applicationStatusMap = new Map();
+      applications.forEach(app => {
+        applicationStatusMap.set(app.project.id, app.status);
+      });
+      
+      // Filter out projects with rejected/closed applications
+      topProjects = topProjects.filter((projectId: string) => {
+        const status = applicationStatusMap.get(projectId);
+        // Keep only if application is still active (not rejected or closed)
+        return !status || !['rejected', 'closed', 'cancelled', 'declined', 'deleted'].includes(status);
+      });
+      
+      // If we had to filter out some top projects, update the user document
+      const originalLength = userData?.projectPreferences?.topProjects?.length || 0;
+      if (originalLength > topProjects.length) {
+        console.log(`Removed ${originalLength - topProjects.length} rejected applications from top projects`);
+        await updateDoc(userRef, {
+          "projectPreferences.topProjects": topProjects
+        });
+      }
+    }
+    
+    return topProjects;
   } catch (error) {
     console.error("Error getting student top projects:", error);
-    throw error;
+    return [];
   }
 };
 
@@ -553,17 +590,133 @@ export const isTopProject = async (projectId: string): Promise<boolean> => {
  */
 export const toggleTopProject = async (projectId: string): Promise<boolean> => {
   try {
+    // First check if project is currently a top project
     const isCurrentlyTop = await isTopProject(projectId);
     
     if (isCurrentlyTop) {
-      await removeTopProject(projectId);
-      return false;
+      // If it's already a top project, remove it
+      return !(await removeTopProject(projectId));
     } else {
-      await addTopProject(projectId);
-      return true;
+      // If not a top project, check the application status before adding
+      const applications = await getStudentApplications();
+      const application = applications.find(app => app.project.id === projectId);
+      
+      // Don't allow adding rejected/closed applications as top choices
+      if (application && ['rejected', 'closed', 'cancelled', 'declined', 'deleted'].includes(application.status)) {
+        console.warn(`Cannot add ${projectId} as top choice because status is ${application.status}`);
+        throw new Error(`Cannot mark a ${application.status} application as a top choice`);
+      }
+      
+      // Add it as a top project
+      return await addTopProject(projectId);
     }
   } catch (error) {
     console.error("Error toggling top project status:", error);
+    throw error;
+  }
+};
+
+/**
+ * Handle all necessary updates when an application is rejected
+ * This ensures a consistent state across the database
+ * 
+ * @param applicationId The ID of the rejected application
+ * @param projectId The ID of the project
+ * @returns A promise that resolves when all updates are complete
+ */
+export const handleApplicationRejection = async (applicationId: string, projectId: string): Promise<void> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    console.log(`Handling rejection for application ${applicationId} on project ${projectId}`);
+    
+    // Use a batch write for atomicity
+    const batch = writeBatch(db);
+    
+    // 1. Update application status to rejected
+    const applicationRef = doc(db, "applications", applicationId);
+    batch.update(applicationRef, {
+      status: 'rejected',
+      updatedAt: serverTimestamp()
+    });
+    
+    // 2. Get user document to check if this project is in top choices
+    const userRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const topProjects = userData.projectPreferences?.topProjects || [];
+      
+      // If project is in top choices, remove it
+      if (Array.isArray(topProjects) && topProjects.includes(projectId)) {
+        console.log(`Removing rejected project ${projectId} from top choices`);
+        
+        const updatedTopProjects = topProjects.filter(id => id !== projectId);
+        
+        batch.update(userRef, {
+          "projectPreferences.topProjects": updatedTopProjects,
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      // 3. Add to rejectedProjects array if not already there
+      const rejectedProjects = userData.projectPreferences?.rejectedProjects || [];
+      
+      if (!Array.isArray(rejectedProjects) || !rejectedProjects.includes(projectId)) {
+        batch.update(userRef, {
+          "projectPreferences.rejectedProjects": arrayUnion(projectId),
+          updatedAt: serverTimestamp()
+        });
+      }
+    }
+    
+    // 4. Also update the project/positions subcollection application if it exists
+    try {
+      // Find the application in positions subcollection
+      const projectDoc = await getDoc(doc(db, "projects", projectId));
+      
+      if (projectDoc.exists()) {
+        const projectData = projectDoc.data();
+        const positions = await getDocs(collection(db, "projects", projectId, "positions"));
+        
+        for (const positionDoc of positions.docs) {
+          const positionId = positionDoc.id;
+          const applicationsQuery = query(
+            collection(db, "projects", projectId, "positions", positionId, "applications"),
+            where("studentId", "==", user.uid)
+          );
+          
+          const applicationsSnapshot = await getDocs(applicationsQuery);
+          
+          if (!applicationsSnapshot.empty) {
+            const subApplicationDoc = applicationsSnapshot.docs[0];
+            batch.update(
+              doc(db, "projects", projectId, "positions", positionId, "applications", subApplicationDoc.id),
+              {
+                status: 'rejected',
+                updatedAt: serverTimestamp()
+              }
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Could not update subcollection application:", err);
+      // Continue with the batch - don't fail the entire operation
+    }
+    
+    // 5. Commit all changes atomically
+    await batch.commit();
+    
+    console.log(`Successfully processed application rejection for ${applicationId}`);
+  } catch (error) {
+    console.error("Error handling application rejection:", error);
     throw error;
   }
 };

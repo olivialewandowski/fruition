@@ -17,6 +17,8 @@ import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import ActiveProjectsDropdown from './ActiveProjectsDropdown';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 // Top Choices Manager component interface
 interface TopChoicesManagerProps {
@@ -141,7 +143,7 @@ const StudentAppliedProjectsTab: React.FC<StudentAppliedProjectsTabProps> = ({
       console.log("Successfully fetched applications:", applicationsData?.length || 0);
       setApplications(applicationsData || []);
       
-      // Fetch top projects
+      // Fetch top projects - this function now filters out rejected applications
       const topProjectsData = await getStudentTopProjects();
       console.log("Successfully fetched top projects:", topProjectsData?.length || 0);
       setTopProjects(topProjectsData || []);
@@ -150,6 +152,38 @@ const StudentAppliedProjectsTab: React.FC<StudentAppliedProjectsTabProps> = ({
       const maxAllowed = await getMaxTopProjects();
       console.log("Max allowed top projects:", maxAllowed);
       setMaxTopProjects(maxAllowed);
+      
+      // Cleanup: Find any rejected applications that are still in top projects
+      const rejectedTopProjects = (applicationsData || [])
+        .filter(app => 
+          topProjectsData.includes(app.project.id) && 
+          ['rejected', 'closed', 'cancelled', 'declined', 'deleted'].includes(app.status)
+        )
+        .map(app => app.project.id);
+      
+      // If any rejected applications are still in top projects, clean them up
+      if (rejectedTopProjects.length > 0) {
+        console.log(`Cleaning up ${rejectedTopProjects.length} rejected applications from top projects`);
+        
+        // Update local state
+        setTopProjects(prev => prev.filter(id => !rejectedTopProjects.includes(id)));
+        
+        // Update in Firestore
+        const userRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const currentTopProjects = userData.projectPreferences?.topProjects || [];
+          const updatedTopProjects = currentTopProjects.filter(
+            (id: string) => !rejectedTopProjects.includes(id)
+          );
+          
+          await updateDoc(userRef, {
+            "projectPreferences.topProjects": updatedTopProjects
+          });
+        }
+      }
     } catch (err) {
       console.error('Error fetching student data:', err);
       const errorMessage = err instanceof Error ? 
@@ -184,6 +218,16 @@ const StudentAppliedProjectsTab: React.FC<StudentAppliedProjectsTabProps> = ({
         return;
       }
       
+      // Find application to check status
+      const application = applications.find(app => app.project.id === projectId);
+      
+      // Validate application status
+      if (application && !isCurrentlyTop && 
+          ['rejected', 'closed', 'cancelled', 'declined', 'deleted'].includes(application.status)) {
+        toast.error(`Cannot mark a ${application.status} application as a top choice`);
+        return;
+      }
+      
       // Use the toggleTopProject function which handles both adding and removing
       const isNowTopProject = await toggleTopProject(projectId);
       
@@ -209,7 +253,7 @@ const StudentAppliedProjectsTab: React.FC<StudentAppliedProjectsTabProps> = ({
     } finally {
       setActionInProgress(null);
     }
-  }, [actionInProgress, maxTopProjects, refreshUserData, topProjects.length]);
+  }, [actionInProgress, applications, maxTopProjects, refreshUserData, topProjects.length]);
 
   // Format application status with appropriate styling
   const getStatusDisplay = (status: string) => {
