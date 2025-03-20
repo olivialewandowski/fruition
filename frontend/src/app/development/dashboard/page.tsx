@@ -11,6 +11,7 @@ import { getUserProjects } from '@/services/clientProjectService';
 import { Project } from '@/types/project';
 import { getStudentApplications } from '@/services/studentService';
 import StudentAppliedProjectsTab from '@/components/dashboard/StudentAppliedProjectsTab';
+import StudentActiveTabApplications from '@/components/dashboard/StudentActiveTabApplications';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 // Define valid tab types for better type safety
@@ -191,6 +192,11 @@ const ProjectsPage: React.FC = () => {
                   <>
                     {/* Top Choices Widget */}
                     {renderTopChoicesWidget()}
+                    
+                    {/* Student Applications Section (only for students) */}
+                    {userData?.role === 'student' && (
+                      <StudentActiveTabApplications onRefresh={handleRefresh} />
+                    )}
                     
                     {/* Project List */}
                     <ProjectSection title="" projects={projectsToShow} hideTitle={true} />

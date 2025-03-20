@@ -85,6 +85,33 @@ service cloud.firestore {
       allow create: if isSignedIn(); // Any authenticated user can create projects
       allow update: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
       allow delete: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
+      
+      // Allow access to positions subcollection
+      match /positions/{positionId} {
+        allow read: if true;
+        allow create: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
+        allow update: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
+        allow delete: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
+        
+        // Allow access to applications subcollection
+        match /applications/{applicationId} {
+          allow read: if isSignedIn() && (
+            resource.data.studentId == request.auth.uid || 
+            isProjectMentor(projectId) || 
+            isAdmin()
+          );
+          allow create: if isSignedIn();
+          allow update: if isSignedIn() && (
+            resource.data.studentId == request.auth.uid || 
+            isProjectMentor(projectId) || 
+            isAdmin()
+          );
+          allow delete: if isSignedIn() && (
+            isProjectMentor(projectId) || 
+            isAdmin()
+          );
+        }
+      }
     }
     
     // Positions collection

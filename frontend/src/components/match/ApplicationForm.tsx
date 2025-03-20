@@ -1,7 +1,7 @@
 // Updated ApplicationForm component (components/match/ApplicationForm.tsx)
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, arrayUnion, writeBatch } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { toast } from 'react-hot-toast';
 import { extractOriginalId } from '@/utils/connect-helper';
@@ -270,16 +270,58 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({
       // Submit the application
       const applicationDoc = await addDoc(applicationRef, newApplication);
       
+      // Update user's applied projects list in multiple places
+      const userRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        console.log(`Updating applied projects for user ${user.uid} with project ${cleanProjectId}`);
+        
+        // Create a batch to update all locations atomically
+        const batch = writeBatch(db);
+        
+        // Update projectPreferences.appliedProjects
+        batch.update(userRef, {
+          "projectPreferences.appliedProjects": arrayUnion(cleanProjectId),
+          updatedAt: serverTimestamp()
+        });
+        
+        // Also update at root level for redundancy - some components check this field
+        batch.update(userRef, {
+          appliedProjects: arrayUnion(cleanProjectId),
+          updatedAt: serverTimestamp()
+        });
+        
+        try {
+          // Execute the batch
+          await batch.commit();
+          console.log(`Successfully updated user document with applied project ${cleanProjectId}`);
+        } catch (err) {
+          console.error("Error updating user document:", err);
+          // Don't throw here - we still created the application successfully
+        }
+        
+        // Also try to update userData document (not in batch to prevent total failure)
+        try {
+          const userDataRef = doc(db, "userData", user.uid);
+          await updateDoc(userDataRef, {
+            appliedProjects: arrayUnion(cleanProjectId),
+            updatedAt: serverTimestamp()
+          });
+          console.log(`Successfully updated userData document with applied project ${cleanProjectId}`);
+        } catch (err) {
+          console.log("No userData document found or error updating it:", err);
+        }
+      }
+      
       // Update user's preferences if marking as top choice and it wasn't already
       if (markAsTopChoice && !isExistingTopChoice) {
-        const userRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userRef);
-        
         if (userDoc.exists()) {
-          // Add to applied projects if not already there
+          // Add to top projects
           await updateDoc(userRef, {
             "projectPreferences.topProjects": arrayUnion(cleanProjectId)
           });
+          console.log(`Added project ${cleanProjectId} to top choices`);
         }
       }
       
