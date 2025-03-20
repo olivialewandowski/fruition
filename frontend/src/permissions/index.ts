@@ -105,6 +105,16 @@ export interface Permission {
       path: '/development/match',
       requiredPermissions: [PERMISSIONS.SWIPE_PROJECTS],  // Student-only feature
       isActive: true
+    },
+    {
+      id: 'topChoices',
+      name: 'topChoices',
+      displayName: 'Top Choices',
+      description: 'Manage your top project choices',
+      icon: 'star-icon',
+      path: '/development/dashboard/top-choices',
+      requiredPermissions: [PERMISSIONS.SWIPE_PROJECTS],  // Student-only feature
+      isActive: true
     }
   ];
   

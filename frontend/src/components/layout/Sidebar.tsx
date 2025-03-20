@@ -19,7 +19,8 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   LinkIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  StarIcon
 } from '@heroicons/react/24/outline';
 
 interface NavItemProps {
@@ -60,6 +61,7 @@ const featureIcons: Record<string, React.ReactNode> = {
   publications: <BookOpenIcon className="w-5 h-5" />,
   connect: <LinkIcon className="w-5 h-5" />,
   match: <LinkIcon className="w-5 h-5" />,
+  topChoices: <StarIcon className="w-5 h-5" />,
 };
 
 // Map feature IDs to URLs
@@ -72,6 +74,7 @@ const featureUrls: Record<string, string> = {
   publications: '#',
   connect: '/development/connect',
   match: '/development/match',
+  topChoices: '/development/dashboard/top-choices',
 };
 
 const Sidebar: React.FC = () => {
@@ -110,9 +113,9 @@ const Sidebar: React.FC = () => {
 
   // Filter features based on user role and permissions
   const availableFeatures = FEATURES.filter(feature => {
-    // For student - show dashboard, connect, and match
+    // For student - show dashboard, connect, match, and topChoices
     if (userData?.role === 'student') {
-      return ['dashboard', 'connect', 'match'].includes(feature.id);
+      return ['dashboard', 'connect', 'match', 'topChoices'].includes(feature.id);
     }
     
     // For faculty and admin - show only dashboard

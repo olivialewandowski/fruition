@@ -6,6 +6,10 @@ import {
   getDocs, 
   getDoc, 
   doc, 
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { getAuth } from "firebase/auth";
@@ -284,6 +288,214 @@ export const getStudentProjectTeamMembers = async (projectId: string): Promise<a
     return teamMembersData;
   } catch (error) {
     console.error(`Error getting team members for project ${projectId}:`, error);
+    throw error;
+  }
+};
+
+// ========= Top Projects Management Functions =========
+
+/**
+ * Get the top projects for the current student
+ * @returns Array of project IDs marked as top projects
+ */
+export const getStudentTopProjects = async (): Promise<string[]> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get user document
+    const userRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return [];
+    }
+    
+    const userData = userDoc.data();
+    return userData.projectPreferences?.topProjects || [];
+  } catch (error) {
+    console.error("Error getting student top projects:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get the maximum number of top projects allowed for the student
+ * This is calculated as 5% of the total applications
+ * @returns The maximum number of top projects allowed (minimum 1)
+ */
+export const getMaxTopProjects = async (): Promise<number> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get user document to check applied projects
+    const userRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return 1; // Default to 1 if no user data
+    }
+    
+    const userData = userDoc.data();
+    const appliedCount = userData.projectPreferences?.appliedProjects?.length || 0;
+    
+    // Calculate 5% of applications (rounded up), minimum 1
+    return Math.max(1, Math.ceil(appliedCount * 0.05));
+  } catch (error) {
+    console.error("Error calculating max top projects:", error);
+    return 1; // Default to 1 on error
+  }
+};
+
+/**
+ * Add a project to the student's top projects list
+ * @param projectId The ID of the project to mark as top
+ * @returns True if successful, throws error otherwise
+ */
+export const addTopProject = async (projectId: string): Promise<boolean> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get current top projects
+    const topProjects = await getStudentTopProjects();
+    const maxAllowed = await getMaxTopProjects();
+    
+    // Check if already at max limit
+    if (topProjects.length >= maxAllowed) {
+      throw new Error(`You can only mark ${maxAllowed} projects as top choices (5% of your applications)`);
+    }
+    
+    // Check if project is already in top projects
+    if (topProjects.includes(projectId)) {
+      return true; // Already in top projects
+    }
+    
+    // Update user document
+    const userRef = doc(db, "users", user.uid);
+    await updateDoc(userRef, {
+      "projectPreferences.topProjects": arrayUnion(projectId)
+    });
+    
+    // Find and update the application document
+    const applicationsQuery = query(
+      collection(db, "applications"),
+      where("studentId", "==", user.uid),
+      where("projectId", "==", projectId)
+    );
+    
+    const applicationsSnapshot = await getDocs(applicationsQuery);
+    
+    if (!applicationsSnapshot.empty) {
+      const batch = writeBatch(db);
+      
+      applicationsSnapshot.docs.forEach(appDoc => {
+        batch.update(appDoc.ref, { isTopChoice: true });
+      });
+      
+      await batch.commit();
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error adding top project:", error);
+    throw error;
+  }
+};
+
+/**
+ * Remove a project from the student's top projects list
+ * @param projectId The ID of the project to remove from top list
+ * @returns True if successful, throws error otherwise
+ */
+export const removeTopProject = async (projectId: string): Promise<boolean> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Update user document
+    const userRef = doc(db, "users", user.uid);
+    await updateDoc(userRef, {
+      "projectPreferences.topProjects": arrayRemove(projectId)
+    });
+    
+    // Find and update the application document
+    const applicationsQuery = query(
+      collection(db, "applications"),
+      where("studentId", "==", user.uid),
+      where("projectId", "==", projectId)
+    );
+    
+    const applicationsSnapshot = await getDocs(applicationsQuery);
+    
+    if (!applicationsSnapshot.empty) {
+      const batch = writeBatch(db);
+      
+      applicationsSnapshot.docs.forEach(appDoc => {
+        batch.update(appDoc.ref, { isTopChoice: false });
+      });
+      
+      await batch.commit();
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error removing top project:", error);
+    throw error;
+  }
+};
+
+/**
+ * Check if a project is in the student's top list
+ * @param projectId The ID of the project to check
+ * @returns True if project is in top list, false otherwise
+ */
+export const isTopProject = async (projectId: string): Promise<boolean> => {
+  try {
+    const topProjects = await getStudentTopProjects();
+    return topProjects.includes(projectId);
+  } catch (error) {
+    console.error("Error checking if project is top choice:", error);
+    return false;
+  }
+};
+
+/**
+ * Toggle a project's status in the student's top projects list
+ * If it's currently a top project, remove it; otherwise add it
+ * @param projectId The ID of the project to toggle
+ * @returns True if the project is now a top choice, false if it was removed
+ */
+export const toggleTopProject = async (projectId: string): Promise<boolean> => {
+  try {
+    const isCurrentlyTop = await isTopProject(projectId);
+    
+    if (isCurrentlyTop) {
+      await removeTopProject(projectId);
+      return false;
+    } else {
+      await addTopProject(projectId);
+      return true;
+    }
+  } catch (error) {
+    console.error("Error toggling top project status:", error);
     throw error;
   }
 };

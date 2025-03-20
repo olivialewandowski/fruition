@@ -1,10 +1,13 @@
 // Updated ApplicationForm component (components/match/ApplicationForm.tsx)
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { toast } from 'react-hot-toast';
 import { extractOriginalId } from '@/utils/connect-helper';
+import { isTopProject, getStudentTopProjects, getMaxTopProjects } from '@/services/studentService';
+import { StarIcon as StarIconOutline } from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 export interface ApplicationFormProps {
   projectId: string;
@@ -42,6 +45,11 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [formErrors, setFormErrors] = useState<Partial<StudentDetails>>({});
   const [isSavingUserInfo, setIsSavingUserInfo] = useState(false);
+  const [markAsTopChoice, setMarkAsTopChoice] = useState(false);
+  const [topProjectsCount, setTopProjectsCount] = useState(0);
+  const [maxTopProjects, setMaxTopProjects] = useState(1);
+  const [canMarkAsTop, setCanMarkAsTop] = useState(true);
+  const [isExistingTopChoice, setIsExistingTopChoice] = useState(false);
   
   // Character limit for the message
   const MESSAGE_CHAR_LIMIT = 150;
@@ -101,6 +109,34 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({
     
     fetchData();
   }, [user, cleanProjectId, positionId]);
+  
+  // Also fetch top projects data
+  useEffect(() => {
+    const fetchTopProjectsData = async () => {
+      if (!user) return;
+      
+      try {
+        // Check if this project is already a top choice
+        const isTop = await isTopProject(cleanProjectId);
+        setIsExistingTopChoice(isTop);
+        setMarkAsTopChoice(isTop);
+        
+        // Get current top projects count and max allowed
+        const topProjects = await getStudentTopProjects();
+        setTopProjectsCount(topProjects.length);
+        
+        const maxAllowed = await getMaxTopProjects();
+        setMaxTopProjects(maxAllowed);
+        
+        // Determine if user can mark this as a top project
+        setCanMarkAsTop(topProjects.length < maxAllowed || isTop);
+      } catch (error) {
+        console.error('Error fetching top projects data:', error);
+      }
+    };
+    
+    fetchTopProjectsData();
+  }, [user, cleanProjectId]);
   
   // Handle message change with character limit
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -211,6 +247,9 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({
       const position = positions.find(p => p.id === selectedPosition);
       const positionTitle = position?.title || 'Unknown Position';
       
+      // Check if this project is in the student's top choices or if they're marking it now
+      const isStudentTopChoice = isExistingTopChoice || markAsTopChoice;
+      
       // Create application document in Firestore
       const applicationRef = collection(db, 'applications');
       const newApplication = {
@@ -224,10 +263,26 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({
         message: message,
         status: 'pending',
         submittedAt: serverTimestamp(),
-        lastUpdated: serverTimestamp()
+        lastUpdated: serverTimestamp(),
+        isTopChoice: isStudentTopChoice // Set whether this is a top choice
       };
       
-      await addDoc(applicationRef, newApplication);
+      // Submit the application
+      const applicationDoc = await addDoc(applicationRef, newApplication);
+      
+      // Update user's preferences if marking as top choice and it wasn't already
+      if (markAsTopChoice && !isExistingTopChoice) {
+        const userRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          // Add to applied projects if not already there
+          await updateDoc(userRef, {
+            "projectPreferences.topProjects": arrayUnion(cleanProjectId)
+          });
+        }
+      }
+      
       toast.success('Application submitted successfully!');
       
       // Call onSuccess callback
@@ -287,6 +342,38 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({
             />
             <div className="absolute bottom-2 right-2 text-xs text-gray-500">
               {message.length}/{MESSAGE_CHAR_LIMIT}
+            </div>
+          </div>
+        </div>
+        
+        {/* Top Choice Option */}
+        <div className="bg-yellow-50 p-4 rounded-md">
+          <div className="flex items-start">
+            <div className="flex items-center h-5 mt-1">
+              <input
+                id="markAsTopChoice"
+                name="markAsTopChoice"
+                type="checkbox"
+                checked={markAsTopChoice}
+                onChange={() => setMarkAsTopChoice(!markAsTopChoice)}
+                disabled={!canMarkAsTop || isSubmitting || isExistingTopChoice}
+                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+              />
+            </div>
+            <div className="ml-3">
+              <label htmlFor="markAsTopChoice" className="flex items-center text-sm font-medium text-gray-700">
+                Mark as Top Choice
+                {markAsTopChoice && <StarIconSolid className="h-5 w-5 ml-1 text-yellow-500" />}
+                {!markAsTopChoice && <StarIconOutline className="h-5 w-5 ml-1 text-gray-400" />}
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                {isExistingTopChoice ? 
+                  "This project is already in your top choices." :
+                  canMarkAsTop ? 
+                    `You can mark up to ${maxTopProjects} projects as top choices (${topProjectsCount}/${maxTopProjects} used). Faculty will see this project is of special interest to you.` :
+                    `You've already selected ${maxTopProjects} top projects. You can manage your top choices in your dashboard.`
+                }
+              </p>
             </div>
           </div>
         </div>

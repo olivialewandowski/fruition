@@ -255,7 +255,8 @@ export async function getFacultyProjectsWithApplications(facultyId: string): Pro
         id: string,
         studentName: string,
         status: string,
-        submittedAt: Timestamp
+        submittedAt: Timestamp,
+        isTopChoice?: boolean
       }[]
     })[]
   })[]
@@ -284,6 +285,7 @@ export async function getFacultyProjectsWithApplications(facultyId: string): Pro
               studentName: appData.studentName,
               status: appData.status,
               submittedAt: appData.submittedAt,
+              isTopChoice: appData.isTopChoice || false
             };
           });
 
