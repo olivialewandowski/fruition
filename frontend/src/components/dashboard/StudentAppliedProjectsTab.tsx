@@ -16,21 +16,25 @@ import { StarIcon as StarIconOutline } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
+import ActiveProjectsDropdown from './ActiveProjectsDropdown';
 
-// New separate component for Top Choices
-const TopChoicesManager = memo(({ 
-  topProjects,
-  maxTopProjects,
-  applications,
-  onToggleTopProject,
-  isLoading
-}: { 
+// Top Choices Manager component interface
+interface TopChoicesManagerProps {
   topProjects: string[];
   maxTopProjects: number;
   applications: (Application & { project: Project })[];
   onToggleTopProject: (projectId: string, isCurrentlyTop: boolean) => Promise<void>;
   isLoading: boolean;
-}) => {
+}
+
+// New separate component for Top Choices
+export const TopChoicesManager = memo(({ 
+  topProjects,
+  maxTopProjects,
+  applications,
+  onToggleTopProject,
+  isLoading
+}: TopChoicesManagerProps) => {
   // Get only the projects that are marked as top choices
   const topChoiceProjects = applications.filter(app => 
     topProjects.includes(app.project.id)
@@ -46,42 +50,59 @@ const TopChoicesManager = memo(({
   }
 
   return (
-    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5 mb-6">
-      <h3 className="text-lg font-bold text-gray-900 flex items-center">
-        <StarIconSolid className="h-5 w-5 text-yellow-500 mr-2" />
-        Your Top Choice Projects
-      </h3>
-      
-      <p className="text-sm text-gray-600 mb-4">
-        You can mark up to <span className="font-semibold">{maxTopProjects}</span> projects as your top choices 
-        ({topProjects.length}/{maxTopProjects} used). Faculty will see these applications as high priority.
-      </p>
+    <div className="bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-yellow-200">
+        <h3 className="text-md font-bold text-gray-900 flex items-center">
+          <StarIconSolid className="h-5 w-5 text-yellow-500 mr-2" />
+          Your Top Choice Projects
+        </h3>
+        
+        <p className="text-sm text-gray-600">
+          You have marked <span className="font-semibold">{topProjects.length}</span> of <span className="font-semibold">{maxTopProjects}</span> allowed top choices.
+          Faculty will give these applications higher priority.
+        </p>
+      </div>
       
       {topProjects.length === 0 ? (
-        <div className="bg-white rounded-md p-4 text-center">
+        <div className="bg-white p-4 text-center">
           <p className="text-gray-500">
             You haven't marked any projects as top choices yet. 
             Click the star icon next to a project below to mark it as a top choice.
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <ul className="divide-y divide-gray-200">
           {topChoiceProjects.map(app => (
-            <div key={app.id} className="bg-white rounded-md p-3 flex items-center justify-between">
-              <div className="flex items-center">
-                <StarIconSolid className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" />
-                <span className="font-medium text-gray-900 truncate max-w-xs">{app.project.title}</span>
+            <li key={app.id} className="bg-white p-4 hover:bg-gray-50 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="flex items-center">
+                    <StarIconSolid className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" />
+                    <span className="font-medium text-gray-900 truncate">{app.project.title}</span>
+                    <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">Top Choice</span>
+                  </div>
+                  
+                  <p className="text-xs text-gray-500 mt-1 ml-7 truncate">
+                    {app.project.department || 'No department'} • {app.project.mentorName || 'No mentor'}
+                  </p>
+                  
+                  <p className="text-xs text-gray-600 mt-1 ml-7 line-clamp-1">
+                    {app.project.description?.substring(0, 100)}...
+                  </p>
+                </div>
+                
+                <button 
+                  onClick={() => onToggleTopProject(app.project.id, true)}
+                  className="ml-2 shrink-0 inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded
+                    text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                  aria-label={`Remove ${app.project.title} from top choices`}
+                >
+                  Remove
+                </button>
               </div>
-              <button 
-                onClick={() => onToggleTopProject(app.project.id, true)}
-                className="text-xs text-red-600 hover:text-red-800 hover:underline transition-colors"
-                aria-label={`Remove ${app.project.title} from top choices`}
-              >
-                Remove
-              </button>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
@@ -117,18 +138,30 @@ const StudentAppliedProjectsTab: React.FC<StudentAppliedProjectsTabProps> = ({
     try {
       // Fetch applications
       const applicationsData = await getStudentApplications();
+      console.log("Successfully fetched applications:", applicationsData?.length || 0);
       setApplications(applicationsData || []);
       
       // Fetch top projects
       const topProjectsData = await getStudentTopProjects();
+      console.log("Successfully fetched top projects:", topProjectsData?.length || 0);
       setTopProjects(topProjectsData || []);
       
       // Fetch max allowed top projects
       const maxAllowed = await getMaxTopProjects();
+      console.log("Max allowed top projects:", maxAllowed);
       setMaxTopProjects(maxAllowed);
     } catch (err) {
       console.error('Error fetching student data:', err);
-      setError('Failed to load your applications');
+      const errorMessage = err instanceof Error ? 
+        `Failed to load your applications: ${err.message}` : 
+        'Failed to load your applications';
+      
+      setError(errorMessage);
+      
+      // Fallback to empty data to prevent UI from breaking
+      setApplications([]);
+      setTopProjects([]);
+      setMaxTopProjects(1);
     } finally {
       setIsLoading(false);
     }
@@ -271,35 +304,40 @@ const StudentAppliedProjectsTab: React.FC<StudentAppliedProjectsTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Choices Manager Component */}
-      {!hideTopChoicesManager && topProjects.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                <StarIconSolid className="h-5 w-5 text-yellow-500 mr-2" />
-                Top Project Choices
-              </h3>
-              <p className="text-sm text-gray-600">
-                Using {topProjects.length} of {maxTopProjects} available slots
-              </p>
+      {!hideTopChoicesManager && (
+        <>
+          {topProjects.length < maxTopProjects && (
+            <div className="mb-6">
+              <ActiveProjectsDropdown
+                applications={applications}
+                topProjects={topProjects}
+                maxTopProjects={maxTopProjects}
+                onTopProjectToggled={handleToggleTopProject}
+                initialVisibleCount={3}
+              />
             </div>
-            <Link 
-              href="/development/dashboard?tab=applied" 
-              className="text-purple-600 hover:text-purple-800 text-sm font-medium transition-colors"
-            >
-              Manage Top Choices
-            </Link>
-          </div>
-        </div>
+          )}
+          
+          {topProjects.length > 0 && (
+            <div className="mb-6">
+              <TopChoicesManager 
+                topProjects={topProjects}
+                maxTopProjects={maxTopProjects}
+                applications={applications}
+                onToggleTopProject={handleToggleTopProject}
+                isLoading={isLoading}
+              />
+            </div>
+          )}
+        </>
       )}
       
-      {/* Applications Explanation */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
         <h3 className="text-lg font-medium text-gray-900 mb-2">Your Applications</h3>
         <p className="text-gray-600">
           Track the status of all projects you've applied to. You'll be notified when there are updates.
         </p>
+        
         {maxTopProjects > 0 && topProjects.length === 0 && (
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-start">
@@ -310,29 +348,12 @@ const StudentAppliedProjectsTab: React.FC<StudentAppliedProjectsTabProps> = ({
                   mark up to {maxTopProjects} projects as your top choices to indicate 
                   your highest interest.
                 </p>
-                <Link 
-                  href="/development/dashboard?tab=applied" 
-                  className="text-purple-600 hover:text-purple-800 text-sm font-medium inline-block mt-1 transition-colors"
-                >
-                  Manage Top Choices
-                </Link>
               </div>
             </div>
           </div>
         )}
       </div>
       
-      {/* Render the TopChoicesManager component only if not hidden */}
-      {!hideTopChoicesManager && (
-        <TopChoicesManager 
-          topProjects={topProjects}
-          maxTopProjects={maxTopProjects}
-          applications={applications}
-          onToggleTopProject={handleToggleTopProject}
-          isLoading={isLoading}
-        />
-      )}
-
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="border-b border-gray-200 px-6 py-4">
           <h3 className="text-lg font-medium text-gray-900">Your Applications</h3>

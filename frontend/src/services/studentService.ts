@@ -27,68 +27,136 @@ export const getStudentApplications = async (): Promise<(Application & { project
       throw new Error("User not authenticated");
     }
     
-    // Query applications for this student
+    console.log("Getting applications for student:", user.uid);
+    
+    // Array to store all applications
+    let allApplications: (Application & { project: Project, position: Position })[] = [];
+    
+    // 1. Query applications for this student from the top-level applications collection
     const applicationsQuery = query(
       collection(db, "applications"), 
       where("studentId", "==", user.uid)
     );
     
     const applicationsSnapshot = await getDocs(applicationsQuery);
+    console.log(`Found ${applicationsSnapshot.size} applications in top-level collection for student:`, user.uid);
     
-    // Return empty array if no applications found
-    if (applicationsSnapshot.empty) {
-      console.log("No applications found for student:", user.uid);
-      return [];
+    // Process applications from top-level
+    if (!applicationsSnapshot.empty) {
+      const topLevelApplicationsPromises = applicationsSnapshot.docs.map(async (appDoc) => {
+        try {
+          const applicationData = appDoc.data() as Application;
+          
+          // Get position data
+          const positionRef = doc(db, "positions", applicationData.positionId);
+          const positionDoc = await getDoc(positionRef);
+          
+          if (!positionDoc.exists()) {
+            console.warn(`Position ${applicationData.positionId} not found for application ${appDoc.id}`);
+            return null;
+          }
+          
+          const positionData = positionDoc.data() as Position;
+          
+          // Get project data
+          const projectRef = doc(db, "projects", positionData.projectId);
+          const projectDoc = await getDoc(projectRef);
+          
+          if (!projectDoc.exists()) {
+            console.warn(`Project ${positionData.projectId} not found for application ${appDoc.id}`);
+            return null;
+          }
+          
+          const projectData = projectDoc.data() as Project;
+          
+          // Return combined data
+          return {
+            ...applicationData,
+            id: appDoc.id,
+            project: {
+              ...projectData,
+              id: projectDoc.id
+            },
+            position: {
+              ...positionData,
+              id: positionDoc.id
+            }
+          };
+        } catch (err) {
+          console.error(`Error processing application ${appDoc.id}:`, err);
+          return null;
+        }
+      });
+      
+      const topLevelApplications = await Promise.all(topLevelApplicationsPromises);
+      allApplications = [...allApplications, ...topLevelApplications.filter(Boolean) as any[]];
     }
     
-    console.log(`Found ${applicationsSnapshot.size} applications for student:`, user.uid);
+    // 2. Now check for applications in project/position subcollections
+    // First get all projects
+    const projectsSnapshot = await getDocs(collection(db, "projects"));
+    console.log(`Checking ${projectsSnapshot.size} projects for applications in subcollections`);
     
-    // Build applications with project and position data
-    const applicationsWithDetails = await Promise.all(
-      applicationsSnapshot.docs.map(async (appDoc) => {
-        const applicationData = appDoc.data() as Application;
-        
-        // Log the application data for debugging
-        console.log("Application data:", applicationData);
-        
-        // Get position data
-        const positionRef = doc(db, "positions", applicationData.positionId);
-        const positionDoc = await getDoc(positionRef);
-        
-        if (!positionDoc.exists()) {
-          throw new Error(`Position ${applicationData.positionId} not found`);
-        }
-        
+    // For each project, check positions and applications
+    const projectPromises = projectsSnapshot.docs.map(async (projectDoc) => {
+      const projectData = projectDoc.data() as Project;
+      const projectId = projectDoc.id;
+      
+      // Get all positions for this project
+      const positionsSnapshot = await getDocs(collection(db, "projects", projectId, "positions"));
+      
+      // For each position, check applications
+      const positionPromises = positionsSnapshot.docs.map(async (positionDoc) => {
         const positionData = positionDoc.data() as Position;
+        const positionId = positionDoc.id;
         
-        // Get project data
-        const projectRef = doc(db, "projects", positionData.projectId);
-        const projectDoc = await getDoc(projectRef);
+        // Query applications for this student in this position
+        const positionApplicationsQuery = query(
+          collection(db, "projects", projectId, "positions", positionId, "applications"),
+          where("studentId", "==", user.uid)
+        );
         
-        if (!projectDoc.exists()) {
-          throw new Error(`Project ${positionData.projectId} not found`);
-        }
+        const positionApplicationsSnapshot = await getDocs(positionApplicationsQuery);
         
-        const projectData = projectDoc.data() as Project;
-        
-        // Return combined data
-        return {
-          ...applicationData,
-          id: appDoc.id,
-          project: {
-            ...projectData,
-            id: projectDoc.id
-          },
-          position: {
-            ...positionData,
-            id: positionDoc.id
-          }
-        };
-      })
+        // Map each application to the expected format
+        return positionApplicationsSnapshot.docs.map(appDoc => {
+          const applicationData = appDoc.data() as Application;
+          
+          return {
+            ...applicationData,
+            id: appDoc.id,
+            project: {
+              ...projectData,
+              id: projectId
+            },
+            position: {
+              ...positionData,
+              id: positionId
+            }
+          };
+        });
+      });
+      
+      // Flatten positions results
+      const positionResults = await Promise.all(positionPromises);
+      return positionResults.flat();
+    });
+    
+    const subcollectionApplications = (await Promise.all(projectPromises)).flat();
+    console.log(`Found ${subcollectionApplications.length} applications in subcollections for student:`, user.uid);
+    
+    // Combine applications, removing duplicates by ID
+    allApplications = [...allApplications, ...subcollectionApplications];
+    
+    // Remove duplicates by application ID
+    const uniqueApplications = Array.from(
+      new Map(allApplications.map(app => [app.id, app])).values()
     );
     
+    console.log(`Total unique applications found for student ${user.uid}: ${uniqueApplications.length}`);
+    
     // Sort by submitted date (newest first)
-    return applicationsWithDetails.sort((a, b) => {
+    return uniqueApplications.sort((a, b) => {
       // Handle different possible types for submittedAt
       const getTimeValue = (value: any): number => {
         if (!value) return 0;
