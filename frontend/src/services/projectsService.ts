@@ -248,7 +248,7 @@ const getActiveProjectsFromFirestore = async (): Promise<ConnectProject[]> => {
 export const getProjects = async (): Promise<ConnectProject[]> => {
   // In development, use Firestore to get real projects
   if (IS_DEV) {
-    console.log('Development mode: Fetching real projects from Firestore');
+    console.log('Development mode: Fetching projects from Firestore');
     
     try {
       // Wait for auth to be initialized
@@ -264,35 +264,53 @@ export const getProjects = async (): Promise<ConnectProject[]> => {
         return getSampleProjects();
       }
       
-      // Get active projects from Firestore
-      let projects = await getActiveProjectsFromFirestore();
+      // Get all active projects
+      const allProjects = await getActiveProjectsFromFirestore();
       
-      // Fall back to sample data if no projects found
-      if (projects.length === 0) {
-        console.log('No active projects found in Firestore, using sample data');
-        projects = getSampleProjects();
-      }
+      // Get the user's applied project IDs from various possible locations
+      const appliedProjectIds = await getUserAppliedProjectIds(user.uid);
       
-      // Get saved, applied, and declined project IDs from Firestore
-      const savedProjectIds = await getUserDataFromFirestore<string[]>(user.uid, 'savedProjects', []);
-      const appliedProjectIds = await getUserDataFromFirestore<string[]>(user.uid, 'appliedProjects', []);
+      // Get the user's declined project IDs
       const declinedProjectIds = await getUserDataFromFirestore<string[]>(user.uid, 'declinedProjects', []);
       
-      const excludedIds = [...savedProjectIds, ...appliedProjectIds, ...declinedProjectIds];
+      // Filter out projects that the user has already applied to or declined
+      const filteredProjects = allProjects.filter(project => {
+        // Don't show projects the user has already applied to
+        if (appliedProjectIds.includes(project.id)) {
+          return false;
+        }
+        
+        // Don't show projects the user has declined
+        if (declinedProjectIds.includes(project.id)) {
+          return false;
+        }
+        
+        return true;
+      });
       
-      // Filter out projects that are already saved, applied, or declined
-      return projects.filter(project => !excludedIds.includes(project.id));
+      console.log(`Returning ${filteredProjects.length} projects after filtering out ${allProjects.length - filteredProjects.length} applied/declined projects`);
+      
+      // If no projects after filtering, return sample projects
+      if (filteredProjects.length === 0) {
+        console.log('No active projects after filtering, returning sample projects');
+        // Filter sample projects the same way
+        const sampleProjects = getSampleProjects();
+        return sampleProjects.filter(project => 
+          !appliedProjectIds.includes(project.id) && 
+          !declinedProjectIds.includes(project.id)
+        );
+      }
+      
+      return filteredProjects;
     } catch (error) {
       console.error('Error fetching projects from Firestore:', error);
-      
-      // Fallback to sample projects if Firestore fails
       return getSampleProjects();
     }
   }
 
   // Production API call logic
   try {
-    const response = await axios.get(`${API_URL}/connect/recommended`, {
+    const response = await axios.get(`${API_URL}/connect/projects`, {
       headers: getAuthHeaders()
     });
     
@@ -300,73 +318,92 @@ export const getProjects = async (): Promise<ConnectProject[]> => {
       return response.data.data || [];
     }
     
-    // Fallback to sample data if the API doesn't return any projects
-    return getSampleProjects();
+    return [];
   } catch (error) {
     console.error('Error fetching projects:', error);
-    // Fallback to sample data if the API call fails
-    return getSampleProjects();
+    return [];
   }
 };
 
-// Add this function to the frontend projectsService.ts
-export const getUserProjects = async (status: 'active' | 'archived' | 'applied' = 'active'): Promise<ConnectProject[]> => {
-  // In development, immediately return sample data based on status
-  if (IS_DEV) {
-    console.log(`Development mode: Getting ${status} projects`);
-    
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      console.error('Cannot get projects: No authenticated user');
-      return [];
-    }
-    
-    try {
-      // Get project IDs based on status
-      let projectIds: string[] = [];
-      
-      if (status === 'active') {
-        projectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'activeProjects', []);
-      } else if (status === 'archived') {
-        projectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'archivedProjects', []);
-      } else if (status === 'applied') {
-        projectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []);
-      }
-      
-      if (projectIds.length === 0) {
-        return [];
-      }
-      
-      // Return projects matching the IDs
-      return getSampleProjects()
-        .filter(project => projectIds.includes(project.id))
-        .map(project => ({
-          ...project
-        }));
-    } catch (error) {
-      console.error(`Error fetching ${status} projects from Firestore:`, error);
-      return [];
-    }
-  }
-
-  // Production API call logic
+// Helper function to get all applied project IDs for a user from various locations
+// This centralizes the logic for finding applied projects to avoid duplication
+const getUserAppliedProjectIds = async (userId: string): Promise<string[]> => {
   try {
-    const response = await axios.get(`${API_URL}/projects?status=${status}`, {
-      headers: getAuthHeaders()
-    });
+    // 1. First try user document projectPreferences.appliedProjects
+    const userRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userRef);
+    let appliedProjectIds: string[] = [];
     
-    if (response.data.success || response.data.data) {
-      return response.data.data || [];
+    if (userDoc.exists()) {
+      // Check projectPreferences first
+      const prefs = userDoc.data().projectPreferences;
+      if (prefs && Array.isArray(prefs.appliedProjects)) {
+        appliedProjectIds = prefs.appliedProjects;
+        console.log('Found applied project IDs in projectPreferences:', appliedProjectIds);
+      } 
+      // Then fall back to appliedProjects at root level
+      else if (Array.isArray(userDoc.data().appliedProjects)) {
+        appliedProjectIds = userDoc.data().appliedProjects;
+        console.log('Found applied project IDs at root level:', appliedProjectIds);
+      }
     }
     
-    return [];
+    // 2. If no projects found, try userData collection as a fallback
+    if (appliedProjectIds.length === 0) {
+      const userDataRef = doc(db, "userData", userId);
+      const userDataDoc = await getDoc(userDataRef);
+      
+      if (userDataDoc.exists() && Array.isArray(userDataDoc.data().appliedProjects)) {
+        appliedProjectIds = userDataDoc.data().appliedProjects;
+        console.log('Found applied project IDs in userData collection:', appliedProjectIds);
+      }
+    }
+    
+    // 3. If still no projects, check direct applications
+    if (appliedProjectIds.length === 0) {
+      console.log('No applied project IDs found in user document, checking applications collection');
+      const applicationsQuery = query(
+        collection(db, "applications"),
+        where("studentId", "==", userId)
+      );
+      const applicationsSnapshot = await getDocs(applicationsQuery);
+      
+      if (!applicationsSnapshot.empty) {
+        const projectIds: string[] = [];
+        
+        applicationsSnapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.projectId && !projectIds.includes(data.projectId)) {
+            projectIds.push(data.projectId);
+          }
+        });
+        
+        if (projectIds.length > 0) {
+          appliedProjectIds = projectIds;
+          console.log('Found project IDs from applications collection:', appliedProjectIds);
+          
+          // Since we found IDs in applications but not in user document, update the user document
+          try {
+            await updateDoc(userRef, {
+              'projectPreferences.appliedProjects': projectIds,
+              updatedAt: serverTimestamp()
+            });
+            console.log('Updated user document with applied projects from applications');
+          } catch (updateErr) {
+            console.error('Error updating user document with applied projects:', updateErr);
+          }
+        }
+      }
+    }
+    
+    return appliedProjectIds;
   } catch (error) {
-    console.error(`Error fetching ${status} projects:`, error);
+    console.error('Error getting applied project IDs:', error);
     return [];
   }
 };
 
-// Get saved projects from the API
+// Get projects for the saved tab
 export const getSavedProjects = async (): Promise<ConnectProject[]> => {
   // In development, immediately return sample data
   if (IS_DEV) {
@@ -633,9 +670,15 @@ export const applyToProject = async (projectId: string): Promise<boolean> => {
     
     try {
       // Get current applied projects
-      const appliedProjectIds = await getUserDataFromFirestore<string[]>(currentUser.uid, 'appliedProjects', []);
+      const appliedProjectIds = await getUserAppliedProjectIds(currentUser.uid);
       
-      // Only add if not already in the list
+      // Check if user has already applied to this project
+      if (appliedProjectIds.includes(projectId)) {
+        console.error(`User has already applied to project ${projectId}`);
+        throw new Error("You have already applied to this project.");
+      }
+      
+      // Only add if not already in the list (extra safeguard)
       if (!appliedProjectIds.includes(projectId)) {
         const updatedAppliedProjects = [...appliedProjectIds, projectId];
         
@@ -654,12 +697,44 @@ export const applyToProject = async (projectId: string): Promise<boolean> => {
         
         // Add to action history
         await storeUserAction(currentUser.uid, 'apply', projectId);
+        
+        // Also update the projectPreferences.appliedProjects path for consistency
+        const userRef = doc(db, "users", currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          try {
+            await updateDoc(userRef, {
+              "projectPreferences.appliedProjects": updatedAppliedProjects,
+              updatedAt: serverTimestamp()
+            });
+            console.log('Updated user document projectPreferences.appliedProjects');
+          } catch (error) {
+            console.error('Error updating projectPreferences.appliedProjects:', error);
+          }
+        }
+        
+        // Add to applications collection for consistency
+        try {
+          const applicationData = {
+            studentId: currentUser.uid,
+            projectId: projectId,
+            status: "pending",
+            submittedAt: timestamp,
+            updatedAt: timestamp
+          };
+          
+          await addDoc(collection(db, "applications"), applicationData);
+          console.log('Added application to applications collection');
+        } catch (error) {
+          console.error('Error adding to applications collection:', error);
+        }
       }
       
       return true;
     } catch (error) {
       console.error(`Error applying to project ${projectId}:`, error);
-      return false;
+      throw error;
     }
   }
 
@@ -669,8 +744,12 @@ export const applyToProject = async (projectId: string): Promise<boolean> => {
     });
     
     return response.data.success || false;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error applying to project ${projectId}:`, error);
+    // If the error comes from our backend with a message, throw it
+    if (error.response?.data?.details) {
+      throw new Error(error.response.data.details);
+    }
     return false;
   }
 };

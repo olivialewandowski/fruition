@@ -1,12 +1,14 @@
 import { Project } from '@/types/project';
+import { CheckCircleIcon } from '@heroicons/react/24/outline';
 
 interface SavedProjectCardProps {
   project: Project;
   onApply: () => void;
   onRemove: () => void;
+  hasApplied?: boolean;
 }
 
-const SavedProjectCard = ({ project, onApply, onRemove }: SavedProjectCardProps) => {
+const SavedProjectCard = ({ project, onApply, onRemove, hasApplied = false }: SavedProjectCardProps) => {
   return (
     <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
       <h3 className="text-lg font-semibold text-gray-800">{project.title}</h3>
@@ -42,12 +44,19 @@ const SavedProjectCard = ({ project, onApply, onRemove }: SavedProjectCardProps)
           >
             Remove
           </button>
-          <button 
-            onClick={onApply}
-            className="px-3 py-1 bg-violet-600 text-white text-sm rounded-md hover:bg-violet-700 transition-colors"
-          >
-            Apply
-          </button>
+          {!hasApplied ? (
+            <button 
+              onClick={onApply}
+              className="px-3 py-1 bg-violet-600 text-white text-sm rounded-md hover:bg-violet-700 transition-colors"
+            >
+              Apply
+            </button>
+          ) : (
+            <div className="flex items-center text-green-600 text-sm px-3 py-1">
+              <CheckCircleIcon className="h-4 w-4 mr-1" />
+              Applied
+            </div>
+          )}
         </div>
       </div>
     </div>
