@@ -7,6 +7,7 @@ import { updateApplicationStatus, hireApplicant } from '@/services/clientProject
 import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { StarIcon } from '@heroicons/react/24/solid';
+import { handleApplicationRejection } from '@/services/studentService';
 
 interface ApplicationsManagerProps {
   projectId: string;
@@ -114,8 +115,13 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
         throw new Error('Application is missing studentId field');
       }
       
-      // Update application status
-      await updateApplicationStatus(applicationId, newStatus);
+      // For rejection, use our comprehensive handler to ensure data consistency
+      if (newStatus === 'rejected') {
+        await handleApplicationRejection(applicationId, application.projectId);
+      } else {
+        // For other statuses, use the regular update function
+        await updateApplicationStatus(applicationId, newStatus);
+      }
       
       // Update application in local state
       const updatedApplications = applications.map(app => 
