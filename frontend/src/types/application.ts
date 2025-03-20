@@ -30,6 +30,9 @@ export interface Application {
   // Additional tracking fields
   interviewNotes?: string;
   additionalDocuments?: string[];
+  
+  // Top project indicator
+  isTopChoice?: boolean; // Indicates if this project is marked as a top choice by the student
 }
 
 // Helper type for creating or updating applications

@@ -50,6 +50,7 @@ export interface User {
     savedProjects: string[];
     appliedProjects: string[];
     rejectedProjects: string[];
+    topProjects?: string[]; // Array of project IDs that are in the student's top 5%
   };
 
   // faculty/admin specific fields

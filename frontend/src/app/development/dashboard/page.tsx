@@ -1,41 +1,35 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopNavigation from '@/components/layout/TopNavigation';
 import ProjectSection from '@/components/dashboard/ProjectSection';
 import ProjectCreationModal from '@/components/projects/ProjectCreationModal';
+import TopChoicesWidget from '@/components/student/TopChoicesWidget';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProjects } from '@/services/clientProjectService';
 import { Project } from '@/types/project';
+import { getStudentApplications } from '@/services/studentService';
+import StudentAppliedProjectsTab from '@/components/dashboard/StudentAppliedProjectsTab';
+import { useSearchParams, useRouter } from 'next/navigation';
 
-// Debug component to help troubleshoot project loading
-const DebugUserData: React.FC = () => {
-  const { userData, user } = useAuth();
-
-  useEffect(() => {
-    // This is only for debugging purposes
-    console.log("Debug user data:");
-    console.log("User ID:", user?.uid);
-    console.log("User Data:", userData);
-    console.log("Active Projects:", userData?.activeProjects);
-  }, [userData, user]);
-
-  return null; // Doesn't render anything in the UI
-};
+// Define valid tab types for better type safety
+type DashboardTabType = 'active' | 'applied' | 'archived';
 
 const ProjectsPage: React.FC = () => {
   const { userData, user, loading: authLoading, refreshUserData } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('active');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<DashboardTabType>('active');
   const [projectsToShow, setProjectsToShow] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const isInitialLoadRef = useRef(true);
   const isRefreshingRef = useRef(false);
-
-  // Define tabs based on user role
-  const getDashboardTabs = () => {
+  
+  // Use useMemo to avoid recreating tabs on each render
+  const tabs = useMemo(() => {
     if (userData?.role === 'student') {
       return [
         { id: 'active', label: 'Active' },
@@ -48,7 +42,17 @@ const ProjectsPage: React.FC = () => {
         { id: 'archived', label: 'Archived' }
       ];
     }
-  };
+  }, [userData?.role]);
+
+  // Check for URL tab parameter when component mounts
+  useEffect(() => {
+    if (!authLoading) {
+      const tabParam = searchParams.get('tab') as DashboardTabType | null;
+      if (tabParam && ['active', 'applied', 'archived'].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, [searchParams, authLoading]);
 
   // Fetch projects - combined effect to reduce flickering
   useEffect(() => {
@@ -61,16 +65,12 @@ const ProjectsPage: React.FC = () => {
       try {
         if (!user) return;
         
-        console.log(`Fetching ${activeTab} projects for user ${user.uid} with role ${userData?.role}`);
-        console.log('Active projects in userData:', userData?.activeProjects);
-        
         // If we're refreshing from modal close, wait for userData to be up-to-date
         if (isRefreshingRef.current && userData?.activeProjects) {
           isRefreshingRef.current = false;
         }
         
         const projects = await getUserProjects(activeTab as 'active' | 'archived' | 'applied');
-        console.log('Fetched projects:', projects);
         setProjectsToShow(projects || []);
         
         isInitialLoadRef.current = false;
@@ -92,9 +92,19 @@ const ProjectsPage: React.FC = () => {
 
   // Handle tab change
   const handleTabChange = (tabId: string) => {
+    // Validate tab ID for type safety
+    if (!['active', 'applied', 'archived'].includes(tabId)) {
+      console.error(`Invalid tab ID: ${tabId}`);
+      return;
+    }
+    
     // For tab changes, we do want to show loading
     isInitialLoadRef.current = true;
-    setActiveTab(tabId);
+    setActiveTab(tabId as DashboardTabType);
+    
+    // Update URL to reflect the active tab - with proper encoding for security
+    const encodedTabId = encodeURIComponent(tabId);
+    router.push(`/development/dashboard?tab=${encodedTabId}`);
   };
 
   // Toggle modal
@@ -114,12 +124,36 @@ const ProjectsPage: React.FC = () => {
       });
     }, 500); // 500ms delay to avoid UI glitches
   };
+  
+  // Handle project refresh triggered by children
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+  
+  // Determine if we should show top choices widget - only for students
+  const shouldShowTopChoices = userData?.role === 'student';
+
+  // Rendered component based on loading state
+  const renderLoadingState = () => (
+    <div className="text-center py-12">
+      <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <p className="mt-4 text-gray-600">Loading projects...</p>
+    </div>
+  );
+  
+  // Render the top choices widget with error boundary
+  const renderTopChoicesWidget = () => {
+    if (!shouldShowTopChoices) return null;
     
-  const tabs = getDashboardTabs();
+    return (
+      <div className="mb-6">
+        <TopChoicesWidget />
+      </div>
+    );
+  };
 
   return (
     <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
-      <DebugUserData /> {/* Debug component */}
       <div className="h-full">
         <Sidebar />
       </div>
@@ -150,14 +184,15 @@ const ProjectsPage: React.FC = () => {
           {/* Project Sections */}
           <div className="mt-6">
             {isLoading ? (
-              <div className="text-center py-12">
-                <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading projects...</p>
-              </div>
+              renderLoadingState()
             ) : (
               <>
                 {activeTab === 'active' && (
                   <>
+                    {/* Top Choices Widget */}
+                    {renderTopChoicesWidget()}
+                    
+                    {/* Project List */}
                     <ProjectSection title="" projects={projectsToShow} hideTitle={true} />
                     
                     {projectsToShow.length === 0 && (
@@ -172,22 +207,24 @@ const ProjectsPage: React.FC = () => {
                 )}
                 
                 {activeTab === 'applied' && userData?.role === 'student' && (
-                  <>
-                    {projectsToShow.length > 0 ? (
-                      <ProjectSection title="" projects={projectsToShow} hideTitle={true} />
-                    ) : (
-                      <div className="text-center py-12 bg-white rounded-xl shadow-sm">
-                        <p className="text-xl text-gray-600">No applied projects.</p>
-                        <p className="text-gray-500 mt-2">
-                          Go to Connect to find and apply to projects.
-                        </p>
-                      </div>
-                    )}
-                  </>
+                  <div className="space-y-6">
+                    {/* Top Choices Widget */}
+                    {renderTopChoicesWidget()}
+                    
+                    {/* Applied Projects Tab */}
+                    <StudentAppliedProjectsTab 
+                      onRefresh={handleRefresh} 
+                      hideTopChoicesManager={true}
+                    />
+                  </div>
                 )}
                 
                 {activeTab === 'archived' && (
                   <>
+                    {/* Top Choices Widget */}
+                    {renderTopChoicesWidget()}
+                    
+                    {/* Archived Projects */}
                     {projectsToShow.length > 0 ? (
                       <ProjectSection title="" projects={projectsToShow} hideTitle={true} />
                     ) : (

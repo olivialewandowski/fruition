@@ -6,6 +6,7 @@ import { User } from '@/types/user';
 import { updateApplicationStatus, hireApplicant } from '@/services/clientProjectService';
 import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { StarIcon } from '@heroicons/react/24/solid';
 
 interface ApplicationsManagerProps {
   projectId: string;
@@ -284,6 +285,18 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Manage Applications</h2>
       
+      {/* Top Choice Explanation */}
+      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm">
+        <div className="flex items-center mb-1">
+          <StarIcon className="h-4 w-4 text-yellow-500 mr-1" />
+          <span className="font-medium text-yellow-800">Top Choice Indicator</span>
+        </div>
+        <p className="text-yellow-700">
+          Applications marked with the "Top Choice" indicator are from students who have selected your project as one of 
+          their top choices (5% of their total applications). These students have expressed particular interest in your project.
+        </p>
+      </div>
+      
       {error && (
         <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200 mb-4">
           <strong>Error:</strong> {error}
@@ -339,8 +352,14 @@ const ApplicationsManager: React.FC<ApplicationsManagerProps> = ({
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="flex items-center text-sm font-medium text-gray-900">
                           {application.studentName || 'Unknown Student'}
+                          {application.isTopChoice && (
+                            <div className="ml-2 flex items-center" title="This project is in the student's top choices">
+                              <StarIcon className="h-4 w-4 text-yellow-500" />
+                              <span className="ml-1 text-xs text-yellow-700 font-medium">Top Choice</span>
+                            </div>
+                          )}
                         </div>
                         <div className="text-sm text-gray-500">
                           {application.studentEmail || 'No email provided'}
