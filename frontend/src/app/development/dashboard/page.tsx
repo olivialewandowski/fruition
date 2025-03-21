@@ -12,9 +12,10 @@ import { getStudentApplications } from '@/services/studentService';
 import StudentAppliedProjectsTab from '@/components/dashboard/StudentAppliedProjectsTab';
 import StudentActiveTabApplications from '@/components/dashboard/StudentActiveTabApplications';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { ArchiveBoxIcon } from '@heroicons/react/24/outline';
 
 // Define valid tab types for better type safety
-type DashboardTabType = 'active' | 'applied' | 'archived';
+type DashboardTabType = 'active' | 'archived';
 
 const ProjectsPage: React.FC = () => {
   const { userData, user, loading: authLoading, refreshUserData } = useAuth();
@@ -28,27 +29,23 @@ const ProjectsPage: React.FC = () => {
   const isInitialLoadRef = useRef(true);
   const isRefreshingRef = useRef(false);
   
-  // Use useMemo to avoid recreating tabs on each render
-  const tabs = useMemo(() => {
-    if (userData?.role === 'student') {
-      return [
-        { id: 'active', label: 'Active' },
-        { id: 'applied', label: 'Applied' },
-        { id: 'archived', label: 'Archived' }
-      ];
-    } else {
-      return [
-        { id: 'active', label: 'Active' },
-        { id: 'archived', label: 'Archived' }
-      ];
+  // Tabs configuration for the navigation
+  const dashboardTabs = useMemo(() => [
+    {
+      id: 'active',
+      label: 'Active',
+    },
+    {
+      id: 'archived',
+      label: 'Archived',
     }
-  }, [userData?.role]);
+  ], []);
 
   // Check for URL tab parameter when component mounts
   useEffect(() => {
     if (!authLoading) {
       const tabParam = searchParams.get('tab') as DashboardTabType | null;
-      if (tabParam && ['active', 'applied', 'archived'].includes(tabParam)) {
+      if (tabParam && ['active', 'archived'].includes(tabParam)) {
         setActiveTab(tabParam);
       }
     }
@@ -70,7 +67,7 @@ const ProjectsPage: React.FC = () => {
           isRefreshingRef.current = false;
         }
         
-        const projects = await getUserProjects(activeTab as 'active' | 'archived' | 'applied');
+        const projects = await getUserProjects(activeTab as 'active' | 'archived');
         setProjectsToShow(projects || []);
         
         isInitialLoadRef.current = false;
@@ -93,7 +90,7 @@ const ProjectsPage: React.FC = () => {
   // Handle tab change
   const handleTabChange = (tabId: string) => {
     // Validate tab ID for type safety
-    if (!['active', 'applied', 'archived'].includes(tabId)) {
+    if (!['active', 'archived'].includes(tabId)) {
       console.error(`Invalid tab ID: ${tabId}`);
       return;
     }
@@ -146,7 +143,7 @@ const ProjectsPage: React.FC = () => {
       <div className="flex flex-col flex-grow overflow-auto">
         <TopNavigation 
           title="Dashboard"
-          tabs={tabs}
+          tabs={dashboardTabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
         />
@@ -192,16 +189,6 @@ const ProjectsPage: React.FC = () => {
                       </div>
                     )}
                   </>
-                )}
-                
-                {activeTab === 'applied' && userData?.role === 'student' && (
-                  <div className="space-y-6">
-                    {/* Applied Projects Tab */}
-                    <StudentAppliedProjectsTab 
-                      onRefresh={handleRefresh} 
-                      hideTopChoicesManager={true}
-                    />
-                  </div>
                 )}
                 
                 {activeTab === 'archived' && (
