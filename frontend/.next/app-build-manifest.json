@@ -26,6 +26,11 @@
       "static/chunks/main-app.js",
       "static/chunks/app/development/dashboard/page.js"
     ],
+    "/development/dashboard/top-choices/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/development/dashboard/top-choices/page.js"
+    ],
     "/development/match/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -35,21 +40,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/development/application/page.js"
-    ],
-    "/development/projects/[projectId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/development/projects/[projectId]/page.js"
-    ],
-    "/development/dashboard/top-choices/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/development/dashboard/top-choices/page.js"
-    ],
-    "/development/connect/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/development/connect/page.js"
     ]
   }
 }

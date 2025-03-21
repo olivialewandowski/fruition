@@ -1,14 +1,24 @@
 // components/connect/AppliedTab.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Project } from '@/types/project';
+import { Application } from '@/types/application';
 import { useRouter } from 'next/navigation';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getAppliedProjects } from '@/services/projectsService';
-import { convertConnectProjectsToProjects } from '@/utils/connect-helper';
+import { convertConnectProjectsToProjects, extractOriginalId } from '@/utils/connect-helper';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { 
+  getStudentApplications, 
+  getStudentTopProjects, 
+  getMaxTopProjects,
+  toggleTopProject
+} from '@/services/studentService';
+import { StarIcon as StarIconOutline } from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
+import { TopChoicesManager } from '@/components/dashboard/StudentAppliedProjectsTab';
 
 interface AppliedTabProps {
   projects?: Project[];
@@ -17,11 +27,18 @@ interface AppliedTabProps {
 
 const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [displayProjects, setDisplayProjects] = useState<Project[]>([]);
   const [fetchAttempted, setFetchAttempted] = useState(false);
   const [notifications, setNotifications] = useState<Record<string, boolean>>({});
+  
+  // For top choices functionality
+  const [applications, setApplications] = useState<(Application & { project: Project })[]>([]);
+  const [topProjects, setTopProjects] = useState<string[]>([]);
+  const [maxTopProjects, setMaxTopProjects] = useState(1);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [showTopChoices, setShowTopChoices] = useState(true);
   
   // Fetch notifications for applied projects
   useEffect(() => {
@@ -96,6 +113,120 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
     }
   };
   
+  // Handle toggling top project status
+  const handleToggleTopProject = useCallback(async (projectId: string, isCurrentlyTop: boolean) => {
+    if (actionInProgress) return; // Prevent multiple simultaneous actions
+    
+    setActionInProgress(projectId);
+    
+    try {
+      if (!isCurrentlyTop && topProjects.length >= maxTopProjects) {
+        toast.error(`You can only mark ${maxTopProjects} projects as top choices (5% of your applications)`);
+        return;
+      }
+      
+      // Find application to check status
+      const application = applications.find(app => app.project.id === projectId);
+      
+      // Validate application status
+      if (application && !isCurrentlyTop && 
+          ['rejected', 'closed', 'cancelled', 'declined', 'deleted'].includes(application.status)) {
+        toast.error(`Cannot mark a ${application.status} application as a top choice`);
+        return;
+      }
+      
+      // Use the toggleTopProject function which handles both adding and removing
+      const isNowTopProject = await toggleTopProject(projectId);
+      
+      // Update local state based on the result
+      if (isNowTopProject) {
+        toast.success('Project added to top choices');
+        setTopProjects(prev => [...prev, projectId]);
+      } else {
+        toast.success('Project removed from top choices');
+        setTopProjects(prev => prev.filter(id => id !== projectId));
+      }
+      
+      // Refresh applications to update UI
+      const applicationsData = await getStudentApplications();
+      setApplications(applicationsData || []);
+      
+      // Refresh user data in context
+      await refreshUserData();
+    } catch (err) {
+      console.error('Error updating top project status:', err);
+      toast.error('Failed to update top choice status. Please try again.');
+    } finally {
+      setActionInProgress(null);
+    }
+  }, [actionInProgress, applications, maxTopProjects, refreshUserData, topProjects]);
+  
+  // Fetch student applications and top projects
+  const fetchApplicationsData = useCallback(async () => {
+    if (!user?.uid) return;
+    
+    try {
+      // Fetch applications
+      const applicationsData = await getStudentApplications();
+      console.log("Successfully fetched applications:", applicationsData?.length || 0);
+      setApplications(applicationsData || []);
+      
+      // Fetch top projects - this function now filters out rejected applications
+      const topProjectsData = await getStudentTopProjects();
+      console.log("Successfully fetched top projects:", topProjectsData?.length || 0);
+      setTopProjects(topProjectsData || []);
+      
+      // Fetch max allowed top projects
+      const maxAllowed = await getMaxTopProjects();
+      console.log("Max allowed top projects:", maxAllowed);
+      setMaxTopProjects(maxAllowed);
+      
+      // Cleanup: Find any rejected applications that are still in top projects
+      const rejectedTopProjects = (applicationsData || [])
+        .filter(app => 
+          topProjectsData.includes(app.project.id) && 
+          ['rejected', 'closed', 'cancelled', 'declined', 'deleted'].includes(app.status)
+        )
+        .map(app => app.project.id);
+      
+      // If any rejected applications are still in top projects, clean them up
+      if (rejectedTopProjects.length > 0) {
+        console.log(`Cleaning up ${rejectedTopProjects.length} rejected applications from top projects`);
+        
+        // Update local state
+        setTopProjects(prev => prev.filter(id => !rejectedTopProjects.includes(id)));
+        
+        // Update in Firestore
+        const userRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const currentTopProjects = userData.projectPreferences?.topProjects || [];
+          const updatedTopProjects = currentTopProjects.filter(
+            (id: string) => !rejectedTopProjects.includes(id)
+          );
+          
+          await updateDoc(userRef, {
+            "projectPreferences.topProjects": updatedTopProjects
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching student data:', err);
+      const errorMessage = err instanceof Error ? 
+        `Failed to load your applications: ${err.message}` : 
+        'Failed to load your applications';
+      
+      toast.error(errorMessage);
+      
+      // Fallback to empty data to prevent UI from breaking
+      setApplications([]);
+      setTopProjects([]);
+      setMaxTopProjects(1);
+    }
+  }, [user?.uid]);
+  
   // Fetch applied projects directly if not provided
   useEffect(() => {
     const fetchAppliedProjects = async () => {
@@ -107,6 +238,10 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
           console.log('Using provided appliedProjects:', appliedProjects.length);
           setDisplayProjects(appliedProjects);
           setFetchAttempted(true);
+          
+          // Also fetch applications and top choices data
+          await fetchApplicationsData();
+          
           return;
         }
         
@@ -115,6 +250,10 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
           console.log('Using provided projects:', projects.length);
           setDisplayProjects(projects);
           setFetchAttempted(true);
+          
+          // Also fetch applications and top choices data
+          await fetchApplicationsData();
+          
           return;
         }
         
@@ -132,6 +271,9 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
         console.log('Converted applied projects:', convertedProjects.length);
         setDisplayProjects(convertedProjects);
         setFetchAttempted(true);
+        
+        // Also fetch applications and top choices data
+        await fetchApplicationsData();
       } catch (error) {
         console.error('Error fetching applied projects:', error);
         toast.error('Failed to load applied projects');
@@ -141,7 +283,7 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
     };
     
     fetchAppliedProjects();
-  }, [appliedProjects, projects]);
+  }, [appliedProjects, projects, fetchApplicationsData]);
   
   // Handle click to view project details
   const handleViewDetails = (projectId: string) => {
@@ -156,6 +298,11 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
     // Navigate to project details
     router.push(`/development/student/projects/${cleanId}`);
   };
+  
+  // Toggle showing top choices section
+  const toggleTopChoicesVisibility = () => {
+    setShowTopChoices(!showTopChoices);
+  };
 
   if (isLoading) {
     return (
@@ -167,6 +314,33 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
   
   return (
     <div className="w-full mt-6">
+      {/* Top choices section */}
+      {applications.length > 0 && (
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-lg font-semibold text-gray-800">Top Choices</h2>
+            <button
+              onClick={toggleTopChoicesVisibility}
+              className="text-sm text-violet-600 hover:text-violet-800"
+            >
+              {showTopChoices ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          
+          {showTopChoices && (
+            <TopChoicesManager 
+              topProjects={topProjects}
+              maxTopProjects={maxTopProjects}
+              applications={applications}
+              onToggleTopProject={handleToggleTopProject}
+              isLoading={isLoading}
+            />
+          )}
+        </div>
+      )}
+      
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">All Applications</h2>
+      
       {displayProjects.length > 0 ? (
         <div className="space-y-4">
           {displayProjects.map((project) => {
@@ -178,13 +352,24 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
             // Check if this project has notifications
             const hasNotification = notifications[originalId] || false;
             
+            // Check if project is a top choice
+            const isTopChoice = topProjects.includes(originalId);
+            
             return (
               <div 
                 key={project.id} 
                 className={`bg-white rounded-xl shadow-md p-4 border ${hasNotification ? 'border-violet-300' : 'border-gray-100'} ${hasNotification ? 'ring-2 ring-violet-200' : ''}`}
               >
                 <div className="flex justify-between items-start">
-                  <h3 className="text-lg font-semibold text-gray-800">{project.title}</h3>
+                  <div className="flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-800">{project.title}</h3>
+                    {isTopChoice && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <StarIconSolid className="h-3 w-3 text-yellow-500 mr-1" />
+                        Top Choice
+                      </span>
+                    )}
+                  </div>
                   {hasNotification && (
                     <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs rounded-full">
                       New update
@@ -214,8 +399,24 @@ const AppliedTab = ({ projects, appliedProjects }: AppliedTabProps) => {
                   )}
                 </div>
                 <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
-                  <div className="text-sm text-gray-500">
-                    <span className="font-medium text-violet-600">Applied</span>
+                  <div className="flex items-center">
+                    <div className="text-sm text-gray-500 mr-2">
+                      <span className="font-medium text-violet-600">Applied</span>
+                    </div>
+                    
+                    {/* Star button for toggling top choice */}
+                    <button
+                      onClick={() => handleToggleTopProject(originalId, isTopChoice)}
+                      disabled={actionInProgress === originalId}
+                      className="text-yellow-500 hover:text-yellow-600 focus:outline-none"
+                      aria-label={isTopChoice ? "Remove from top choices" : "Add to top choices"}
+                    >
+                      {isTopChoice ? (
+                        <StarIconSolid className="h-5 w-5" />
+                      ) : (
+                        <StarIconOutline className="h-5 w-5" />
+                      )}
+                    </button>
                   </div>
                   <button 
                     className="text-sm text-violet-600 hover:text-violet-800"

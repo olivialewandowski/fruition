@@ -199,7 +199,7 @@ const StudentActiveTabApplications: React.FC<StudentActiveTabApplicationsProps> 
         </p>
         <div className="mt-4 flex justify-end">
           <button
-            onClick={() => router.push('/development/dashboard?tab=applied')}
+            onClick={() => router.push('/development/match?tab=applied')}
             className="px-4 py-2 text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center transition-colors"
           >
             View All Applications
