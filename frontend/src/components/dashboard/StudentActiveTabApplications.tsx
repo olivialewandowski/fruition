@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Project } from '@/types/project';
@@ -14,9 +16,21 @@ import { TopChoicesManager } from './StudentAppliedProjectsTab';
 import ActiveProjectsDropdown from './ActiveProjectsDropdown';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import ApplicationsWidget from './widgets/applications/ApplicationsWidget';
 
 interface StudentActiveTabApplicationsProps {
   onRefresh?: () => void;
+}
+
+// ClientOnly wrapper to prevent hydration errors
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  return isClient ? <>{children}</> : null;
 }
 
 const StudentActiveTabApplications: React.FC<StudentActiveTabApplicationsProps> = ({ 
@@ -30,10 +44,16 @@ const StudentActiveTabApplications: React.FC<StudentActiveTabApplicationsProps> 
   const [topProjects, setTopProjects] = useState<string[]>([]);
   const [maxTopProjects, setMaxTopProjects] = useState(1);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
+  
+  // Mark component as mounted to prevent hydration mismatches
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
   
   // Fetch student applications and top projects
   const fetchData = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!user?.uid || !hasMounted) return;
     
     setIsLoading(true);
     setError(null);
@@ -100,12 +120,14 @@ const StudentActiveTabApplications: React.FC<StudentActiveTabApplicationsProps> 
     } finally {
       setIsLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, hasMounted]);
   
   // Load data on mount
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (hasMounted) {
+      fetchData();
+    }
+  }, [fetchData, hasMounted]);
 
   // Handle toggling top project status
   const handleToggleTopProject = useCallback(async (projectId: string, isCurrentlyTop: boolean) => {
@@ -162,6 +184,11 @@ const StudentActiveTabApplications: React.FC<StudentActiveTabApplicationsProps> 
     onRefresh?.();
   };
 
+  // Prevent any rendering during SSR to avoid hydration mismatches
+  if (!hasMounted) {
+    return null;
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-32">
@@ -191,6 +218,14 @@ const StudentActiveTabApplications: React.FC<StudentActiveTabApplicationsProps> 
 
   return (
     <div className="space-y-6 mt-6">
+      <div className="mb-8">
+        {user?.uid && (
+          <ClientOnly>
+            <ApplicationsWidget userId={user.uid} />
+          </ClientOnly>
+        )}
+      </div>
+
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
         <h3 className="text-lg font-medium text-gray-900 mb-2">Your Applications</h3>
         <p className="text-gray-600">
@@ -210,29 +245,31 @@ const StudentActiveTabApplications: React.FC<StudentActiveTabApplicationsProps> 
         </div>
       </div>
 
-      {topProjects.length < maxTopProjects && (
-        <div className="mb-6">
-          <ActiveProjectsDropdown
-            applications={applications}
-            topProjects={topProjects}
-            maxTopProjects={maxTopProjects}
-            onTopProjectToggled={handleToggleTopProject}
-            initialVisibleCount={3}
-          />
-        </div>
-      )}
-      
-      {topProjects.length > 0 && (
-        <div className="mb-6">
-          <TopChoicesManager 
-            topProjects={topProjects}
-            maxTopProjects={maxTopProjects}
-            applications={applications}
-            onToggleTopProject={handleToggleTopProject}
-            isLoading={false}
-          />
-        </div>
-      )}
+      <ClientOnly>
+        {topProjects.length < maxTopProjects && (
+          <div className="mb-6">
+            <ActiveProjectsDropdown
+              applications={applications}
+              topProjects={topProjects}
+              maxTopProjects={maxTopProjects}
+              onTopProjectToggled={handleToggleTopProject}
+              initialVisibleCount={3}
+            />
+          </div>
+        )}
+        
+        {topProjects.length > 0 && (
+          <div className="mb-6">
+            <TopChoicesManager 
+              topProjects={topProjects}
+              maxTopProjects={maxTopProjects}
+              applications={applications}
+              onToggleTopProject={handleToggleTopProject}
+              isLoading={false}
+            />
+          </div>
+        )}
+      </ClientOnly>
     </div>
   );
 };

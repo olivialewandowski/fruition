@@ -1,8 +1,3 @@
 {
-  "/development/dashboard/page": "app/development/dashboard/page.js",
-  "/development/match/page": "app/development/match/page.js",
-  "/development/dashboard/top-choices/page": "app/development/dashboard/top-choices/page.js",
-  "/development/signup/page": "app/development/signup/page.js",
-  "/development/application/page": "app/development/application/page.js",
-  "/development/complete-profile/page": "app/development/complete-profile/page.js"
+  "/development/dashboard/page": "app/development/dashboard/page.js"
 }
