@@ -48,9 +48,10 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentKeyword, setCurrentKeyword] = useState('');
-  const [creationMethod, setCreationMethod] = useState<'direct' | 'transaction' | 'batch'>('batch');
+  // Set creation method to 'batch' by default and don't expose it in the UI
+  const [creationMethod] = useState<'direct' | 'transaction' | 'batch'>('batch');
   
-  // Debug logging
+  // Debug logging - keeping the logs but removing the UI elements
   useEffect(() => {
     console.log('Auth context data:', { userData, user });
     console.log('Current creation method:', creationMethod);
@@ -239,22 +240,8 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
       
       console.log('Position data to be created:', cleanedPositionData);
   
-      // Use the selected creation method
-      let projectId: string;
-      
-      switch (creationMethod) {
-        case 'direct':
-          projectId = await createProjectDirect(projectData, cleanedPositionData);
-          break;
-        case 'transaction':
-          projectId = await createClientProject(projectData, cleanedPositionData);
-          break;
-        case 'batch':
-          projectId = await createClientProjectBatched(projectData, cleanedPositionData);
-          break;
-        default:
-          projectId = await createClientProjectBatched(projectData, cleanedPositionData);
-      }
+      // Always use batch method (hardcoded)
+      const projectId = await createClientProjectBatched(projectData, cleanedPositionData);
       
       console.log(`Project created successfully with ID: ${projectId}`);
       
@@ -284,40 +271,7 @@ const ProjectCreationForm: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     <div className="bg-white rounded-lg shadow-lg max-h-[90vh] overflow-y-auto p-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Project</h2>
       
-      {/* ENVIRONMENT DEBUGGING - Can be removed in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-2 bg-gray-100 rounded text-xs space-y-1">
-          <p>User ID: {user?.uid || 'Not authenticated'}</p>
-          <p>User Role: {userRole}</p>
-          <p>University: {userData?.university || 'Not set'}</p>
-          <div className="mt-2">
-            <p className="font-medium">Creation method:</p>
-            <div className="flex space-x-2 mt-1">
-              <button 
-                onClick={() => setCreationMethod('direct')}
-                className={`px-2 py-1 text-xs rounded ${creationMethod === 'direct' ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}
-                type="button"
-              >
-                Direct (Cloud Function)
-              </button>
-              <button 
-                onClick={() => setCreationMethod('transaction')}
-                className={`px-2 py-1 text-xs rounded ${creationMethod === 'transaction' ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}
-                type="button"
-              >
-                Transaction
-              </button>
-              <button 
-                onClick={() => setCreationMethod('batch')}
-                className={`px-2 py-1 text-xs rounded ${creationMethod === 'batch' ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}
-                type="button"
-              >
-                Batch
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Debug section removed - automatically using 'batch' method */}
       
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Project Details */}

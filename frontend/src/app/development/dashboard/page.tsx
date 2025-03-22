@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopNavigation from '@/components/layout/TopNavigation';
 import ProjectSection from '@/components/dashboard/ProjectSection';
@@ -8,15 +8,14 @@ import ProjectCreationModal from '@/components/projects/ProjectCreationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProjects } from '@/services/clientProjectService';
 import { Project } from '@/types/project';
-import { getStudentApplications } from '@/services/studentService';
-import StudentAppliedProjectsTab from '@/components/dashboard/StudentAppliedProjectsTab';
 import StudentActiveTabApplications from '@/components/dashboard/StudentActiveTabApplications';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 // Define valid tab types for better type safety
-type DashboardTabType = 'active' | 'applied' | 'archived';
+type DashboardTabType = 'active' | 'archived';
 
-const ProjectsPage: React.FC = () => {
+// Create a client component that uses useSearchParams
+function DashboardContent() {
   const { userData, user, loading: authLoading, refreshUserData } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -28,27 +27,19 @@ const ProjectsPage: React.FC = () => {
   const isInitialLoadRef = useRef(true);
   const isRefreshingRef = useRef(false);
   
-  // Use useMemo to avoid recreating tabs on each render
+  // Use useMemo to avoid recreating tabs on each render - removed 'applied' tab
   const tabs = useMemo(() => {
-    if (userData?.role === 'student') {
-      return [
-        { id: 'active', label: 'Active' },
-        { id: 'applied', label: 'Applied' },
-        { id: 'archived', label: 'Archived' }
-      ];
-    } else {
-      return [
-        { id: 'active', label: 'Active' },
-        { id: 'archived', label: 'Archived' }
-      ];
-    }
-  }, [userData?.role]);
+    return [
+      { id: 'active', label: 'Active' },
+      { id: 'archived', label: 'Archived' }
+    ];
+  }, []);
 
   // Check for URL tab parameter when component mounts
   useEffect(() => {
     if (!authLoading) {
       const tabParam = searchParams.get('tab') as DashboardTabType | null;
-      if (tabParam && ['active', 'applied', 'archived'].includes(tabParam)) {
+      if (tabParam && ['active', 'archived'].includes(tabParam)) {
         setActiveTab(tabParam);
       }
     }
@@ -70,7 +61,7 @@ const ProjectsPage: React.FC = () => {
           isRefreshingRef.current = false;
         }
         
-        const projects = await getUserProjects(activeTab as 'active' | 'archived' | 'applied');
+        const projects = await getUserProjects(activeTab as 'active' | 'archived');
         setProjectsToShow(projects || []);
         
         isInitialLoadRef.current = false;
@@ -92,8 +83,8 @@ const ProjectsPage: React.FC = () => {
 
   // Handle tab change
   const handleTabChange = (tabId: string) => {
-    // Validate tab ID for type safety
-    if (!['active', 'applied', 'archived'].includes(tabId)) {
+    // Validate tab ID for type safety - removed 'applied'
+    if (!['active', 'archived'].includes(tabId)) {
       console.error(`Invalid tab ID: ${tabId}`);
       return;
     }
@@ -139,18 +130,18 @@ const ProjectsPage: React.FC = () => {
   );
 
   return (
-    <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
-      <div className="h-full">
+    <div className="flex h-screen bg-gray-50 p-4">
+      <div className="mr-4">
         <Sidebar />
       </div>
-      <div className="flex flex-col flex-grow overflow-auto">
+      <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-2xl">
         <TopNavigation 
           title="Dashboard"
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
         />
-        <div className="px-6 py-5">
+        <div className="flex-1 overflow-auto px-6 py-5">
           {/* Page Header */}
           <div className="flex flex-wrap gap-3 md:gap-5 justify-between mb-4 md:mb-5">
             <div className="text-2xl md:text-3xl font-bold text-gray-900">Your Projects</div>
@@ -194,16 +185,6 @@ const ProjectsPage: React.FC = () => {
                   </>
                 )}
                 
-                {activeTab === 'applied' && userData?.role === 'student' && (
-                  <div className="space-y-6">
-                    {/* Applied Projects Tab */}
-                    <StudentAppliedProjectsTab 
-                      onRefresh={handleRefresh} 
-                      hideTopChoicesManager={true}
-                    />
-                  </div>
-                )}
-                
                 {activeTab === 'archived' && (
                   <>
                     {/* Archived Projects */}
@@ -222,6 +203,32 @@ const ProjectsPage: React.FC = () => {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="flex h-screen bg-gray-50 p-4">
+      <div className="mr-4">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex flex-col bg-white rounded-2xl">
+        <div className="text-center py-12">
+          <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main component that wraps the client component with Suspense
+const ProjectsPage: React.FC = () => {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <DashboardContent />
+    </Suspense>
   );
 };
 

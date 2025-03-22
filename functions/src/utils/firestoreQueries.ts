@@ -285,7 +285,7 @@ export async function getFacultyProjectsWithApplications(facultyId: string): Pro
               studentName: appData.studentName,
               status: appData.status,
               submittedAt: appData.submittedAt,
-              isTopChoice: appData.isTopChoice || false
+              isTopChoice: appData.isTopChoice || false,
             };
           });
 

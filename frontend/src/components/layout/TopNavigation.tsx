@@ -87,18 +87,11 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
   
   // Determine dashboard tabs based on user role
   const getDashboardTabs = () => {
-    if (userData?.role === 'student') {
-      return [
-        { id: 'active', label: 'Active' },
-        { id: 'applied', label: 'Applied' },
-        { id: 'archived', label: 'Archived' }
-      ];
-    } else {
-      return [
-        { id: 'active', label: 'Active' },
-        { id: 'archived', label: 'Archived' }
-      ];
-    }
+    // Removed 'Applied' tab from dashboard for all users
+    return [
+      { id: 'active', label: 'Active' },
+      { id: 'archived', label: 'Archived' }
+    ];
   };
   
   // Determine connect tabs
