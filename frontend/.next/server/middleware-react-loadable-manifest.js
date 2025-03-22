@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"components/connect/DiscoverTab.tsx -> ./ProjectCard\":{\"id\":\"components/connect/DiscoverTab.tsx -> ./ProjectCard\",\"files\":[\"static/chunks/_app-pages-browser_src_components_connect_ProjectCard_tsx.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"

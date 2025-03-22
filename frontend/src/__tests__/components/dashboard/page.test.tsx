@@ -85,17 +85,17 @@ describe('Dashboard Page with URL Tab Navigation', () => {
   });
 
   it('initializes with the tab from URL query parameter', async () => {
-    // Mock URL search params with 'tab=applied'
-    searchParamsMock = new URLSearchParams('tab=applied');
+    // Mock URL search params with 'tab=archived'
+    searchParamsMock = new URLSearchParams('tab=archived');
     (useSearchParams as jest.Mock).mockReturnValue(searchParamsMock);
     
     await act(async () => {
       render(<ProjectsPage />);
     });
     
-    // Check that the 'applied' tab is selected based on the URL parameter
-    const appliedTab = screen.getByTestId('tab-applied');
-    expect(appliedTab).toHaveAttribute('data-active', 'true');
+    // Check that the 'archived' tab is selected based on the URL parameter
+    const archivedTab = screen.getByTestId('tab-archived');
+    expect(archivedTab).toHaveAttribute('data-active', 'true');
   });
 
   it('updates URL when tab is changed', async () => {
@@ -103,15 +103,15 @@ describe('Dashboard Page with URL Tab Navigation', () => {
       render(<ProjectsPage />);
     });
     
-    // Find and click the 'applied' tab
-    const appliedTab = screen.getByTestId('tab-applied');
+    // Find and click the 'archived' tab
+    const archivedTab = screen.getByTestId('tab-archived');
     
     await act(async () => {
-      fireEvent.click(appliedTab);
+      fireEvent.click(archivedTab);
     });
     
     // Check that router.push was called with the correct URL
-    expect(pushMock).toHaveBeenCalledWith('/development/dashboard?tab=applied');
+    expect(pushMock).toHaveBeenCalledWith('/development/dashboard?tab=archived');
   });
 
   it('ignores invalid tab parameters in URL', async () => {
@@ -133,17 +133,17 @@ describe('Dashboard Page with URL Tab Navigation', () => {
       render(<ProjectsPage />);
     });
     
-    // Find and click the 'applied' tab which has a special character
-    const appliedTab = screen.getByTestId('tab-applied');
+    // Find and click the 'archived' tab
+    const archivedTab = screen.getByTestId('tab-archived');
     
     await act(async () => {
-      fireEvent.click(appliedTab);
+      fireEvent.click(archivedTab);
     });
     
     // Check that router.push was called with a properly encoded URL
     expect(pushMock).toHaveBeenCalled();
     const urlArg = pushMock.mock.calls[0][0];
-    expect(urlArg).toContain('tab=applied');
+    expect(urlArg).toContain('tab=archived');
     expect(urlArg).not.toContain(' '); // No spaces (properly encoded)
   });
 }); 

@@ -272,11 +272,11 @@ export const getProjectById = async (projectId: string): Promise<ProjectWithId |
 
 /**
  * Client-side function to get user projects
- * @param status - The status of projects to fetch (active, archived, applied)
+ * @param status - The status of projects to fetch (active, archived)
  * @returns Array of projects
  */
 export const getUserProjects = async (
-  status: 'active' | 'archived' | 'applied' = 'active'
+  status: 'active' | 'archived' = 'active'
 ): Promise<ProjectWithId[]> => {
   try {
     const auth = getAuth();
@@ -364,15 +364,7 @@ export const getUserProjects = async (
               } else {
                 console.log(`Skipped non-archived project: ${doc.id}`);
               }
-            } else {
-              // For other status types (like 'applied')
-              console.log(`Adding project ${doc.id} to other category`);
-              const project = convertToProjectWithId({
-                ...data,
-                id: doc.id
-              });
-              mentorProjects.push(project);
-            }
+            } 
           });
           
           console.log(`After filtering, found ${mentorProjects.length} ${status} mentor projects`);
@@ -388,10 +380,6 @@ export const getUserProjects = async (
     } else if (status === 'archived') {
       projectIds = userData.archivedProjects || [];
       console.log(`Found ${projectIds.length} archived project IDs:`, projectIds);
-    } else if (status === 'applied') {
-      // Fix for handling undefined projectPreferences
-      projectIds = (userData.projectPreferences?.appliedProjects || []);
-      console.log(`Found ${projectIds.length} applied project IDs:`, projectIds);
     }
     
     if (projectIds.length === 0) {

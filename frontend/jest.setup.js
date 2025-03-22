@@ -6,6 +6,15 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+// Set environment variables for Firebase
+process.env.NEXT_PUBLIC_FIREBASE_API_KEY = 'test-api-key';
+process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'test-auth-domain.firebaseapp.com';
+process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'test-project-id';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'test-storage-bucket.appspot.com';
+process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = 'test-messaging-sender-id';
+process.env.NEXT_PUBLIC_FIREBASE_APP_ID = 'test-app-id';
+process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = 'test-measurement-id';
+
 // Extend expect with jest-dom matchers
 expect.extend({
   toBeInTheDocument: (received) => {
@@ -102,17 +111,113 @@ Object.defineProperty(window, 'IntersectionObserver', {
   value: MockIntersectionObserver,
 });
 
-// Mock Firebase
+// Define Firebase mock functions directly
+const firebaseMock = {
+  auth: {
+    currentUser: null,
+    onAuthStateChanged: jest.fn(),
+    signInWithEmailAndPassword: jest.fn(),
+    signOut: jest.fn(),
+    createUserWithEmailAndPassword: jest.fn(),
+    sendPasswordResetEmail: jest.fn(),
+  },
+  db: {
+    collection: jest.fn(() => ({
+      doc: jest.fn(() => ({
+        get: jest.fn(() => Promise.resolve({
+          exists: true,
+          data: jest.fn(() => ({})),
+          id: 'test-doc-id',
+        })),
+        set: jest.fn(() => Promise.resolve()),
+        update: jest.fn(() => Promise.resolve()),
+        delete: jest.fn(() => Promise.resolve()),
+      })),
+      where: jest.fn(() => ({
+        orderBy: jest.fn(() => ({
+          get: jest.fn(() => Promise.resolve({
+            docs: [],
+            forEach: jest.fn(),
+          })),
+        })),
+        get: jest.fn(() => Promise.resolve({
+          docs: [],
+          forEach: jest.fn(),
+        })),
+      })),
+      orderBy: jest.fn(() => ({
+        get: jest.fn(() => Promise.resolve({
+          docs: [],
+          forEach: jest.fn(),
+        })),
+      })),
+    })),
+    doc: jest.fn(() => ({
+      get: jest.fn(() => Promise.resolve({
+        exists: true,
+        data: jest.fn(() => ({})),
+        id: 'test-doc-id',
+      })),
+      set: jest.fn(() => Promise.resolve()),
+      update: jest.fn(() => Promise.resolve()),
+      delete: jest.fn(() => Promise.resolve()),
+    })),
+  },
+  collection: jest.fn(),
+  doc: jest.fn(),
+  getDoc: jest.fn(() => Promise.resolve({
+    exists: jest.fn(() => true),
+    data: jest.fn(() => ({})),
+    id: 'test-doc-id',
+  })),
+  getDocs: jest.fn(() => Promise.resolve({
+    docs: [],
+    forEach: jest.fn(),
+  })),
+  setDoc: jest.fn(() => Promise.resolve()),
+  updateDoc: jest.fn(() => Promise.resolve()),
+  deleteDoc: jest.fn(() => Promise.resolve()),
+  query: jest.fn(),
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
+  Timestamp: {
+    now: jest.fn(() => ({ 
+      toDate: jest.fn(() => new Date()),
+      seconds: 1234567890,
+      nanoseconds: 123456789 
+    })),
+    fromDate: jest.fn(() => ({ 
+      toDate: jest.fn(() => new Date()),
+      seconds: 1234567890,
+      nanoseconds: 123456789 
+    })),
+  },
+  getFirestore: jest.fn(),
+  getAuth: jest.fn(),
+  initializeApp: jest.fn(),
+  firebaseConfig: {
+    apiKey: "test-api-key",
+    authDomain: "test-auth-domain",
+    projectId: "test-project-id",
+    storageBucket: "test-storage-bucket",
+    messagingSenderId: "test-messaging-sender-id",
+    appId: "test-app-id",
+    measurementId: "test-measurement-id"
+  }
+};
+
+// Mock Firebase - using our dedicated mocks
 jest.mock('firebase/app', () => {
   return {
-    initializeApp: jest.fn().mockReturnValue({}),
+    initializeApp: firebaseMock.initializeApp,
     getApps: jest.fn().mockReturnValue([]),
   };
 });
 
 jest.mock('firebase/auth', () => {
   return {
-    getAuth: jest.fn().mockReturnValue({}),
+    getAuth: firebaseMock.getAuth,
     signInWithEmailAndPassword: jest.fn(),
     createUserWithEmailAndPassword: jest.fn(),
     signOut: jest.fn(),
@@ -122,25 +227,30 @@ jest.mock('firebase/auth', () => {
 
 jest.mock('firebase/firestore', () => {
   return {
-    getFirestore: jest.fn().mockReturnValue({}),
-    collection: jest.fn(),
-    doc: jest.fn(),
-    getDoc: jest.fn(),
-    getDocs: jest.fn(),
-    setDoc: jest.fn(),
-    updateDoc: jest.fn(),
+    getFirestore: firebaseMock.getFirestore,
+    collection: firebaseMock.collection,
+    doc: firebaseMock.doc,
+    getDoc: firebaseMock.getDoc,
+    getDocs: firebaseMock.getDocs,
+    setDoc: firebaseMock.setDoc,
+    updateDoc: firebaseMock.updateDoc,
     addDoc: jest.fn(),
-    deleteDoc: jest.fn(),
-    query: jest.fn(),
-    where: jest.fn(),
-    orderBy: jest.fn(),
-    limit: jest.fn(),
+    deleteDoc: firebaseMock.deleteDoc,
+    query: firebaseMock.query,
+    where: firebaseMock.where,
+    orderBy: firebaseMock.orderBy,
+    limit: firebaseMock.limit,
     serverTimestamp: jest.fn(),
-    Timestamp: {
-      now: jest.fn(),
-      fromDate: jest.fn(),
-      fromMillis: jest.fn(),
-    },
+    Timestamp: firebaseMock.Timestamp,
+  };
+});
+
+// Mock for firebase/config
+jest.mock('@/config/firebase', () => {
+  return {
+    db: firebaseMock.db,
+    auth: firebaseMock.auth,
+    firebaseConfig: firebaseMock.firebaseConfig,
   };
 });
 
