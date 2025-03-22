@@ -3,19 +3,15 @@
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopNavigation from '@/components/layout/TopNavigation';
+import ProjectSection from '@/components/dashboard/ProjectSection';
+import ProjectCreationModal from '@/components/projects/ProjectCreationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProjects } from '@/services/clientProjectService';
 import { Project } from '@/types/project';
 import StudentActiveTabApplications from '@/components/dashboard/StudentActiveTabApplications';
 import { useSearchParams, useRouter } from 'next/navigation';
-import ProjectCreationModal from '@/components/projects/ProjectCreationModal';
-// Dashboard components 
-import { DashboardLayout, DashboardSection } from '@/components/dashboard/layouts/DashboardLayout';
-import DashboardCard from '@/components/dashboard/widgets/DashboardCard';
-import StatDisplay from '@/components/dashboard/widgets/StatDisplay';
-import ClientOnly from '@/components/utils/ClientOnly';
 
-// Define valid tab types for better type safety
+// Define valid tab types for better type safety - removed 'applied'
 type DashboardTabType = 'active' | 'archived';
 
 // Create a client component that uses useSearchParams
@@ -30,15 +26,9 @@ function DashboardContent() {
   const [refreshKey, setRefreshKey] = useState(0);
   const isInitialLoadRef = useRef(true);
   const isRefreshingRef = useRef(false);
-  const [hasMounted, setHasMounted] = useState(false);
-  
-  // Handle initial mount
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
   
   // Use useMemo to avoid recreating tabs on each render - removed 'applied' tab
-  const dashboardTabs = useMemo(() => {
+  const tabs = useMemo(() => {
     return [
       { id: 'active', label: 'Active' },
       { id: 'archived', label: 'Archived' }
@@ -47,18 +37,16 @@ function DashboardContent() {
 
   // Check for URL tab parameter when component mounts
   useEffect(() => {
-    if (!authLoading && hasMounted) {
+    if (!authLoading) {
       const tabParam = searchParams.get('tab') as DashboardTabType | null;
       if (tabParam && ['active', 'archived'].includes(tabParam)) {
         setActiveTab(tabParam);
       }
     }
-  }, [searchParams, authLoading, hasMounted]);
+  }, [searchParams, authLoading]);
 
   // Fetch projects - combined effect to reduce flickering
   useEffect(() => {
-    if (!hasMounted) return;
-    
     const fetchProjects = async () => {
       // Don't show loading indicator for refreshes, only for initial load or tab changes
       if (isInitialLoadRef.current) {
@@ -91,11 +79,11 @@ function DashboardContent() {
     } else if (!authLoading) {
       setIsLoading(false);
     }
-  }, [activeTab, user, userData, refreshKey, authLoading, hasMounted]);
+  }, [activeTab, user, userData, refreshKey, authLoading]);
 
   // Handle tab change
   const handleTabChange = (tabId: string) => {
-    // Validate tab ID for type safety
+    // Validate tab ID for type safety - removed 'applied'
     if (!['active', 'archived'].includes(tabId)) {
       console.error(`Invalid tab ID: ${tabId}`);
       return;
@@ -133,45 +121,21 @@ function DashboardContent() {
     setRefreshKey(prev => prev + 1);
   };
   
-  // Prevent rendering until client-side hydration is complete
-  if (!hasMounted) {
-    return null;
-  }
-  
-  // Render loading state for the entire page
-  if (isLoading) {
-    return (
-      <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
-        <div className="h-full">
-          <Sidebar />
-        </div>
-        <div className="flex flex-col flex-grow overflow-auto">
-          <TopNavigation 
-            title="Dashboard"
-            tabs={dashboardTabs}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-          />
-          <div className="flex-grow p-6">
-            <div className="text-center py-12">
-              <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading dashboard...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Rendered component based on loading state
+  const renderLoadingState = () => (
+    <div className="text-center py-12">
+      <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <p className="mt-4 text-gray-600">Loading projects...</p>
+    </div>
+  );
 
   return (
-    <div className="flex h-screen bg-gray-50 p-4">
-      <div className="mr-4">
-        <Sidebar />
-      </div>
-      <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-2xl">
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
         <TopNavigation 
           title="Dashboard"
-          tabs={dashboardTabs}
+          tabs={tabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
         />
@@ -194,36 +158,42 @@ function DashboardContent() {
           
           {/* Project Sections */}
           <div className="mt-6">
-            {activeTab === 'active' && (
+            {isLoading ? (
+              renderLoadingState()
+            ) : (
               <>
-                {/* Student Applications Section (only for students) */}
-                {userData?.role === 'student' && (
-                  <StudentActiveTabApplications onRefresh={handleRefresh} />
+                {activeTab === 'active' && (
+                  <>
+                    {/* Student Applications Section (only for students) */}
+                    {userData?.role === 'student' && (
+                      <StudentActiveTabApplications onRefresh={handleRefresh} />
+                    )}
+                    
+                    {/* Project List */}
+                    <ProjectSection title="" projects={projectsToShow} hideTitle={true} />
+                    
+                    {projectsToShow.length === 0 && (
+                      <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                        <p className="text-xl text-gray-600">No active projects.</p>
+                        <p className="text-gray-500 mt-2">
+                          Click &quot;New Project +&quot; to create your first project.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
                 
-                {/* Project List */}
-                <DashboardSection title="" projects={projectsToShow} hideTitle={true} />
-                
-                {projectsToShow.length === 0 && (
-                  <div className="text-center py-12 bg-white rounded-xl shadow-sm">
-                    <p className="text-xl text-gray-600">No active projects.</p>
-                    <p className="text-gray-500 mt-2">
-                      Click &quot;New Project +&quot; to create your first project.
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-            
-            {activeTab === 'archived' && (
-              <>
-                {/* Archived Projects */}
-                {projectsToShow.length > 0 ? (
-                  <DashboardSection title="" projects={projectsToShow} hideTitle={true} />
-                ) : (
-                  <div className="text-center py-12 bg-white rounded-xl shadow-sm">
-                    <p className="text-xl text-gray-600">No archived projects.</p>
-                  </div>
+                {activeTab === 'archived' && (
+                  <>
+                    {/* Archived Projects */}
+                    {projectsToShow.length > 0 ? (
+                      <ProjectSection title="" projects={projectsToShow} hideTitle={true} />
+                    ) : (
+                      <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                        <p className="text-xl text-gray-600">No archived projects.</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -237,11 +207,9 @@ function DashboardContent() {
 // Loading fallback component
 function LoadingFallback() {
   return (
-    <div className="flex h-screen bg-gray-50 p-4">
-      <div className="mr-4">
-        <Sidebar />
-      </div>
-      <div className="flex-1 flex flex-col bg-white rounded-2xl">
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
         <div className="text-center py-12">
           <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading dashboard...</p>
