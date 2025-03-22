@@ -1,6 +1,11 @@
-import React, { ReactNode } from 'react';
+'use client';
 
-export interface DashboardSectionProps {
+import React, { ReactNode, memo } from 'react';
+import QueryProvider from '@/contexts/QueryProvider';
+import { DashboardProvider } from '@/contexts/DashboardContext';
+import DashboardInitializer from './DashboardInitializer';
+
+interface DashboardSectionProps {
   title?: string;
   description?: string;
   children: ReactNode;
@@ -13,7 +18,7 @@ export interface DashboardSectionProps {
  * DashboardSection component for grouping related widgets
  * Each section can have its own title, description, and action buttons
  */
-export const DashboardSection: React.FC<DashboardSectionProps> = ({
+export const DashboardSection: React.FC<DashboardSectionProps> = memo(({
   title,
   description,
   children,
@@ -48,31 +53,47 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
       </div>
     </div>
   );
-};
+});
 
-export interface DashboardLayoutProps {
+export interface UnifiedDashboardLayoutProps {
   children: ReactNode;
   className?: string;
+  userRole?: string;
+  initialLayoutId?: string;
+  withQueryProvider?: boolean;
 }
 
 /**
- * DashboardLayout component - main container for the dashboard
+ * UnifiedDashboardLayout component - main container for the dashboard
  * Provides consistent spacing and styling for the entire dashboard
+ * Integrates QueryProvider and DashboardProvider for complete dashboard functionality
  */
-export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
+export const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = memo(({
   children,
-  className = ''
+  className = '',
+  userRole = 'student',
+  initialLayoutId,
+  withQueryProvider = true
 }) => {
-  return (
+  // Create the dashboard content
+  const dashboardContent = (
     <div className={`p-4 bg-gray-50 ${className}`}>
       <div className="max-w-7xl mx-auto">
-        {children}
+        <DashboardProvider>
+          <DashboardInitializer userRole={userRole} initialLayoutId={initialLayoutId} />
+          {children}
+        </DashboardProvider>
       </div>
     </div>
   );
-};
 
-export default {
-  DashboardLayout,
-  DashboardSection
-}; 
+  // Conditionally wrap with QueryProvider
+  if (withQueryProvider) {
+    return <QueryProvider>{dashboardContent}</QueryProvider>;
+  }
+
+  return dashboardContent;
+});
+
+// Default export for convenience
+export default UnifiedDashboardLayout; 

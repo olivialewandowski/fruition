@@ -21,6 +21,21 @@ const customJestConfig = {
     '!src/pages/_document.tsx',
     '!**/node_modules/**',
   ],
+  transformIgnorePatterns: [
+    '/node_modules/',
+    '^.+\\.module\\.(css|sass|scss)$',
+  ],
+  moduleDirectories: ['node_modules', '<rootDir>/'],
+  testMatch: [
+    '**/__tests__/**/*.[jt]s?(x)',
+    '**/?(*.)+(spec|test).[jt]s?(x)'
+  ],
+  globals: {
+    __NEXT_PROCESSED_ENV: true,
+  },
+  testEnvironmentOptions: {
+    url: 'http://localhost',
+  },
 };
 
 module.exports = createJestConfig(customJestConfig); 

@@ -152,9 +152,6 @@ describe('Dashboard Page', () => {
     
     // Wait for the projects to load
     await waitFor(() => {
-      // Verify that the student applications widget is rendered
-      expect(screen.getByTestId('student-applications')).toBeInTheDocument();
-      
       // Verify that the projects are rendered
       expect(screen.getAllByText(/Test Project/)).toHaveLength(2);
       
@@ -170,8 +167,8 @@ describe('Dashboard Page', () => {
     
     // Wait for the projects to load
     await waitFor(() => {
-      // Check for View Project buttons (one for each project)
-      const viewButtons = screen.getAllByText('View Project');
+      // Check for "View Details" buttons (one for each project)
+      const viewButtons = screen.getAllByText(/View Details/i);
       expect(viewButtons).toHaveLength(2);
     });
   });

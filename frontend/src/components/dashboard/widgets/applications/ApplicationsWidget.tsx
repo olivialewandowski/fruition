@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useApplicationsData } from '../../../../hooks/dashboard/useApplicationsData';
+import { useApplicationsData } from '@/hooks/useDashboardData';
 import LineChart from '../../visualizations/charts/LineChart';
-import DashboardCard from '../DashboardCard';
-import StatDisplay from '../StatDisplay';
+import DashboardCard from '../common/DashboardCard';
+import StatDisplay from '../common/StatDisplay';
 
 export interface ApplicationsWidgetProps {
   userId: string;
@@ -12,6 +12,18 @@ export interface ApplicationsWidgetProps {
 }
 
 type TimeRangeOption = 'week' | 'month' | 'quarter' | 'year';
+
+// Default empty chart data
+const emptyChartData = {
+  labels: [],
+  datasets: [{
+    label: 'Applications',
+    data: [],
+    borderColor: 'rgb(75, 192, 192)',
+    backgroundColor: 'rgba(75, 192, 192, 0.5)',
+    fill: true
+  }]
+};
 
 /**
  * Dashboard widget that visualizes a student's applications
@@ -24,10 +36,14 @@ export const ApplicationsWidget: React.FC<ApplicationsWidgetProps> = ({
   const [timeRange, setTimeRange] = useState<TimeRangeOption>('month');
   const [hasMounted, setHasMounted] = useState(false);
   
-  const { data, chartData, isLoading, error } = useApplicationsData({
+  const { data: dataResult, isLoading, error } = useApplicationsData({
     userId,
     timeRange,
   });
+  
+  // Extract data and chartData from the result
+  const data = dataResult?.data;
+  const chartData = dataResult?.chartData || emptyChartData;
 
   // Prevent any hydration mismatches by only rendering on client
   useEffect(() => {

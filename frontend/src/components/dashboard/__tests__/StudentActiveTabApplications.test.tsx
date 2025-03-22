@@ -3,19 +3,21 @@ import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import '@testing-library/jest-dom';
 import StudentActiveTabApplications from '../StudentActiveTabApplications';
 import { useAuth } from '@/contexts/AuthContext';
-import { getStudentApplications, getStudentTopProjects, getMaxTopProjects, toggleTopProject } from '@/services/studentService';
 import { useRouter } from 'next/navigation';
+import QueryProvider from '@/contexts/QueryProvider';
+
+// Mock the hooks
+jest.mock('@/hooks/useStandardizedQueries', () => ({
+  useStudentApplications: jest.fn(),
+  useStudentTopProjects: jest.fn(),
+  useMaxTopProjects: jest.fn(),
+  useToggleTopProject: jest.fn(),
+  useCurrentUser: jest.fn(),
+}));
 
 // Mock the dependencies
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: jest.fn(),
-}));
-
-jest.mock('@/services/studentService', () => ({
-  getStudentApplications: jest.fn(),
-  getStudentTopProjects: jest.fn(),
-  getMaxTopProjects: jest.fn(),
-  toggleTopProject: jest.fn(),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -46,6 +48,11 @@ jest.mock('../widgets/applications/ApplicationsWidget', () => {
   return jest.fn(() => <div data-testid="applications-widget">Applications Widget</div>);
 });
 
+// Mock RecommendedProjectWidget component
+jest.mock('../widgets/recommendations/RecommendedProjectWidget', () => {
+  return jest.fn(() => <div data-testid="recommended-project-widget">Recommended Project Widget</div>);
+});
+
 // Mock components that are used by StudentActiveTabApplications
 jest.mock('../StudentAppliedProjectsTab', () => ({
   TopChoicesManager: jest.fn(({ topProjects, maxTopProjects, applications, onToggleTopProject }) => (
@@ -73,12 +80,32 @@ jest.mock('../ActiveProjectsDropdown', () => {
   ));
 });
 
+// Import the hooks for the test
+import { 
+  useStudentApplications, 
+  useStudentTopProjects, 
+  useMaxTopProjects, 
+  useToggleTopProject,
+  useCurrentUser
+} from '@/hooks/useStandardizedQueries';
+
+// Wrap component with QueryProvider for testing
+const renderWithQueryProvider = (ui: React.ReactElement) => {
+  return render(
+    <QueryProvider>
+      {ui}
+    </QueryProvider>
+  );
+};
+
 describe('StudentActiveTabApplications', () => {
   // Sample data for testing
   const mockUser = { uid: 'user123' };
   const mockRefreshUserData = jest.fn();
   const mockPush = jest.fn();
   const mockOnRefresh = jest.fn();
+  const mockMutateAsync = jest.fn();
+  const mockInvalidateQueries = jest.fn();
   
   const mockApplications = [
     {
@@ -124,102 +151,79 @@ describe('StudentActiveTabApplications', () => {
       push: mockPush,
     });
     
-    // Mock service functions
-    (getStudentApplications as jest.Mock).mockResolvedValue(mockApplications);
-    (getStudentTopProjects as jest.Mock).mockResolvedValue(['project1']);
-    (getMaxTopProjects as jest.Mock).mockResolvedValue(3);
-    (toggleTopProject as jest.Mock).mockResolvedValue(true);
+    // Mock standardized hooks
+    (useStudentApplications as jest.Mock).mockReturnValue({
+      data: mockApplications,
+      isLoading: false,
+      error: null,
+    });
+    
+    (useStudentTopProjects as jest.Mock).mockReturnValue({
+      data: ['project1'],
+      isLoading: false,
+    });
+    
+    (useMaxTopProjects as jest.Mock).mockReturnValue({
+      data: 3,
+      isLoading: false,
+    });
+    
+    (useToggleTopProject as jest.Mock).mockReturnValue({
+      mutateAsync: mockMutateAsync.mockResolvedValue(true),
+      isLoading: false,
+    });
+    
+    (useCurrentUser as jest.Mock).mockReturnValue({
+      userId: mockUser.uid,
+      user: mockUser,
+    });
   });
   
   test('renders loading state initially', async () => {
-    // Modify the mock to ensure loading state is shown
-    (getStudentApplications as jest.Mock).mockImplementation(
-      () => new Promise(resolve => setTimeout(() => resolve(mockApplications), 100))
-    );
-    
-    let renderResult = {} as ReturnType<typeof render>;
-    await act(async () => {
-      renderResult = render(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
+    // Mock loading state
+    (useStudentApplications as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: true,
+      error: null,
     });
     
-    // Check for the spinner by class name or structure instead of role
-    const loadingSpinner = document.querySelector('.animate-spin') || 
-                          document.querySelector('.w-8.h-8.border-4') || 
-                          renderResult.container.querySelector('div[class*="animate-spin"]');
-                          
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
+    
+    // Check for the spinner by class name or structure
+    const loadingSpinner = document.querySelector('.animate-spin');
     expect(loadingSpinner).toBeTruthy();
   });
   
   test('renders applications summary when data is loaded', async () => {
-    await act(async () => {
-      render(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
-    });
-    
-    // Wait for loading to complete and data to be loaded
-    await waitFor(() => {
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-    });
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
     
     // Check application summary is displayed
-    const summaryText = await screen.findByText(/You have applied to/i);
+    const summaryText = screen.getByText(/You have applied to/i);
     expect(summaryText).toBeInTheDocument();
     
     // Check application count is displayed
-    const applicationCount = await screen.findByText('2');
+    const applicationCount = screen.getByText('2');
     expect(applicationCount).toBeInTheDocument();
     
     // Check View All Applications button exists
-    const viewAllButton = await screen.findByRole('button', { name: /view all applications/i });
+    const viewAllButton = screen.getByRole('button', { name: /view all applications/i });
     expect(viewAllButton).toBeInTheDocument();
   });
   
   test('displays ActiveProjectsDropdown when topProjects < maxTopProjects', async () => {
-    // Force the mocked components to be visible
-    jest.mock('../StudentActiveTabApplications', () => {
-      return {
-        __esModule: true,
-        default: jest.fn(props => {
-          return (
-            <div>
-              <div data-testid="active-projects-dropdown">
-                Active Projects Dropdown Mock
-              </div>
-            </div>
-          );
-        }),
-        ClientOnly: ({ children }: { children: React.ReactNode }) => <>{children}</>
-      };
-    });
-
-    await act(async () => {
-      render(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
-    });
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
     
-    // Wait for loading to complete
-    await waitFor(() => {
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-    });
-    
-    // Use a more general assertion
-    expect(document.querySelectorAll('button').length).toBeGreaterThan(0);
+    // Use a more general assertion for the presence of buttons
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThan(0);
   });
   
   test('navigates to applied tab when clicking View All Applications button', async () => {
-    await act(async () => {
-      render(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
-    });
-    
-    // Wait for loading to complete
-    await waitFor(() => {
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-    });
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
     
     // Click the View All Applications button
-    const viewAllButton = await screen.findByRole('button', { name: /view all applications/i });
-    
-    await act(async () => {
-      fireEvent.click(viewAllButton);
-    });
+    const viewAllButton = screen.getByRole('button', { name: /view all applications/i });
+    fireEvent.click(viewAllButton);
     
     // Check if router.push was called with the correct URL
     expect(mockPush).toHaveBeenCalledWith('/development/match?tab=applied');
@@ -227,15 +231,13 @@ describe('StudentActiveTabApplications', () => {
   
   test('renders nothing when there are no applications', async () => {
     // Mock empty applications
-    (getStudentApplications as jest.Mock).mockResolvedValue([]);
-    
-    await act(async () => {
-      render(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
+    (useStudentApplications as jest.Mock).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
     });
     
-    await waitFor(() => {
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-    });
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
     
     // With no applications, the component should not render the application summary
     const applicationSummary = screen.queryByText(/You have applied to/i);
@@ -244,31 +246,54 @@ describe('StudentActiveTabApplications', () => {
   
   test('renders error state when fetching fails', async () => {
     // Mock error response
-    (getStudentApplications as jest.Mock).mockRejectedValue(new Error('Failed to fetch'));
-    
-    await act(async () => {
-      render(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
+    (useStudentApplications as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: new Error('Failed to fetch'),
     });
     
-    // Wait for loading to complete and error to be displayed
-    await waitFor(() => {
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-    });
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
     
-    // Check error message is displayed (partial text match)
-    const errorMessage = await screen.findByText(/Failed to load your applications/i);
+    // Check for error message
+    const errorMessage = screen.getByText(/Failed to load your applications/i);
     expect(errorMessage).toBeInTheDocument();
     
-    // Check try again button is displayed
-    const tryAgainButton = await screen.findByRole('button', { name: /try again/i });
-    expect(tryAgainButton).toBeInTheDocument();
-    
-    // Click try again and check if fetchData was called again
-    await act(async () => {
-      fireEvent.click(tryAgainButton);
+    // Verify retry button is rendered
+    const retryButton = screen.getByText(/Try Again/i);
+    expect(retryButton).toBeInTheDocument();
+  });
+  
+  test('calls onRefresh when try again button is clicked', async () => {
+    // Mock error response
+    (useStudentApplications as jest.Mock).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: new Error('Failed to fetch'),
     });
     
-    expect(getStudentApplications).toHaveBeenCalledTimes(2);
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
+    
+    // Find and click the Try Again button
+    const tryAgainButton = screen.getByText(/Try Again/i);
+    fireEvent.click(tryAgainButton);
+    
+    // Verify that onRefresh was called
     expect(mockOnRefresh).toHaveBeenCalled();
+  });
+  
+  test('handles toggling top project', async () => {
+    renderWithQueryProvider(<StudentActiveTabApplications onRefresh={mockOnRefresh} />);
+    
+    // Find and click the toggle button
+    const toggleButton = screen.getByTestId('toggle-project-button');
+    await act(async () => {
+      fireEvent.click(toggleButton);
+    });
+    
+    // Verify mutateAsync was called with the correct project ID
+    expect(mockMutateAsync).toHaveBeenCalledWith('project1');
+    
+    // Verify refreshUserData was called
+    expect(mockRefreshUserData).toHaveBeenCalled();
   });
 }); 
