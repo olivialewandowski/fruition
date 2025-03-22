@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { StarIcon as StarIconOutline } from '@heroicons/react/24/outline';
 import { XMarkIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
@@ -29,6 +29,9 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
   const { refreshUserData } = useAuth();
   const [showAddSection, setShowAddSection] = useState(false);
   const [expandedAdd, setExpandedAdd] = useState(false);
+  // Add local state for optimistic updates
+  const [localTopProjects, setLocalTopProjects] = useState<Array<{id: string, title: string}>>([]);
+  const [hasSetLocalState, setHasSetLocalState] = useState(false);
   
   // Use our centralized hook for data management
   const {
@@ -43,51 +46,102 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
     refetch
   } = useTopChoicesWidget();
 
+  // Sync the local state with the fetched data when it arrives
+  React.useEffect(() => {
+    if (topProjects && topProjects.length > 0) {
+      setLocalTopProjects(topProjects);
+      setHasSetLocalState(true);
+    }
+  }, [topProjects]);
+
+  // Use the local state for rendering once it's been initialized
+  const displayTopProjects = hasSetLocalState ? localTopProjects : topProjects;
+  
   // Handle removing a project from top choices
-  const handleRemoveTopProject = async (projectId: string) => {
+  const handleRemoveTopProject = useCallback(async (projectId: string) => {
     if (isRemoving) return;
     
     try {
-      removeTopProject(projectId);
+      // Optimistic update - remove project from local state immediately
+      setLocalTopProjects(prev => prev.filter(project => project.id !== projectId));
+      
+      // Then perform the actual API call
+      await removeTopProject(projectId);
+      
+      // Manually refetch to ensure consistency
+      refetch();
+      
       toast.success('Project removed from top choices');
-      await refreshUserData();
     } catch (err) {
       console.error('Error removing top project:', err);
       toast.error('Failed to remove project from top choices');
+      
+      // Revert optimistic update on error
+      refetch();
     }
-  };
+  }, [isRemoving, removeTopProject, refetch]);
 
   // Handle adding a project to top choices
-  const handleAddTopProject = async (projectId: string) => {
+  const handleAddTopProject = useCallback(async (projectId: string) => {
     if (isRemoving) return;
     
-    if (topProjects.length >= maxTopProjects) {
+    if (displayTopProjects.length >= maxTopProjects) {
       toast.error(`You can only mark ${maxTopProjects} projects as top choices`);
       return;
     }
     
     try {
-      toggleTopProject(projectId);
+      // Find project info for optimistic update
+      const projectToAdd = eligibleApplications.find(app => app.project.id === projectId);
+      
+      if (projectToAdd) {
+        // Optimistic update - add project to local state immediately
+        setLocalTopProjects(prev => [
+          ...prev, 
+          { 
+            id: projectId, 
+            title: projectToAdd.project.title 
+          }
+        ]);
+      }
+      
+      // Then perform the actual API call
+      await toggleTopProject(projectId);
+      
+      // Manually refetch to ensure consistency
+      refetch();
+      
       toast.success('Project added to top choices');
-      await refreshUserData();
     } catch (err) {
       console.error('Error adding top project:', err);
       toast.error('Failed to add project to top choices');
+      
+      // Revert optimistic update on error
+      refetch();
     }
-  };
+  }, [isRemoving, displayTopProjects.length, maxTopProjects, eligibleApplications, toggleTopProject, refetch]);
+
+  // Filter eligible applications to exclude those already in top projects (using local state)
+  const filteredEligibleApplications = React.useMemo(() => {
+    if (!eligibleApplications) return [];
+    
+    return eligibleApplications.filter(app => 
+      !displayTopProjects.some(project => project.id === app.project.id)
+    );
+  }, [eligibleApplications, displayTopProjects]);
 
   // Show 3 applications initially, or all if expanded
   const visibleApplications = expandedAdd
-    ? eligibleApplications
-    : eligibleApplications.slice(0, 3);
+    ? filteredEligibleApplications
+    : filteredEligibleApplications.slice(0, 3);
 
-  const hasRemainingSlots = topProjects.length < maxTopProjects;
-  const hasMoreToShow = eligibleApplications.length > 3;
+  const hasRemainingSlots = displayTopProjects.length < maxTopProjects;
+  const hasMoreToShow = filteredEligibleApplications.length > 3;
 
   // Widget content component that can be used with or without the DashboardCard wrapper
   const TopChoicesContent = () => {
     // Loading skeleton
-    if (isLoading) {
+    if (isLoading && !hasSetLocalState) {
       return <DashboardWidgetSkeleton rows={2} hasHeader={false} />;
     }
 
@@ -107,7 +161,7 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
     }
 
     // Empty state - don't show widget if no top choices and no available slots
-    if (topProjects.length === 0 && maxTopProjects === 0) {
+    if (displayTopProjects.length === 0 && maxTopProjects === 0) {
       return null;
     }
 
@@ -115,17 +169,17 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
       <>
         <div className="mb-2">
           <p className="text-sm text-gray-600">
-            Using {topProjects.length} of {maxTopProjects} available slots
+            Using {displayTopProjects.length} of {maxTopProjects} available slots
           </p>
         </div>
         
-        {topProjects.length === 0 ? (
+        {displayTopProjects.length === 0 ? (
           <div className="text-center py-4 text-gray-500">
             <p>You haven't selected any top choice projects yet.</p>
             <p className="text-sm mt-2">
               Mark projects as top choices to indicate your highest interest to faculty.
             </p>
-            {hasRemainingSlots && eligibleApplications.length > 0 ? (
+            {hasRemainingSlots && filteredEligibleApplications.length > 0 ? (
               <button
                 onClick={() => setShowAddSection(!showAddSection)}
                 className="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
@@ -138,7 +192,7 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
         ) : (
           <div className="space-y-2 mt-3">
             {/* List of current top projects */}
-            {topProjects.map((project) => (
+            {displayTopProjects.map((project) => (
               <div
                 key={project.id}
                 className="flex items-center justify-between bg-yellow-50 px-3 py-2 rounded-md border border-yellow-200"
@@ -163,7 +217,7 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
             ))}
             
             {/* Add more button */}
-            {hasRemainingSlots && eligibleApplications.length > 0 && (
+            {hasRemainingSlots && filteredEligibleApplications.length > 0 && (
               <button
                 onClick={() => setShowAddSection(!showAddSection)}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 w-full justify-center"
@@ -180,7 +234,7 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
         )}
         
         {/* Add section for selecting more top projects */}
-        {showAddSection && eligibleApplications.length > 0 && (
+        {showAddSection && filteredEligibleApplications.length > 0 && (
           <div className="mt-4 border-t border-gray-200 pt-4">
             <h4 className="text-sm font-medium text-gray-700 mb-2">
               Select from your active applications:
@@ -216,7 +270,7 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
                   onClick={() => setExpandedAdd(!expandedAdd)}
                   className="text-sm text-purple-600 hover:text-purple-800 flex items-center mt-2"
                 >
-                  {expandedAdd ? 'Show Less' : `Show ${eligibleApplications.length - 3} More`}
+                  {expandedAdd ? 'Show Less' : `Show ${filteredEligibleApplications.length - 3} More`}
                   {expandedAdd ? (
                     <ChevronUpIcon className="h-4 w-4 ml-1" />
                   ) : (
@@ -247,7 +301,7 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
       <DashboardCard
         title={title}
         className={className}
-        isLoading={isLoading}
+        isLoading={isLoading && !hasSetLocalState}
       >
         <div className="flex items-center mb-2">
           <StarIconSolid className="h-5 w-5 text-yellow-500 mr-2" aria-hidden="true" />
@@ -267,7 +321,7 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
           {title}
         </h3>
         <p className="text-sm text-gray-600 mt-1">
-          Using {topProjects.length} of {maxTopProjects} available slots
+          Using {displayTopProjects.length} of {maxTopProjects} available slots
         </p>
       </div>
       
@@ -278,4 +332,5 @@ const TopChoicesWidget: React.FC<TopChoicesWidgetProps> = ({
   );
 };
 
-export default React.memo(TopChoicesWidget); 
+// Export without memo to allow full re-renders when props/state change
+export default TopChoicesWidget; 

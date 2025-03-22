@@ -1,1 +1,8 @@
-{}
+{
+  "components/connect/DiscoverTab.tsx -> ./ProjectCard": {
+    "id": "components/connect/DiscoverTab.tsx -> ./ProjectCard",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_connect_ProjectCard_tsx.js"
+    ]
+  }
+}
