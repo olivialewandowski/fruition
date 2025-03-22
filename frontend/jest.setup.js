@@ -53,9 +53,20 @@ jest.mock('next/navigation', () => ({
     forward: jest.fn(),
     refresh: jest.fn(),
     prefetch: jest.fn(),
+    pathname: '/test-path',
   }),
-  useSearchParams: () => new URLSearchParams(),
-  usePathname: () => '/',
+  useSearchParams: () => ({
+    get: jest.fn(),
+    has: jest.fn(),
+    getAll: jest.fn(),
+    forEach: jest.fn(),
+    entries: jest.fn(),
+    keys: jest.fn(),
+    values: jest.fn(),
+    toString: jest.fn(),
+  }),
+  usePathname: () => '/test-path',
+  redirect: jest.fn(),
 }));
 
 // Mock for useAuth context
@@ -261,4 +272,34 @@ global.fetch = jest.fn(() =>
     text: () => Promise.resolve(''),
     ok: true,
   })
-); 
+);
+
+// Mock useSearchParams
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+
+// Fix for Jest error with TextEncoder
+if (typeof TextEncoder === 'undefined') {
+  global.TextEncoder = require('util').TextEncoder;
+}
+
+if (typeof TextDecoder === 'undefined') {
+  global.TextDecoder = require('util').TextDecoder;
+}
+
+// Suppress console errors during tests
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  // Check for React-specific warnings
+  if (typeof args[0] === 'string' && 
+      (args[0].includes('React does not recognize the') || 
+       args[0].includes('Warning: React.createFactory()') ||
+       args[0].includes('Warning: Failed prop type') ||
+       args[0].includes('Error: Uncaught [Error'))) {
+    return;
+  }
+  originalConsoleError(...args);
+}; 

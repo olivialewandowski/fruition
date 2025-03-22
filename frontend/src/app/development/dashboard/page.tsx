@@ -8,10 +8,13 @@ import ProjectCreationModal from '@/components/projects/ProjectCreationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProjects } from '@/services/clientProjectService';
 import { Project } from '@/types/project';
-import StudentActiveTabApplications from '@/components/dashboard/StudentActiveTabApplications';
 import { useSearchParams, useRouter } from 'next/navigation';
+import ModularDashboardLayout from '@/components/dashboard/layout/ModularDashboardLayout';
+import ClientOnly from '@/components/utils/ClientOnly';
+import QueryProvider from '@/contexts/QueryProvider';
+import { UnifiedDashboardLayout } from '@/components/dashboard/layout/UnifiedDashboardLayout';
 
-// Define valid tab types for better type safety - removed 'applied'
+// Define valid tab types for better type safety
 type DashboardTabType = 'active' | 'archived';
 
 // Create a client component that uses useSearchParams
@@ -27,7 +30,7 @@ function DashboardContent() {
   const isInitialLoadRef = useRef(true);
   const isRefreshingRef = useRef(false);
   
-  // Use useMemo to avoid recreating tabs on each render - removed 'applied' tab
+  // Use useMemo to avoid recreating tabs on each render
   const tabs = useMemo(() => {
     return [
       { id: 'active', label: 'Active' },
@@ -83,7 +86,7 @@ function DashboardContent() {
 
   // Handle tab change
   const handleTabChange = (tabId: string) => {
-    // Validate tab ID for type safety - removed 'applied'
+    // Validate tab ID for type safety
     if (!['active', 'archived'].includes(tabId)) {
       console.error(`Invalid tab ID: ${tabId}`);
       return;
@@ -129,6 +132,9 @@ function DashboardContent() {
     </div>
   );
 
+  // Determine the user role for modular dashboard
+  const userRole = userData?.role || 'student';
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -139,6 +145,7 @@ function DashboardContent() {
           activeTab={activeTab}
           onTabChange={handleTabChange}
         />
+        
         <div className="flex-1 overflow-auto px-6 py-5">
           {/* Page Header */}
           <div className="flex flex-wrap gap-3 md:gap-5 justify-between mb-4 md:mb-5">
@@ -164,13 +171,21 @@ function DashboardContent() {
               <>
                 {activeTab === 'active' && (
                   <>
-                    {/* Student Applications Section (only for students) */}
+                    {/* Modular Dashboard Layout - Only for student users in active tab */}
                     {userData?.role === 'student' && (
-                      <StudentActiveTabApplications onRefresh={handleRefresh} />
+                      <ClientOnly>
+                        <UnifiedDashboardLayout
+                          userRole={userRole}
+                          initialLayoutId={`${userRole}Compact`}
+                          withQueryProvider={false} // QueryProvider is already at the app level
+                        >
+                          <ModularDashboardLayout className="mb-8" />
+                        </UnifiedDashboardLayout>
+                      </ClientOnly>
                     )}
                     
                     {/* Project List */}
-                    <ProjectSection title="" projects={projectsToShow} hideTitle={true} />
+                    <ProjectSection title="Your Projects" projects={projectsToShow} />
                     
                     {projectsToShow.length === 0 && (
                       <div className="text-center py-12 bg-white rounded-xl shadow-sm">
@@ -223,7 +238,9 @@ function LoadingFallback() {
 const ProjectsPage: React.FC = () => {
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <DashboardContent />
+      <QueryProvider>
+        <DashboardContent />
+      </QueryProvider>
     </Suspense>
   );
 };
