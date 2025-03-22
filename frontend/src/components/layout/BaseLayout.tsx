@@ -269,25 +269,19 @@ export default function BaseLayout({
   }
   
   return (
-    <div className="min-h-screen bg-white">
-      <div className="flex h-screen pt-3">
-        <div className="h-screen pl-3">
-          <Sidebar />
-        </div>
-        
-        <div className="flex-1 transition-all duration-300 overflow-y-auto pl-6">
-          <div className="pr-4">
-            <TopNavigation 
-              title={pageTitle} 
-              tabs={tabs || defaultTabs}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-            />
-            
-            <div className="pr-4 pb-8 mt-6">
-              {children}
-            </div>
-          </div>
+    <div className="flex h-screen bg-gray-50">
+      <div className="p-4">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-2xl my-4 mr-4">
+        <TopNavigation 
+          title={pageTitle} 
+          tabs={tabs || defaultTabs}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
+        <div className="flex-1 overflow-auto p-6">
+          {children}
         </div>
       </div>
     </div>

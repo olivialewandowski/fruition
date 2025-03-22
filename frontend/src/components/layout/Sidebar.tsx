@@ -165,12 +165,12 @@ const Sidebar: React.FC = () => {
           `}>
             {(!isCollapsed || isMobileOpen) && (
               <div className="text-2xl font-extrabold tracking-tighter text-violet-900">
-                fruition
+                NYU
               </div>
             )}
             {isCollapsed && !isMobileOpen && (
               <div className="text-2xl font-extrabold tracking-tighter text-violet-900">
-                f
+                N
               </div>
             )}
             
