@@ -115,9 +115,10 @@ export function useToggleTopProject() {
   return useMutation({
     mutationFn: (projectId: string) => toggleTopProject(projectId),
     onSuccess: () => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: QueryKeys.studentTopProjects(userId) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.topChoices(userId) });
+      // Use proper QueryKeys format for invalidation
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentTopProjects() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentApplications() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.topChoices() });
     },
   });
 }
@@ -132,9 +133,10 @@ export function useRemoveTopProject() {
   return useMutation({
     mutationFn: (projectId: string) => removeTopProject(projectId),
     onSuccess: () => {
-      // After success, invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: QueryKeys.studentTopProjects(userId) });
-      queryClient.invalidateQueries({ queryKey: QueryKeys.topChoices(userId) });
+      // Use proper QueryKeys format for invalidation
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentTopProjects() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentApplications() });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.topChoices() });
     },
   });
 }
@@ -431,6 +433,7 @@ export function useApplicationsData(params: {
  */
 export function useTopChoicesWidget() {
   const queryClient = useQueryClient();
+  const { userId } = useCurrentUser();
   
   // Query for applications
   const applicationsQuery = useStudentApplications();
@@ -455,18 +458,88 @@ export function useTopChoicesWidget() {
   // Mutation for removing a top project
   const removeTopProjectMutation = useMutation({
     mutationFn: removeTopProject,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.topProjects] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.applications] });
+    onMutate: async (projectId) => {
+      // Cancel any outgoing refetches to avoid overwriting our optimistic update
+      await queryClient.cancelQueries({ queryKey: QueryKeys.studentTopProjects(userId) });
+      await queryClient.cancelQueries({ queryKey: QueryKeys.studentApplications(userId) });
+      
+      // Snapshot the previous value
+      const previousTopProjects = queryClient.getQueryData(QueryKeys.studentTopProjects(userId));
+      
+      // Optimistically update the cache with the removal
+      queryClient.setQueryData(
+        QueryKeys.studentTopProjects(userId),
+        (old: string[] = []) => old.filter(id => id !== projectId)
+      );
+      
+      return { previousTopProjects };
+    },
+    onError: (err, projectId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousTopProjects) {
+        queryClient.setQueryData(
+          QueryKeys.studentTopProjects(userId),
+          context.previousTopProjects
+        );
+      }
+      console.error('Error removing top project:', err);
+    },
+    onSettled: () => {
+      // Always refetch after error or success to sync with server state
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentTopProjects(userId) });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentApplications(userId) });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.topChoices(userId) });
     }
   });
   
   // Mutation for toggling a top project (add or remove)
   const toggleTopProjectMutation = useMutation({
     mutationFn: toggleTopProject,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.topProjects] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.applications] });
+    onMutate: async (projectId) => {
+      // Cancel any outgoing refetches to avoid overwriting our optimistic update
+      await queryClient.cancelQueries({ queryKey: QueryKeys.studentTopProjects(userId) });
+      await queryClient.cancelQueries({ queryKey: QueryKeys.studentApplications(userId) });
+      
+      // Snapshot the previous value
+      const previousTopProjects = queryClient.getQueryData(QueryKeys.studentTopProjects(userId));
+      
+      // Check if it's already in the top projects
+      const isCurrentlyTop = previousTopProjects 
+        ? (previousTopProjects as string[]).includes(projectId)
+        : false;
+      
+      // Optimistically update the cache
+      if (isCurrentlyTop) {
+        // If it's already a top project, remove it
+        queryClient.setQueryData(
+          QueryKeys.studentTopProjects(userId),
+          (old: string[] = []) => old.filter(id => id !== projectId)
+        );
+      } else {
+        // If it's not a top project, add it
+        queryClient.setQueryData(
+          QueryKeys.studentTopProjects(userId),
+          (old: string[] = []) => [...old, projectId]
+        );
+      }
+      
+      return { previousTopProjects };
+    },
+    onError: (err, projectId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousTopProjects) {
+        queryClient.setQueryData(
+          QueryKeys.studentTopProjects(userId),
+          context.previousTopProjects
+        );
+      }
+      console.error('Error toggling top project:', err);
+    },
+    onSettled: () => {
+      // Always refetch after error or success to sync with server state
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentTopProjects(userId) });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.studentApplications(userId) });
+      queryClient.invalidateQueries({ queryKey: QueryKeys.topChoices(userId) });
     }
   });
   
@@ -505,15 +578,19 @@ export function useTopChoicesWidget() {
     isRemoving: removeTopProjectMutation.isPending || toggleTopProjectMutation.isPending,
     error: error ? (error instanceof Error ? error.message : 'Unknown error') : null,
     
-    // Actions
-    removeTopProject: removeTopProjectMutation.mutate,
-    toggleTopProject: toggleTopProjectMutation.mutate,
+    // Actions with enhanced mutation functions that return promises
+    removeTopProject: (projectId: string, options?: any) => {
+      return removeTopProjectMutation.mutateAsync(projectId, options);
+    },
+    toggleTopProject: (projectId: string, options?: any) => {
+      return toggleTopProjectMutation.mutateAsync(projectId, options);
+    },
     
-    // Refetch
+    // Refetch with forced refetching
     refetch: () => {
-      applicationsQuery.refetch();
-      topProjectsQuery.refetch();
-      maxTopProjectsQuery.refetch();
+      applicationsQuery.refetch({ throwOnError: true });
+      topProjectsQuery.refetch({ throwOnError: true });
+      maxTopProjectsQuery.refetch({ throwOnError: true });
     }
   };
 }
