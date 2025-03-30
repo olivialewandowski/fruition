@@ -1,6 +1,9 @@
 // src/types/position.ts
 import { TimestampValue } from "./project";
 
+// Extended status type to include archived state
+export type PositionStatus = "open" | "closed" | "filled" | "archived" | "active";
+
 export interface Position {
   id: string; // Made required to match our components
   projectId: string;
@@ -21,49 +24,27 @@ export interface Position {
   maxPositions?: number;
   filledPositions?: number;
   isActive?: boolean; // Added for status tracking
-  status?: "open" | "closed" | "filled"; // Added for status tracking
+  status?: PositionStatus; // Updated to use PositionStatus type
   rollingApplications?: boolean;
   applicationCloseDate?: TimestampValue;
   createdAt?: TimestampValue;
   updatedAt?: TimestampValue;
+  
+  // Project related fields for position cards
+  projectTitle?: string;
+  projectDescription?: string;
+  
+  // Application settings
+  applicationSettings?: {
+    requiresResume?: boolean;
+    requiresStatement?: boolean;
+    statementPrompt?: string;
+    requiredDocuments?: string[];
+  };
 }
 
 export interface PositionWithId extends Position {
   id: string;
-}
-
-export interface Application {
-  id: string; // Made required to match our components
-  studentId: string;
-  studentName: string; // Made required since it's displayed in UI
-  studentEmail?: string; // Added for contact info
-  positionId: string;
-  projectId?: string; // Added for cross-referencing
-  status: "incoming" | "pending" | "interviewing" | "accepted" | "rejected" | "hired"; // Added "hired" status
-  submittedAt: TimestampValue; // Made required as it's used for sorting
-  updatedAt?: TimestampValue;
-  notes?: string;
-  interestStatement?: string;
-  resumeFile?: {
-    url: string;
-    name: string;
-  };
-  // Added for UI components
-  studentInfo?: {
-    major: string;
-    year: string;
-    gpa?: number;
-  };
-  interviewDate?: TimestampValue;
-  // Optional references to related data for UI
-  project?: any;
-  position?: Position;
-}
-
-export interface ApplicationWithId extends Application {
-  id: string;
-  projectId: string;
-  positionId: string;
 }
 
 export interface OnboardingMaterial {

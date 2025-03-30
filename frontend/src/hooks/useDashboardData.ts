@@ -8,7 +8,6 @@ import {
   getMaxTopProjects,
   toggleTopProject,
   removeTopProject,
-  getMaxTopProjectsAllowed
 } from '@/services/studentService';
 import { getUserProjects } from '@/services/clientProjectService';
 import { Application } from '@/types/application';
@@ -19,12 +18,7 @@ import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebas
 import { User } from '@/types/user';
 import { getSampleProjects } from '@/services/projectsService';
 import { ConnectProject } from '@/types/project';
-import { getProjectById } from '@/services/projectService';
-import type { 
-  StudentTopProject, 
-  TimeRange,
-  ChartData
-} from '@/types';
+import { getProjects } from '@/services/projectsService';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Define centralized query keys for consistent cache management

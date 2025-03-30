@@ -1,4 +1,4 @@
-// src/app/development/projects/[projectId]/page.tsx
+// src/app/development/projects/[projectId]/positions/create/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,10 +7,10 @@ import FacultySidebar from '@/components/layout/FacultySidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProjectById } from '@/services/clientProjectService';
 import { ProjectWithId } from '@/types/project';
-import EditProjectForm from '@/components/projects/EditProjectForm';
+import PositionCreationForm from '@/components/projects/PositionCreationForm';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
-export default function ProjectDetailsPage() {
+export default function CreatePositionPage() {
   const { projectId } = useParams();
   const router = useRouter();
   const { user, userData, loading } = useAuth();
@@ -110,12 +110,15 @@ export default function ProjectDetailsPage() {
       </div>
       <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-2xl my-4 mr-4">
         <div className="p-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">{project?.title || 'Project Details'}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+            {project?.title ? `${project.title} - Add Position` : 'Add Position'}
+          </h1>
           
           {project && (
-            <EditProjectForm 
-              project={project} 
-              onProjectUpdated={(updatedProject) => setProject(updatedProject)}
+            <PositionCreationForm 
+              projectId={projectId as string}
+              project={project}
+              onSuccess={() => router.push(`/development/projects/${projectId}/positions`)}
             />
           )}
         </div>

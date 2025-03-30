@@ -7,7 +7,7 @@ import { XMarkIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/o
 import { useTopChoicesWidget } from '@/hooks/useDashboardData';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
-import DashboardCard from './DashboardCard';
+import DashboardCard from './common/DashboardCard';
 import DashboardWidgetSkeleton from './DashboardWidgetSkeleton';
 import { useAuth } from '@/contexts/AuthContext';
 

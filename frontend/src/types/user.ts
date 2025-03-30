@@ -4,6 +4,12 @@ import { Timestamp } from "firebase/firestore";
 // Helper type to handle different timestamp formats
 export type TimestampValue = Timestamp | Date | string | number;
 
+// User access levels for project management
+export type AccessLevel = 'owner' | 'admin' | 'editor' | 'viewer';
+
+// User status
+export type UserStatus = 'active' | 'inactive' | 'pending';
+
 // Common types for file storage
 export interface StorageFile {
   storagePath: string;
@@ -24,7 +30,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role?: "student" | "faculty" | "admin";
+  role?: "student" | "faculty" | "admin" | "user";
   university?: string; // University name (display value)
   universityId?: string; // University ID (reference value)
   createdAt?: TimestampValue;
@@ -58,18 +64,20 @@ export interface User {
   department?: string;
   researchInterests?: string[];
   
-  // Additional fields needed for the UI
-  status?: string;
+  // Project participation fields
+  participatingProjects?: string[];
+  
+  // Project management fields
   projectRole?: string;
+  accessLevel?: AccessLevel;
+  status?: UserStatus;
+  
+  // Team member fields
   joinedDate?: TimestampValue;
   notes?: string;
+  
+  // Profile completion
+  profileCompleted?: boolean;
 }
 
-export interface UserWithId extends User {
-  id: string;
-}
-
-
-export interface UserWithId extends User {
-  id: string;
-}
+// No need for UserWithId since id is already required in User interface

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardCard from './DashboardCard';
+import DashboardCard from './common/DashboardCard';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useRecommendedProjects, useUserSkills } from '@/hooks/useDashboardData';
 

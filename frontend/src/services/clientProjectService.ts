@@ -1,4 +1,4 @@
-// src/services/clientProjectService.ts (updated)
+// src/services/clientProjectService.ts (comprehensively updated)
 import { 
   collection, 
   addDoc, 
@@ -21,7 +21,7 @@ import { db, storage } from "../config/firebase";
 import { getAuth } from "firebase/auth";
 import { Position } from "../types/position";
 import { Project, ProjectWithId, convertToProjectWithId } from "../types/project";
-import { Application } from "../types/application";
+import { Application, ApplicationStatus } from "../types/application";
 import { User } from "../types/user";
 
 /**
@@ -29,12 +29,12 @@ import { User } from "../types/user";
  * This interacts directly with Firestore while ensuring data consistency
  * 
  * @param projectData - The project data
- * @param positionData - The position data
+ * @param positionData - The position data (optional)
  * @returns The created project ID
  */
 export const createClientProject = async (
   projectData: Partial<Project>, 
-  positionData: Partial<Position>
+  positionData?: Partial<Position>
 ): Promise<string> => {
   try {
     const auth = getAuth();
@@ -65,6 +65,7 @@ export const createClientProject = async (
       const projectWithUser = {
         ...projectData,
         mentorId: user.uid,
+        facultyId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         status: projectData.status || "active",
@@ -78,17 +79,20 @@ export const createClientProject = async (
       transaction.set(projectRef, projectWithUser);
       const projectId = projectRef.id;
       
-      // Add the position with a reference to the project
-      const positionWithProject = {
-        ...positionData,
-        projectId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-      
-      const positionsCollectionRef = collection(db, "positions");
-      const positionRef = doc(positionsCollectionRef);
-      transaction.set(positionRef, positionWithProject);
+      // Add the position with a reference to the project if provided
+      if (positionData) {
+        const positionWithProject = {
+          ...positionData,
+          projectId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          status: "open",
+        };
+        
+        const positionsCollectionRef = collection(db, "positions");
+        const positionRef = doc(positionsCollectionRef);
+        transaction.set(positionRef, positionWithProject);
+      }
       
       // Update user's active projects
       if (userDoc.exists()) {
@@ -140,7 +144,7 @@ export const createClientProject = async (
  */
 export const createClientProjectBatched = async (
   projectData: Partial<Project>, 
-  positionData: Partial<Position>
+  positionData?: Partial<Position>
 ): Promise<string> => {
   try {
     const auth = getAuth();
@@ -167,6 +171,7 @@ export const createClientProjectBatched = async (
     const projectWithUser = {
       ...projectData,
       mentorId: user.uid,
+      facultyId: user.uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       status: projectData.status || "active",
@@ -176,16 +181,19 @@ export const createClientProjectBatched = async (
     
     batch.set(projectRef, projectWithUser);
     
-    // Add the position with a reference to the project
-    const positionWithProject = {
-      ...positionData,
-      projectId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-    
-    const positionRef = doc(collection(db, "positions"));
-    batch.set(positionRef, positionWithProject);
+    // Add the position with a reference to the project if provided
+    if (positionData) {
+      const positionWithProject = {
+        ...positionData,
+        projectId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        status: "open",
+      };
+      
+      const positionRef = doc(collection(db, "positions"));
+      batch.set(positionRef, positionWithProject);
+    }
     
     // If user exists, update their active projects
     if (userDoc.exists()) {
@@ -635,6 +643,204 @@ export const getProjectPositions = async (projectId: string): Promise<Position[]
   }
 };
 
+// Create a new position for a project
+export const createPosition = async (
+  projectId: string,
+  positionData: Partial<Position>
+): Promise<string> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Verify project exists and user has permission
+    const projectRef = doc(db, "projects", projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      throw new Error("Project not found");
+    }
+    
+    const projectData = projectDoc.data();
+    const isFaculty = projectData.facultyId === user.uid || projectData.mentorId === user.uid;
+    
+    if (!isFaculty) {
+      throw new Error("You don't have permission to create positions for this project");
+    }
+    
+    // Create the position
+    const positionWithProject = {
+      ...positionData,
+      projectId,
+      projectTitle: projectData.title || '',
+      projectDescription: projectData.description || '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      status: "open", // Default status
+      filledPositions: 0, // Initialize filled positions count
+    };
+    
+    const positionRef = await addDoc(collection(db, "positions"), positionWithProject);
+    
+    // Update project with position count
+    await updateDoc(projectRef, {
+      positionCount: (projectData.positionCount || 0) + 1,
+      updatedAt: serverTimestamp()
+    });
+    
+    return positionRef.id;
+  } catch (error) {
+    console.error(`Error creating position for project ${projectId}:`, error);
+    throw error;
+  }
+};
+
+// Update position
+export const updatePosition = async (
+  positionId: string,
+  positionData: Partial<Position>
+): Promise<void> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get position
+    const positionRef = doc(db, "positions", positionId);
+    const positionDoc = await getDoc(positionRef);
+    
+    if (!positionDoc.exists()) {
+      throw new Error("Position not found");
+    }
+    
+    const position = positionDoc.data();
+    
+    // Get project to verify permissions
+    const projectRef = doc(db, "projects", position.projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      throw new Error("Project not found");
+    }
+    
+    const projectData = projectDoc.data();
+    const isFaculty = projectData.facultyId === user.uid || projectData.mentorId === user.uid;
+    
+    if (!isFaculty) {
+      throw new Error("You don't have permission to update this position");
+    }
+    
+    // Update the position
+    await updateDoc(positionRef, {
+      ...positionData,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error(`Error updating position ${positionId}:`, error);
+    throw error;
+  }
+};
+
+// Archive/unarchive position
+export const archivePosition = async (
+  positionId: string,
+  projectId: string
+): Promise<void> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get position
+    const positionRef = doc(db, "positions", positionId);
+    const positionDoc = await getDoc(positionRef);
+    
+    if (!positionDoc.exists()) {
+      throw new Error("Position not found");
+    }
+    
+    // Get project to verify permissions
+    const projectRef = doc(db, "projects", projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      throw new Error("Project not found");
+    }
+    
+    const projectData = projectDoc.data();
+    const isFaculty = projectData.facultyId === user.uid || projectData.mentorId === user.uid;
+    
+    if (!isFaculty) {
+      throw new Error("You don't have permission to archive this position");
+    }
+    
+    // Archive the position
+    await updateDoc(positionRef, {
+      status: "archived",
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error(`Error archiving position ${positionId}:`, error);
+    throw error;
+  }
+};
+
+// Unarchive position
+export const unarchivePosition = async (
+  positionId: string,
+  projectId: string
+): Promise<void> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get position
+    const positionRef = doc(db, "positions", positionId);
+    const positionDoc = await getDoc(positionRef);
+    
+    if (!positionDoc.exists()) {
+      throw new Error("Position not found");
+    }
+    
+    // Get project to verify permissions
+    const projectRef = doc(db, "projects", projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      throw new Error("Project not found");
+    }
+    
+    const projectData = projectDoc.data();
+    const isFaculty = projectData.facultyId === user.uid || projectData.mentorId === user.uid;
+    
+    if (!isFaculty) {
+      throw new Error("You don't have permission to unarchive this position");
+    }
+    
+    // Unarchive the position
+    await updateDoc(positionRef, {
+      status: "open",
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error(`Error unarchiving position ${positionId}:`, error);
+    throw error;
+  }
+};
+
 // Get project applications with defensive coding
 export const getProjectApplications = async (projectId: string): Promise<Application[]> => {
   try {
@@ -662,49 +868,6 @@ export const getProjectApplications = async (projectId: string): Promise<Applica
           try {
             if (doc.exists()) {
               const rawData = doc.data();
-              console.log(`Processing application ${doc.id}:`, rawData);
-              
-              // Create a sanitized version with default values for required fields
-              const safeApplication: Application = {
-                id: doc.id,
-                projectId: projectId,
-                positionId: positionId,
-                studentId: rawData.studentId || 'unknown',
-                studentName: rawData.studentName || 'Unknown Student',
-                studentEmail: rawData.studentEmail || 'no-email@example.com',
-                status: rawData.status || 'pending',
-                submittedAt: rawData.submittedAt || new Date(),
-                // Add any other required fields with defaults
-              };
-              
-              // Merge the sanitized data with the raw data
-              applications.push({
-                ...rawData,
-                ...safeApplication
-              } as Application);
-              
-              console.log(`Successfully added application ${doc.id} to results`);
-            }
-          } catch (appErr) {
-            console.error(`Error processing application ${doc.id}:`, appErr);
-          }
-        });
-      } catch (posErr) {
-        console.error(`Error fetching applications for position ${positionId}:`, posErr);
-      }
-    }
-    
-    // If no applications were found through positions, try direct project query as fallback
-    if (applications.length === 0) {
-      try {
-        console.log(`No applications found through positions, trying direct project query for ${projectId}`);
-        const directQuery = query(collection(db, "applications"), where("projectId", "==", projectId));
-        const directSnapshot = await getDocs(directQuery);
-        
-        directSnapshot.docs.forEach(doc => {
-          try {
-            if (doc.exists()) {
-              const rawData = doc.data();
               console.log(`Processing direct application ${doc.id}:`, rawData);
               
               // Create a sanitized version with default values for required fields
@@ -717,6 +880,9 @@ export const getProjectApplications = async (projectId: string): Promise<Applica
                 studentEmail: rawData.studentEmail || 'no-email@example.com',
                 status: rawData.status || 'pending',
                 submittedAt: rawData.submittedAt || new Date(),
+                // Add student info for filtering
+                studentMajor: rawData.studentMajor || rawData.studentInfo?.major || '',
+                studentYear: rawData.studentYear || rawData.studentInfo?.year || '',
               };
               
               applications.push({
@@ -746,7 +912,7 @@ export const getProjectApplications = async (projectId: string): Promise<Applica
 // Update application status
 export const updateApplicationStatus = async (
   applicationId: string, 
-  status: 'pending' | 'rejected' | 'accepted' | 'hired'
+  status: ApplicationStatus
 ): Promise<void> => {
   try {
     const applicationRef = doc(db, "applications", applicationId);
@@ -832,7 +998,8 @@ export const hireApplicant = async (
           name: `${studentData.firstName} ${studentData.lastName}`,
           email: studentData.email,
           role: positionData.title || 'Team Member',
-          joinedDate: serverTimestamp()
+          joinedDate: serverTimestamp(),
+          accessLevel: 'viewer', // Default access level
         }),
         updatedAt: serverTimestamp()
       });
@@ -852,6 +1019,7 @@ export const hireApplicant = async (
         department: studentData.department,
         university: studentData.university,
         projectRole: positionData.title || 'Team Member',
+        accessLevel: 'viewer', // Default access level
         status: 'active',
         joinedDate: new Date().toISOString(),
       };
@@ -921,6 +1089,7 @@ export const getProjectTeamMembers = async (projectId: string): Promise<User[]> 
             department: userData.department,
             university: userData.university,
             projectRole: member.role,
+            accessLevel: member.accessLevel || 'viewer', // Ensure access level is set
             status: 'active',
             joinedDate: formatTimestamp(member.joinedDate),
             notes: userData.notes,
@@ -933,6 +1102,7 @@ export const getProjectTeamMembers = async (projectId: string): Promise<User[]> 
             lastName: member.name?.split(' ').slice(1).join(' ') || '',
             email: member.email || '',
             projectRole: member.role || 'Team Member',
+            accessLevel: member.accessLevel || 'viewer', // Ensure access level is set
             status: 'active',
             joinedDate: formatTimestamp(member.joinedDate),
           });
@@ -946,6 +1116,7 @@ export const getProjectTeamMembers = async (projectId: string): Promise<User[]> 
           lastName: member.name?.split(' ').slice(1).join(' ') || '',
           email: member.email || '',
           projectRole: member.role || 'Team Member',
+          accessLevel: member.accessLevel || 'viewer', // Ensure access level is set
           status: 'active',
           joinedDate: formatTimestamp(member.joinedDate),
         });
@@ -955,6 +1126,91 @@ export const getProjectTeamMembers = async (projectId: string): Promise<User[]> 
     return teamMembersData;
   } catch (error) {
     console.error(`Error getting team members for project ${projectId}:`, error);
+    throw error;
+  }
+};
+
+// Add team member directly
+export const addTeamMember = async (
+  projectId: string, 
+  memberData: Partial<User>
+): Promise<void> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Check if project exists and user has permission
+    const projectRef = doc(db, "projects", projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      throw new Error("Project not found");
+    }
+    
+    const projectData = projectDoc.data();
+    const isFaculty = projectData.facultyId === user.uid || projectData.mentorId === user.uid;
+    
+    if (!isFaculty) {
+      throw new Error("You don't have permission to add team members to this project");
+    }
+    
+    // Check if user with this email exists
+    if (!memberData.email) {
+      throw new Error("Email is required for adding a team member");
+    }
+    
+    // Query users by email
+    const usersQuery = query(collection(db, "users"), where("email", "==", memberData.email));
+    const usersSnapshot = await getDocs(usersQuery);
+    
+    let userId: string;
+    let existingUser = false;
+    
+    if (!usersSnapshot.empty) {
+      // User exists
+      userId = usersSnapshot.docs[0].id;
+      existingUser = true;
+    } else {
+      // Create a new user record with provided data
+      const userRef = await addDoc(collection(db, "users"), {
+        email: memberData.email,
+        firstName: memberData.firstName || '',
+        lastName: memberData.lastName || '',
+        role: 'user', // Default role
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      userId = userRef.id;
+    }
+    
+    // Add to project team members
+    await updateDoc(projectRef, {
+      teamMembers: arrayUnion({
+        id: userId,
+        name: `${memberData.firstName || ''} ${memberData.lastName || ''}`.trim(),
+        email: memberData.email,
+        role: memberData.projectRole || 'Team Member',
+        accessLevel: memberData.accessLevel || 'viewer',
+        joinedDate: serverTimestamp(),
+      }),
+      updatedAt: serverTimestamp()
+    });
+    
+    // If user exists, update their participating projects
+    if (existingUser) {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, {
+        participatingProjects: arrayUnion(projectId),
+        updatedAt: serverTimestamp()
+      });
+    }
+    
+  } catch (error) {
+    console.error(`Error adding team member to project ${projectId}:`, error);
     throw error;
   }
 };
@@ -1076,6 +1332,61 @@ export const updateTeamMemberRole = async (
   }
 };
 
+// Update team member access level
+export const updateTeamMemberAccess = async (
+  projectId: string, 
+  userId: string, 
+  accessLevel: 'owner' | 'admin' | 'editor' | 'viewer'
+): Promise<void> => {
+  try {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    
+    if (!currentUser) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get project
+    const projectRef = doc(db, "projects", projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      throw new Error("Project not found");
+    }
+    
+    // Ensure the current user is the project owner or an admin
+    const projectData = projectDoc.data();
+    const isFaculty = projectData.facultyId === currentUser.uid || projectData.mentorId === currentUser.uid;
+    
+    if (!isFaculty) {
+      throw new Error("You don't have permission to update team member access levels");
+    }
+    
+    // Get teamMembers array
+    const teamMembers = projectData.teamMembers || [];
+    
+    // Find the team member to update
+    const memberIndex = teamMembers.findIndex((member: any) => member.id === userId);
+    
+    if (memberIndex === -1) {
+      throw new Error("Team member not found in project");
+    }
+    
+    // Update the access level
+    teamMembers[memberIndex].accessLevel = accessLevel;
+    
+    // Update project
+    await updateDoc(projectRef, {
+      teamMembers: teamMembers,
+      updatedAt: serverTimestamp()
+    });
+    
+  } catch (error) {
+    console.error(`Error updating access for team member ${userId} in project ${projectId}:`, error);
+    throw error;
+  }
+};
+
 // Get project materials
 export const getProjectMaterials = async (projectId: string): Promise<any[]> => {
   try {
@@ -1178,3 +1489,4 @@ export const deleteProjectMaterial = async (projectId: string, materialId: strin
     throw error;
   }
 };
+              
