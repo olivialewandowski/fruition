@@ -12,17 +12,17 @@ import { Project } from '@/types/project';
 // Heroicons imports
 import { 
   HomeIcon, 
-  DocumentTextIcon, 
   ChevronLeftIcon, 
   ChevronRightIcon,
   Cog6ToothIcon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
   UserGroupIcon,
-  DocumentPlusIcon,
   DocumentDuplicateIcon,
   ChevronDownIcon,
-  PlusCircleIcon
+  PlusCircleIcon,
+  DocumentIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 
 interface NavItemProps {
@@ -140,7 +140,7 @@ const FacultySidebar: React.FC = () => {
     {
       href: `/development/projects/${currentProject.id}`,
       icon: <DocumentTextIcon className="w-5 h-5" />,
-      label: 'Details'
+      label: 'Overview'
     },
     {
       href: `/development/projects/${currentProject.id}/positions`,
@@ -149,7 +149,7 @@ const FacultySidebar: React.FC = () => {
     },
     {
       href: `/development/projects/${currentProject.id}/applications`,
-      icon: <DocumentPlusIcon className="w-5 h-5" />,
+      icon: <DocumentIcon className="w-5 h-5" />,
       label: 'Applications'
     },
     {
@@ -251,7 +251,7 @@ const FacultySidebar: React.FC = () => {
                   className="w-full flex items-center justify-between px-4 py-2 bg-violet-100 hover:bg-violet-200 text-violet-800 rounded-lg transition-colors"
                 >
                   <div className="flex items-center">
-                    <DocumentTextIcon className="w-5 h-5 mr-2" />
+                    <DocumentIcon className="w-5 h-5 mr-2" />
                     <span className="font-medium truncate max-w-[150px]">
                       {currentProject ? currentProject.title : 'Select a Project'}
                     </span>
@@ -267,7 +267,7 @@ const FacultySidebar: React.FC = () => {
                         <li key={project.id}>
                           <button 
                             onClick={() => switchProject(project)}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${currentProject?.id === project.id ? 'bg-violet-50 text-violet-800 font-medium' : 'text-gray-700'}`}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700"
                           >
                             {project.title}
                           </button>
@@ -293,9 +293,14 @@ const FacultySidebar: React.FC = () => {
                 onClick={() => router.push('/development/dashboard')}
                 className="w-10 h-10 flex items-center justify-center rounded-lg bg-violet-100 text-violet-800 hover:bg-violet-200"
               >
-                <DocumentTextIcon className="w-5 h-5" />
+                <DocumentIcon className="w-5 h-5" />
               </button>
             </div>
+          )}
+
+          {/* Divider line between project selection and features */}
+          {currentProject && isInProjectsRoute && (
+            <div className="mx-3 my-2 border-t border-gray-200"></div>
           )}
 
           {/* Project navigation */}
@@ -307,7 +312,7 @@ const FacultySidebar: React.FC = () => {
                   href={item.href}
                   icon={item.icon}
                   label={item.label}
-                  isActive={pathname === item.href || pathname?.startsWith(item.href + '/')}
+                  isActive={pathname === item.href}
                   isCollapsed={isCollapsed}
                   isMobile={isMobileOpen}
                 />
