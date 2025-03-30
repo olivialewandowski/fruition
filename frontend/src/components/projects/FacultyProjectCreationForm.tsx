@@ -20,7 +20,15 @@ interface ProjectFormValues {
   department: string;
 }
 
-const FacultyProjectCreationForm: React.FC = () => {
+interface FacultyProjectCreationFormProps {
+  onProjectCreated?: (projectId: string) => void;
+  isOnboarding?: boolean;
+}
+
+const FacultyProjectCreationForm: React.FC<FacultyProjectCreationFormProps> = ({ 
+  onProjectCreated,
+  isOnboarding = false
+}) => {
   const { userData, user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -138,21 +146,25 @@ const FacultyProjectCreationForm: React.FC = () => {
       
       setSuccessMessage('Project created successfully! Redirecting...');
       
-      // Navigate to the new project page
-      setTimeout(() => {
-        router.push(`/development/projects/${projectId}`);
-      }, 1500);
+      // Call the callback if provided
+      if (onProjectCreated) {
+        onProjectCreated(projectId);
+      } else {
+        // Navigate to the new project page
+        setTimeout(() => {
+          router.push(`/development/projects/${projectId}`);
+        }, 1500);
+      }
       
     } catch (err) {
       console.error('Error creating project:', err);
       setError(err instanceof Error ? err.message : 'Failed to create project');
-    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${isOnboarding ? 'mx-auto' : ''}`}>
       {error && (
         <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200 mb-4">
           <strong>Error:</strong> {error}
@@ -348,13 +360,15 @@ const FacultyProjectCreationForm: React.FC = () => {
         </div>
         
         <div className="flex justify-end space-x-4 pt-4">
-          <button
-            type="button"
-            onClick={() => router.push('/development/dashboard')}
-            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-          >
-            Cancel
-          </button>
+          {!isOnboarding && (
+            <button
+              type="button"
+              onClick={() => router.push('/development/dashboard')}
+              className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             disabled={isLoading}

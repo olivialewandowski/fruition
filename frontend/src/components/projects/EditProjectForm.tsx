@@ -1,51 +1,58 @@
 // src/components/projects/EditProjectForm.tsx
 import React, { useState, useEffect } from 'react';
-import { ProjectWithId, Project } from '@/types/project';
+import { useRouter } from 'next/navigation';
+import { ProjectWithId } from '@/types/project';
 import { updateProject } from '@/services/clientProjectService';
 
 interface EditProjectFormProps {
   project: ProjectWithId;
   onProjectUpdated: (updatedProject: ProjectWithId) => void;
+  onCancel: () => void;
 }
 
-const EditProjectForm: React.FC<EditProjectFormProps> = ({ project, onProjectUpdated }) => {
+const EditProjectForm: React.FC<EditProjectFormProps> = ({
+  project,
+  onProjectUpdated,
+  onCancel
+}) => {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentKeyword, setCurrentKeyword] = useState('');
+  
+  // Form values with proper types
   const [formValues, setFormValues] = useState({
     title: project.title || '',
     description: project.description || '',
     keywords: project.keywords || [],
-    department: project.department || '',
     mentorName: project.mentorName || '',
     mentorEmail: project.mentorEmail || '',
-    mentorTitle: project.mentorTitle || '',
     isPrincipalInvestigator: project.isPrincipalInvestigator !== false,
     principalInvestigatorName: project.principalInvestigatorName || '',
     principalInvestigatorEmail: project.principalInvestigatorEmail || '',
-    status: project.status || 'active',
+    mentorTitle: project.mentorTitle || '',
+    department: project.department || '',
+    university: project.university || '',
   });
-
-  const [currentKeyword, setCurrentKeyword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
-  // Update form when project changes
   useEffect(() => {
+    // Reset form when project changes
     setFormValues({
       title: project.title || '',
       description: project.description || '',
       keywords: project.keywords || [],
-      department: project.department || '',
       mentorName: project.mentorName || '',
       mentorEmail: project.mentorEmail || '',
-      mentorTitle: project.mentorTitle || '',
       isPrincipalInvestigator: project.isPrincipalInvestigator !== false,
       principalInvestigatorName: project.principalInvestigatorName || '',
       principalInvestigatorEmail: project.principalInvestigatorEmail || '',
-      status: project.status || 'active',
+      mentorTitle: project.mentorTitle || '',
+      department: project.department || '',
+      university: project.university || '',
     });
   }, [project]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormValues({ ...formValues, [name]: value });
   };
@@ -76,33 +83,42 @@ const EditProjectForm: React.FC<EditProjectFormProps> = ({ project, onProjectUpd
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setSuccessMessage(null);
     
     try {
-      // Prepare the update data
-      const updateData: Partial<Project> = {
-        ...formValues,
-        // Handle PI fields to use undefined instead of null
-        principalInvestigatorName: formValues.isPrincipalInvestigator ? undefined : formValues.principalInvestigatorName,
-        principalInvestigatorEmail: formValues.isPrincipalInvestigator ? undefined : formValues.principalInvestigatorEmail,
+      // Prepare data for update
+      const updateData = {
+        title: formValues.title,
+        description: formValues.description,
+        keywords: formValues.keywords,
+        mentorName: formValues.mentorName,
+        mentorEmail: formValues.mentorEmail,
+        isPrincipalInvestigator: formValues.isPrincipalInvestigator,
+        mentorTitle: formValues.mentorTitle,
+        department: formValues.department,
+        university: formValues.university,
       };
       
-      // Update project in database
-      const updatedProject = await updateProject(project.id, updateData);
+      // Only include PI fields if user is not the PI
+      if (!formValues.isPrincipalInvestigator) {
+        (updateData as any).principalInvestigatorName = formValues.principalInvestigatorName;
+        (updateData as any).principalInvestigatorEmail = formValues.principalInvestigatorEmail;
+      }
       
-      // Update parent component state
-      onProjectUpdated({ ...project, ...updatedProject });
+      // Update the project
+      await updateProject(project.id, updateData);
       
-      setSuccessMessage('Project updated successfully!');
+      // Construct the updated project for local state update
+      const updatedProject: ProjectWithId = {
+        ...project,
+        ...updateData,
+      };
       
-      // Clear success message after a delay
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
+      // Notify parent of the update
+      onProjectUpdated(updatedProject);
       
     } catch (err) {
       console.error('Error updating project:', err);
-      setError('Failed to update project. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to update project');
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +126,7 @@ const EditProjectForm: React.FC<EditProjectFormProps> = ({ project, onProjectUpd
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Project Details</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-6">Edit Project Details</h2>
       
       {error && (
         <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200 mb-4">
@@ -118,16 +134,10 @@ const EditProjectForm: React.FC<EditProjectFormProps> = ({ project, onProjectUpd
         </div>
       )}
       
-      {successMessage && (
-        <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md border border-green-200 mb-4">
-          <strong>Success:</strong> {successMessage}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-8">
         {/* Project Details */}
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-gray-800">Project Details</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Project Details</h3>
           
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700">Project Title</label>
@@ -165,6 +175,19 @@ const EditProjectForm: React.FC<EditProjectFormProps> = ({ project, onProjectUpd
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
               placeholder="e.g., Computer Science, Biology"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="university" className="block text-sm font-medium text-gray-700">University</label>
+            <input
+              type="text"
+              id="university"
+              name="university"
+              value={formValues.university}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+              placeholder="e.g., New York University"
             />
           </div>
           
@@ -215,7 +238,7 @@ const EditProjectForm: React.FC<EditProjectFormProps> = ({ project, onProjectUpd
         
         {/* Contact Information */}
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-gray-800">Contact Information</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Contact Information</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -306,7 +329,14 @@ const EditProjectForm: React.FC<EditProjectFormProps> = ({ project, onProjectUpd
           )}
         </div>
         
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-end space-x-4 pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+          >
+            Cancel
+          </button>
           <button
             type="submit"
             disabled={isLoading}

@@ -8,8 +8,8 @@ import {
   Auth
 } from 'firebase/auth';
 import { auth, db } from '@/config/firebase';
-import { doc, getDoc, serverTimestamp, Timestamp, FieldValue } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
+import { doc, getDoc, serverTimestamp, Timestamp, FieldValue, collection, query, where, getDocs } from 'firebase/firestore';
+import { useRouter, usePathname } from 'next/navigation';
 import { DEFAULT_ROLE_PERMISSIONS, PermissionId, FEATURES } from '@/permissions';
 
 // Update the UserData interface to use a specific set of roles
@@ -61,6 +61,7 @@ interface AuthContextType {
   hasFeature: (featureId: string) => boolean;
   permissions: string[];
   refreshUserData: () => Promise<void>; // Added refreshUserData method
+  checkUserHasProjects: (userId: string) => Promise<boolean>; // Added method to check for projects
 }
 
 // Provide default implementations for the context methods
@@ -79,6 +80,7 @@ const defaultContextValue: AuthContextType = {
   hasFeature: () => false,
   permissions: [],
   refreshUserData: async () => {}, // Default implementation
+  checkUserHasProjects: async () => false, // Default implementation
 };
 
 const AuthContext = createContext<AuthContextType>(defaultContextValue);
@@ -89,6 +91,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState<string[]>([]);
   const router = useRouter();
+  const pathname = usePathname();
+  
+  // Function to check if a user has any projects
+  const checkUserHasProjects = async (userId: string): Promise<boolean> => {
+    try {
+      console.log(`Checking if user ${userId} has any projects`);
+      
+      // Get the user document to find projects
+      const userRef = doc(db, "users", userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        console.log('User document not found');
+        return false;
+      }
+      
+      const userData = userDoc.data();
+      
+      // Check if user has any active projects
+      if (userData.activeProjects && Array.isArray(userData.activeProjects) && userData.activeProjects.length > 0) {
+        return true;
+      }
+      
+      // Check if user is a mentor on any projects
+      const mentorProjectsQuery = query(
+        collection(db, "projects"), 
+        where("mentorId", "==", userId)
+      );
+      
+      const mentorProjectsSnapshot = await getDocs(mentorProjectsQuery);
+      return !mentorProjectsSnapshot.empty;
+      
+    } catch (error) {
+      console.error('Error checking for user projects:', error);
+      return false; // Assume no projects in case of error
+    }
+  };
   
   // Function to fetch user data from Firestore
   const fetchUserData = async (userId: string) => {
@@ -204,6 +243,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Function to handle faculty redirection
+  const handleFacultyRedirection = async (userData: UserData, userId: string) => {
+    try {
+      // Only process redirection for faculty users
+      if (userData.role !== 'faculty') return;
+      
+      // Skip redirection if already on appropriate pages
+      if (pathname?.includes('/faculty-onboarding') || 
+          pathname?.includes('/projects/') ||
+          pathname?.includes('/login') ||
+          pathname?.includes('/signup') ||
+          pathname?.includes('/complete-profile')) {
+        return;
+      }
+      
+      // Check if faculty user has any projects
+      const hasProjects = await checkUserHasProjects(userId);
+      console.log(`Faculty user ${userId} has projects: ${hasProjects}`);
+      
+      // If faculty has no projects, redirect to onboarding page
+      if (!hasProjects) {
+        console.log('Redirecting faculty to onboarding page');
+        router.push('/development/faculty-onboarding');
+      } else if (pathname === '/development/dashboard') {
+        // If on dashboard, redirect to active projects
+        const projectsQuery = query(
+          collection(db, "projects"), 
+          where("facultyId", "==", userId),
+          where("status", "==", "active")
+        );
+        
+        const projectsSnapshot = await getDocs(projectsQuery);
+        
+        if (!projectsSnapshot.empty) {
+          const firstProject = projectsSnapshot.docs[0];
+          console.log(`Redirecting faculty to first project: ${firstProject.id}`);
+          router.push(`/development/projects/${firstProject.id}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in faculty redirection:', error);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
       console.log('Auth state changed. User:', user?.email);
@@ -246,6 +329,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Setting default userData after retries:', defaultUserData);
           setUserData(defaultUserData);
           setPermissions([]);
+        } else if (userData) {
+          // Handle faculty redirection if needed
+          await handleFacultyRedirection(userData, user.uid);
         }
       } else {
         setUserData(null);
@@ -256,7 +342,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return unsubscribe;
-  }, []);
+  }, [pathname]);
+
+  // Effect for handling faculty redirection when userData changes
+  useEffect(() => {
+    const redirectFacultyIfNeeded = async () => {
+      if (userData && user && !loading) {
+        await handleFacultyRedirection(userData, user.uid);
+      }
+    };
+    
+    redirectFacultyIfNeeded();
+  }, [userData, user, loading, pathname]);
 
   // Implement signOut method
   const handleSignOut = async () => {
@@ -291,7 +388,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasPermission, 
       hasFeature,
       permissions,
-      refreshUserData
+      refreshUserData,
+      checkUserHasProjects
     }}>
       {children}
     </AuthContext.Provider>
