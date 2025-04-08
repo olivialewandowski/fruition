@@ -52,16 +52,22 @@ export const createClientProject = async (
       const userRef = doc(db, "users", user.uid);
       const userDoc = await transaction.get(userRef);
       
-      // Prepare user data if needed
-      if (!userDoc.exists() || !userDoc.data()?.role) {
-        transaction.update(userRef, {
-          role: "faculty", // Default role for project creation
-          updatedAt: serverTimestamp()
-        });
-        console.log("Updated user with faculty role (transaction)");
-      }
+      // Get user data to include in team members
+      const userData = userDoc.exists() ? userDoc.data() : {};
       
-      // Create the project with required fields
+      // Create the default team member entry for the creator
+      const creatorTeamMember = {
+        id: user.uid,
+        name: userData.firstName && userData.lastName 
+          ? `${userData.firstName} ${userData.lastName}` 
+          : user.displayName || user.email || 'Project Creator',
+        email: user.email || userData.email || '',
+        role: 'Project Owner',
+        accessLevel: 'admin', // Give admin access by default to creator
+        joinedDate: new Date().toISOString(), // Use a regular date string instead
+      };
+      
+      // Create the project with required fields and team member
       const projectWithUser = {
         ...projectData,
         mentorId: user.uid,
@@ -70,7 +76,7 @@ export const createClientProject = async (
         updatedAt: serverTimestamp(),
         status: projectData.status || "active",
         isActive: projectData.status === "active" ? true : false,
-        teamMembers: projectData.teamMembers || [],
+        teamMembers: [creatorTeamMember], // Always include creator in team
       };
       
       // Create the project document
@@ -98,28 +104,41 @@ export const createClientProject = async (
       if (userDoc.exists()) {
         const userData = userDoc.data();
         let activeProjects = userData.activeProjects || [];
+        let participatingProjects = userData.participatingProjects || [];
         
-        // Make sure activeProjects is an array
+        // Make sure arrays are an array
         if (!Array.isArray(activeProjects)) {
           activeProjects = [];
+        }
+        
+        if (!Array.isArray(participatingProjects)) {
+          participatingProjects = [];
         }
         
         // Add the new project to the active projects array if not already there
         if (!activeProjects.includes(projectId)) {
           activeProjects.push(projectId);
-          transaction.update(userRef, {
-            activeProjects: activeProjects,
-            updatedAt: serverTimestamp()
-          });
         }
+        
+        // Add to participating projects as well
+        if (!participatingProjects.includes(projectId)) {
+          participatingProjects.push(projectId);
+        }
+        
+        transaction.update(userRef, {
+          activeProjects: activeProjects,
+          participatingProjects: participatingProjects,
+          updatedAt: serverTimestamp()
+        });
       } else {
         // If the user document doesn't exist yet, create it with this project
         transaction.set(userRef, {
           uid: user.uid,
           email: user.email,
           activeProjects: [projectId],
+          participatingProjects: [projectId],
           archivedProjects: [],
-          role: "faculty",
+          role: "faculty",  // Default role if not set
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
@@ -130,7 +149,7 @@ export const createClientProject = async (
     });
   } catch (error) {
     console.error("Error creating project from client:", error);
-    throw new Error(`Failed to create project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw error;
   }
 };
 
@@ -245,7 +264,8 @@ export const createClientProjectBatched = async (
   }
 };
 
-// Get project by ID
+// Function to get a project by ID with improved error handling and proper type definitions
+// Function to get a project by ID with improved error handling and proper type definitions
 export const getProjectById = async (projectId: string): Promise<ProjectWithId | null> => {
   try {
     console.log(`Fetching project with ID: ${projectId}`);
@@ -255,26 +275,63 @@ export const getProjectById = async (projectId: string): Promise<ProjectWithId |
       return null;
     }
     
+    // Remove the user authentication check that's causing the error
+    // Instead, just proceed with fetching the project
+    
+    // Get the project document
     const projectRef = doc(db, "projects", projectId);
     const projectDoc = await getDoc(projectRef);
     
     if (!projectDoc.exists()) {
-      console.log(`Project ${projectId} not found in Firestore`);
+      console.error('Project not found:', projectId);
       return null;
     }
     
-    const projectData = projectDoc.data();
-    console.log(`Successfully retrieved project: ${projectId}`);
+    // Log the raw data for debugging
+    console.log('Raw project data:', projectDoc.data());
     
-    // Use the utility function to ensure all required fields are present
-    return convertToProjectWithId({
-      ...projectData,
-      id: projectDoc.id
-    });
+    // Create project with ID and ensure all required fields have values
+    const projectData = projectDoc.data();
+    
+    // First, create a base project with all required fields
+    const project: ProjectWithId = {
+      id: projectDoc.id,
+      title: projectData.title || '',
+      description: projectData.description || '',
+      department: projectData.department || '',
+      university: projectData.university || '',
+      mentorName: projectData.mentorName || '',
+      mentorEmail: projectData.mentorEmail || '',
+      mentorTitle: projectData.mentorTitle || '',
+      mentorId: projectData.mentorId || '',
+      facultyId: projectData.facultyId || '',
+      status: projectData.status || 'active',
+      isActive: projectData.isActive !== undefined ? projectData.isActive : true,
+      teamMembers: projectData.teamMembers || [],
+      keywords: projectData.keywords || [],
+      createdAt: projectData.createdAt || null,
+      updatedAt: projectData.updatedAt || null,
+      isPrincipalInvestigator: projectData.isPrincipalInvestigator !== undefined 
+        ? projectData.isPrincipalInvestigator 
+        : true,
+    };
+    
+    // Then add optional fields if they exist in the data
+    if (projectData.principalInvestigatorName) {
+      (project as any).principalInvestigatorName = projectData.principalInvestigatorName;
+    }
+    
+    if (projectData.principalInvestigatorEmail) {
+      (project as any).principalInvestigatorEmail = projectData.principalInvestigatorEmail;
+    }
+    
+    console.log('Returning project:', project);
+    return project;
   } catch (error) {
-    console.error(`Error getting project ${projectId}:`, error);
-    console.error(`Error details:`, error instanceof Error ? error.message : 'Unknown error');
-    return null; // Return null instead of throwing
+    console.error(`Error fetching project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    // Return null instead of throwing to avoid crashing the UI
+    return null;
   }
 };
 

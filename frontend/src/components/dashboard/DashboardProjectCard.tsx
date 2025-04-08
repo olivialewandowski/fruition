@@ -1,3 +1,4 @@
+// src/components/dashboard/DashboardProjectCard.tsx
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,9 +32,10 @@ const DashboardProjectCard: React.FC<ProjectCardProps> = ({
   const formattedDate = createdAt ? new Date(createdAt.seconds * 1000).toLocaleDateString() : 'Unknown date';
   
   const handleClick = () => {
-    if (id) {
-      router.push(`/development/projects/${id}`);
-    }
+    if (!id) return;
+    
+    // All roles use the same URL pattern now
+    router.push(`/development/projects/${id}`);
   };
 
   // Get a shortened version of the description for display

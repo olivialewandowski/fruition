@@ -1,5 +1,6 @@
 import React, { ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
+import FacultySidebar from '@/components/layout/FacultySidebar';
 import TopNavigation from '@/components/layout/TopNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -13,7 +14,7 @@ interface UserData {
   firstName: string;
   lastName: string;
   role: 'student' | 'faculty' | 'admin' | 'user';
-  university?: string; // Changed from institution to university
+  university?: string;
   createdAt?: string;
   profileCompleted?: boolean;
 }
@@ -130,18 +131,27 @@ export default function BaseLayout({
   // Determine if we're on the connect page
   const isConnectPage = pathname?.includes('/connect');
   
+  // Determine if we're on a project page
+  const isProjectPage = pathname?.includes('/projects/');
+  
+  // Determine which sidebar to show based on user role
+  // Only faculty will use FacultySidebar, students and admins use regular Sidebar
+  const useFacultySidebar = userData?.role === 'faculty' && !isConnectPage;
+  
   // Set default title based on the current page
   useEffect(() => {
     if (!title) {
       if (isConnectPage) {
         setPageTitle('Connect');
+      } else if (isProjectPage) {
+        setPageTitle('Project Details');
       } else {
         setPageTitle('Dashboard');
       }
     } else {
       setPageTitle(title);
     }
-  }, [title, isConnectPage]);
+  }, [title, isConnectPage, isProjectPage]);
   
   // Create default tabs based on the current page and user role
   useEffect(() => {
@@ -157,6 +167,18 @@ export default function BaseLayout({
         // Set default active tab
         if (!activeTab) {
           setInternalActiveTab('discover');
+        }
+      } else if (isProjectPage && (userData?.role === 'student' || userData?.role === 'admin')) {
+        // If on a project page for student or admin, set tabs for project details
+        setDefaultTabs([
+          { id: 'overview', label: 'Overview' },
+          { id: 'materials', label: 'Onboarding Materials' },
+          { id: 'team', label: 'Team' }
+        ]);
+        
+        // Set default active tab
+        if (!activeTab) {
+          setInternalActiveTab('overview');
         }
       } else {
         // Dashboard tabs differ based on user role
@@ -179,7 +201,7 @@ export default function BaseLayout({
         }
       }
     }
-  }, [tabs, userData?.role, isConnectPage, activeTab]);
+  }, [tabs, userData?.role, isConnectPage, isProjectPage, activeTab]);
   
   // Authentication check
   useEffect(() => {
@@ -248,7 +270,7 @@ export default function BaseLayout({
     );
   }
   
-  // Check if the user has permission to access the current page
+  // Check if the user has permission to access the connect page
   if (isConnectPage && userData?.role !== 'student' && !loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -271,7 +293,7 @@ export default function BaseLayout({
   return (
     <div className="flex h-screen bg-gray-50">
       <div className="p-4">
-        <Sidebar />
+        {useFacultySidebar ? <FacultySidebar /> : <Sidebar />}
       </div>
       <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-2xl my-4 mr-4">
         <TopNavigation 

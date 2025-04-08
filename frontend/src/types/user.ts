@@ -78,6 +78,9 @@ export interface User {
   
   // Profile completion
   profileCompleted?: boolean;
+
+  // UI-specific flags (not stored in database)
+  isAccessRestricted?: boolean;
 }
 
 // No need for UserWithId since id is already required in User interface

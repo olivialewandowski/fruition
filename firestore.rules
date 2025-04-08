@@ -24,141 +24,80 @@ service cloud.firestore {
       return isUserRole('student');
     }
     
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isProjectCreator(projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+      return isSignedIn() && (project.facultyId == request.auth.uid || project.mentorId == request.auth.uid);
     }
     
-    // PUBLIC COLLECTIONS FOR LANDING PAGE 
-    // Allow full access to waitlistprojects collection WITHOUT authentication
+    // PUBLIC COLLECTIONS - no authentication required
     match /waitlistprojects/{projectId} {
       allow read, write: if true;
     }
     
-    // Allow full access to waitlist collection WITHOUT authentication
     match /waitlist/{docId} {
       allow read, write: if true;
     }
     
-    // Rest of your rules...
-    function isProjectMentor(projectId) {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/projects/$(projectId)) &&
-        get(/databases/$(database)/documents/projects/$(projectId)).data.mentorId == request.auth.uid;
-    }
-    
-    // Users collection
+    // Users collection - for authentication
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
     
-    // UserData collection
-    match /userData/{userId} {
-      allow read: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && (isOwner(userId) || isAdmin());
+    // Projects collection - with simplified access
+    match /projects/{projectId} {
+      // Anyone can read project data
+      allow read: if true;
       
-      // Explicitly allow access to specific fields for the owner
-      match /actionHistory {
-        allow read, write: if isSignedIn() && isOwner(userId);
-      }
+      // Any authenticated user can create a project
+      allow create: if isSignedIn();
       
-      match /savedProjects {
-        allow read, write: if isSignedIn() && isOwner(userId);
-      }
+      // Update requires being the creator or admin
+      allow update: if isSignedIn() && (isProjectCreator(projectId) || isAdmin());
       
-      match /appliedProjects {
-        allow read, write: if isSignedIn() && isOwner(userId);
-      }
-      
-      match /declinedProjects {
-        allow read, write: if isSignedIn() && isOwner(userId);
-      }
+      // Delete requires creator or admin access
+      allow delete: if isSignedIn() && (isProjectCreator(projectId) || isAdmin());
     }
     
-    // Projects collection
-    match /projects/{projectId} {
-      allow read: if true; // Anyone can read project data
-      allow create: if isSignedIn(); // Any authenticated user can create projects
-      allow update: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
-      allow delete: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
+    // Materials collection
+    match /materials/{materialId} {
+      // Anyone can view materials 
+      allow read: if true;
       
-      // Allow access to positions subcollection
-      match /positions/{positionId} {
-        allow read: if true;
-        allow create: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
-        allow update: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
-        allow delete: if isSignedIn() && (isProjectMentor(projectId) || isAdmin());
-        
-        // Allow access to applications subcollection
-        match /applications/{applicationId} {
-          allow read: if isSignedIn() && (
-            resource.data.studentId == request.auth.uid || 
-            isProjectMentor(projectId) || 
-            isAdmin()
-          );
-          allow create: if isSignedIn();
-          allow update: if isSignedIn() && (
-            resource.data.studentId == request.auth.uid || 
-            isProjectMentor(projectId) || 
-            isAdmin()
-          );
-          allow delete: if isSignedIn() && (
-            isProjectMentor(projectId) || 
-            isAdmin()
-          );
-        }
-      }
+      // Create/update/delete require authentication
+      allow create, update, delete: if isSignedIn();
     }
     
     // Positions collection
     match /positions/{positionId} {
+      // Anyone can view positions
       allow read: if true;
-      allow create: if isSignedIn(); // Any authenticated user can create positions
-      allow update: if isSignedIn() && (
-        resource.data.projectId == null || 
-        isProjectMentor(resource.data.projectId) || 
-        isAdmin()
-      );
-      allow delete: if isSignedIn() && (
-        resource.data.projectId == null || 
-        isProjectMentor(resource.data.projectId) || 
-        isAdmin()
-      );
+      
+      // Create/update/delete require authentication
+      allow create, update, delete: if isSignedIn();
     }
     
     // Applications collection
     match /applications/{applicationId} {
-      allow read: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid || 
-        isProjectMentor(resource.data.projectId) || 
-        isAdmin()
-      );
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid || 
-        isProjectMentor(resource.data.projectId) || 
-        isAdmin()
-      );
-      allow delete: if isSignedIn() && (
-        isProjectMentor(resource.data.projectId) || 
-        isAdmin()
-      );
+      // Read requires authentication
+      allow read: if isSignedIn();
+      
+      // Create/update/delete require authentication
+      allow create, update, delete: if isSignedIn();
     }
     
     // Notifications collection
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if isAdmin();
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
     
-    // System stats - admin only
-    match /system/{document=**} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    // TEMPORARY DEVELOPMENT ACCESS
+    match /{document=**} {
+      allow read, write: if isSignedIn();
     }
   }
 }

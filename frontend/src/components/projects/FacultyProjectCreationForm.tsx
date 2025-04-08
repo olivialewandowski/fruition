@@ -23,13 +23,15 @@ interface ProjectFormValues {
 interface FacultyProjectCreationFormProps {
   onProjectCreated?: (projectId: string) => void;
   isOnboarding?: boolean;
+  initialEmail?: string; // Add this prop to accept email
 }
 
 const FacultyProjectCreationForm: React.FC<FacultyProjectCreationFormProps> = ({ 
   onProjectCreated,
-  isOnboarding = false
+  isOnboarding = false,
+  initialEmail = '' // Default to empty string
 }) => {
-  const { userData, user } = useAuth();
+  const { userData, user, refreshUserData } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ const FacultyProjectCreationForm: React.FC<FacultyProjectCreationFormProps> = ({
     mentorName: userData && userData.firstName && userData.lastName 
       ? `${userData.firstName} ${userData.lastName}` 
       : '',
-    mentorEmail: userData && userData.email ? userData.email : '',
+    mentorEmail: initialEmail || (userData && userData.email ? userData.email : ''), // Prioritize initialEmail
     isPrincipalInvestigator: true,
     principalInvestigatorName: '',
     principalInvestigatorEmail: '',
@@ -52,19 +54,29 @@ const FacultyProjectCreationForm: React.FC<FacultyProjectCreationFormProps> = ({
     department: userData?.department || '',
   });
   
-  // Populate form data whenever userData changes
+  // Populate form data whenever userData changes or initialEmail is provided
   useEffect(() => {
+    // First, handle the case where initialEmail is provided directly
+    if (initialEmail) {
+      setFormValues(prev => ({
+        ...prev,
+        mentorEmail: initialEmail // Use the direct email from props
+      }));
+    }
+    
+    // Then, if userData is available, update other fields
     if (userData) {
       setFormValues(prev => ({
         ...prev,
         mentorName: userData.firstName && userData.lastName 
           ? `${userData.firstName} ${userData.lastName}` 
           : prev.mentorName,
-        mentorEmail: userData.email || prev.mentorEmail,
+        // Only update email if initialEmail wasn't provided
+        mentorEmail: initialEmail || userData.email || prev.mentorEmail,
         department: userData.department || prev.department,
       }));
     }
-  }, [userData]);
+  }, [userData, initialEmail]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -127,7 +139,6 @@ const FacultyProjectCreationForm: React.FC<FacultyProjectCreationFormProps> = ({
         status: "active" as "active",
         isActive: true,
         applicationCount: 0,
-        teamMembers: [],
       };
       
       // Only add PI fields if user is not the PI and values are provided
@@ -144,7 +155,13 @@ const FacultyProjectCreationForm: React.FC<FacultyProjectCreationFormProps> = ({
       // Create the project
       const projectId = await createClientProject(projectData);
       
+      // Refresh user data to include new project
+      await refreshUserData();
+      
       setSuccessMessage('Project created successfully! Redirecting...');
+      
+      // Introduce a delay to allow database updates to propagate
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Call the callback if provided
       if (onProjectCreated) {
@@ -152,7 +169,7 @@ const FacultyProjectCreationForm: React.FC<FacultyProjectCreationFormProps> = ({
       } else {
         // Navigate to the new project page
         setTimeout(() => {
-          router.push(`/development/projects/${projectId}`);
+          router.push(`/development/management/${projectId}`);
         }, 1500);
       }
       

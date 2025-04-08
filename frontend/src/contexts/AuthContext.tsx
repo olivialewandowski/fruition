@@ -243,49 +243,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Function to handle faculty redirection
-  const handleFacultyRedirection = async (userData: UserData, userId: string) => {
-    try {
-      // Only process redirection for faculty users
-      if (userData.role !== 'faculty') return;
-      
-      // Skip redirection if already on appropriate pages
-      if (pathname?.includes('/faculty-onboarding') || 
-          pathname?.includes('/projects/') ||
-          pathname?.includes('/login') ||
-          pathname?.includes('/signup') ||
-          pathname?.includes('/complete-profile')) {
-        return;
-      }
-      
-      // Check if faculty user has any projects
+ // New routing logic function to direct users to the appropriate interface
+ const handleUserRouting = async (userData: UserData, userId: string) => {
+  // Skip routing for these paths
+  if (pathname?.includes('/development/login') || 
+      pathname?.includes('/development/signup') || 
+      pathname?.includes('/development/complete-profile') ||
+      pathname?.includes('/development/projects/create') || // Add exception for project creation
+      pathname?.includes('/development/profile')) { // Add exception for profile page
+    return;
+  }
+  
+  try {
+    console.log(`Handling routing for ${userData.role} user: ${userId}`);
+    
+    // Faculty routing
+    if (userData.role === 'faculty') {
       const hasProjects = await checkUserHasProjects(userId);
-      console.log(`Faculty user ${userId} has projects: ${hasProjects}`);
       
-      // If faculty has no projects, redirect to onboarding page
+      // Faculty with no projects - send to faculty onboarding
       if (!hasProjects) {
-        console.log('Redirecting faculty to onboarding page');
-        router.push('/development/faculty-onboarding');
-      } else if (pathname === '/development/dashboard') {
-        // If on dashboard, redirect to active projects
-        const projectsQuery = query(
-          collection(db, "projects"), 
-          where("facultyId", "==", userId),
-          where("status", "==", "active")
-        );
-        
-        const projectsSnapshot = await getDocs(projectsQuery);
-        
-        if (!projectsSnapshot.empty) {
-          const firstProject = projectsSnapshot.docs[0];
-          console.log(`Redirecting faculty to first project: ${firstProject.id}`);
-          router.push(`/development/projects/${firstProject.id}`);
+        if (!pathname?.includes('/development/faculty-onboarding')) {
+          console.log('Faculty with no projects - redirecting to onboarding');
+          router.push('/development/faculty-onboarding');
+        }
+      } 
+      // Faculty with projects - send to management interface
+      else {
+        // Only redirect if they're not already in the management or faculty-onboarding interfaces
+        // AND not on project creation or profile pages
+        if (!pathname?.includes('/development/management/') && 
+            !pathname?.includes('/development/faculty-onboarding') && 
+            !pathname?.includes('/development/projects/create') && 
+            !pathname?.includes('/development/profile') &&
+            pathname !== '/development/dashboard') {
+          
+          // Get the user's first active project
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.activeProjects && userData.activeProjects.length > 0) {
+              console.log(`Faculty with projects - redirecting to management for project ${userData.activeProjects[0]}`);
+              router.push(`/development/management/${userData.activeProjects[0]}`);
+              return;
+            }
+          }
+          
+          // Fallback: query for projects directly
+          const projectsQuery = query(
+            collection(db, "projects"),
+            where("facultyId", "==", userId),
+            where("status", "==", "active")
+          );
+          
+          const projectsSnapshot = await getDocs(projectsQuery);
+          if (!projectsSnapshot.empty) {
+            const firstProject = projectsSnapshot.docs[0];
+            console.log(`Faculty with projects (fallback) - redirecting to management for project ${firstProject.id}`);
+            router.push(`/development/management/${firstProject.id}`);
+          } else {
+            // If no projects found (unlikely at this point), go to dashboard
+            router.push('/development/dashboard');
+          }
         }
       }
-    } catch (error) {
-      console.error('Error in faculty redirection:', error);
+    } 
+    // Student or admin routing
+    else if (userData.role === 'student' || userData.role === 'admin') {
+      // If they're on the root path, redirect to dashboard
+      if (pathname === '/' || pathname === '/development') {
+        console.log(`${userData.role} user - redirecting to dashboard`);
+        router.push('/development/dashboard');
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error in handleUserRouting:', error);
+  }
+};
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
@@ -320,7 +354,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             lastName: '',
             role: 'student', // Default to student instead of 'user' for better permissions
             university: 'New York University', // Default university
-            profileCompleted: false, // Keep this from the main branch
+            profileCompleted: false,
             createdAt: serverTimestamp(),
             lastActive: serverTimestamp(),
             activeProjects: [],
@@ -329,9 +363,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Setting default userData after retries:', defaultUserData);
           setUserData(defaultUserData);
           setPermissions([]);
-        } else if (userData) {
-          // Handle faculty redirection if needed
-          await handleFacultyRedirection(userData, user.uid);
         }
       } else {
         setUserData(null);
@@ -342,17 +373,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return unsubscribe;
-  }, [pathname]);
+  }, []);
 
-  // Effect for handling faculty redirection when userData changes
+  // Effect for handling user routing when userData changes or page loads
   useEffect(() => {
-    const redirectFacultyIfNeeded = async () => {
-      if (userData && user && !loading) {
-        await handleFacultyRedirection(userData, user.uid);
-      }
-    };
-    
-    redirectFacultyIfNeeded();
+    if (userData && user && !loading) {
+      handleUserRouting(userData, user.uid);
+    }
   }, [userData, user, loading, pathname]);
 
   // Implement signOut method
@@ -362,6 +389,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.push('/development/login');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  // Function to handle faculty redirection
+  const handleFacultyRedirection = async (userData: UserData, userId: string) => {
+    try {
+      // Only process redirection for faculty users
+      if (userData.role !== 'faculty') return;
+      
+      // Skip redirection if already on appropriate pages
+      if (pathname?.includes('/development/faculty-onboarding') || 
+          pathname?.includes('/development/projects/') ||
+          pathname?.includes('/development/login') ||
+          pathname?.includes('/development/signup') ||
+          pathname?.includes('/development/complete-profile')) {
+        return;
+      }
+      
+      console.log('Faculty user detected, checking for projects...');
+      
+      // Check if faculty user has any projects
+      const hasProjects = await checkUserHasProjects(userId);
+      console.log(`Faculty user ${userId} has projects: ${hasProjects}`);
+      
+      // If faculty has no projects, redirect to onboarding page
+      if (!hasProjects) {
+        console.log('Redirecting faculty to onboarding page');
+        router.push('/development/faculty-onboarding');
+      } else if (pathname === '/development/dashboard') {
+        // If on dashboard, redirect to active projects
+        const projectsQuery = query(
+          collection(db, "projects"), 
+          where("facultyId", "==", userId),
+          where("status", "==", "active")
+        );
+        
+        const projectsSnapshot = await getDocs(projectsQuery);
+        
+        if (!projectsSnapshot.empty) {
+          const firstProject = projectsSnapshot.docs[0];
+          console.log(`Redirecting faculty to first project: ${firstProject.id}`);
+          router.push(`/development/management/${firstProject.id}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in faculty redirection:', error);
     }
   };
 
@@ -395,5 +468,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     </AuthContext.Provider>
   );
 }
+
 
 export const useAuth = () => useContext(AuthContext);

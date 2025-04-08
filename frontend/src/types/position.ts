@@ -4,13 +4,19 @@ import { TimestampValue } from "./project";
 // Extended status type to include archived state
 export type PositionStatus = "open" | "closed" | "filled" | "archived" | "active";
 
+// Application status types
+export type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn" | "closed" | "cancelled" | "declined" | "deleted";
+
 export interface Position {
   id: string; // Made required to match our components
   projectId: string;
   title: string; // Made required since it's used for display
   description?: string; // Added for completeness
   qualifications?: string;
+  requirements?: string; // Added for UI display
   responsibilities?: string; // Added for completeness
+  timeCommitment?: string; // Added for UI display
+  duration?: string; // Added for UI display
   startDate?: TimestampValue;
   endDate?: TimestampValue;
   hoursPerWeek?: number;
@@ -41,6 +47,10 @@ export interface Position {
     statementPrompt?: string;
     requiredDocuments?: string[];
   };
+
+  // Student-specific fields (added when fetching for student view)
+  applicationStatus?: ApplicationStatus;
+  applicationId?: string;
 }
 
 export interface PositionWithId extends Position {
@@ -60,4 +70,5 @@ export interface OnboardingMaterial {
   uploadedAt: TimestampValue;
   uploadedBy: string;
   uploadedById?: string; // Added for permissions
+  isAccessRestricted?: boolean; // Flag for restricted access
 }

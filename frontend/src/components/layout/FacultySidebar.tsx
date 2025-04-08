@@ -26,34 +26,69 @@ import {
 } from '@heroicons/react/24/outline';
 
 interface NavItemProps {
-  href: string;
+  href?: string;
   icon: React.ReactNode;
   label: string;
   isActive: boolean;
   isCollapsed: boolean;
   isMobile: boolean;
+  onClick?: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ href, icon, label, isActive, isCollapsed, isMobile }) => {
-  return (
-    <Link href={href} className="w-full">
-      <div className={`
-        flex items-center px-4 py-3 rounded-lg transition-all duration-200
-        ${isActive ? 'bg-gray-100 text-violet-700' : 'hover:bg-gray-50 text-gray-700'}
-        ${isCollapsed && !isMobile ? 'justify-center' : 'gap-3'}
-      `}>
-        <div className="w-6 h-6 min-w-[1.5rem] flex items-center justify-center">
-          {icon}
-        </div>
-        {(!isCollapsed || isMobile) && (
-          <span className={`font-medium ${isActive ? 'font-semibold' : ''}`}>{label}</span>
-        )}
+interface FacultySidebarProps {
+  projectId?: string;
+  activeFeature?: 'overview' | 'positions' | 'applications' | 'team';
+  onFeatureSelect?: (feature: 'overview' | 'positions' | 'applications' | 'team') => void;
+}
+
+const NavItem: React.FC<NavItemProps> = ({ href, icon, label, isActive, isCollapsed, isMobile, onClick }) => {
+  // Common style classes for both Link and button
+  const commonClasses = `
+    flex items-center px-4 py-3 rounded-lg transition-all duration-200
+    ${isActive ? 'bg-gray-100 text-violet-700' : 'hover:bg-gray-50 text-gray-700'}
+    ${isCollapsed && !isMobile ? 'justify-center' : 'gap-3'}
+  `;
+
+  // Content to be rendered inside both Link and button
+  const content = (
+    <>
+      <div className="w-6 h-6 min-w-[1.5rem] flex items-center justify-center">
+        {icon}
       </div>
-    </Link>
+      {(!isCollapsed || isMobile) && (
+        <span className={`font-medium ${isActive ? 'font-semibold' : ''}`}>{label}</span>
+      )}
+    </>
   );
+
+  // Render either a Link or a button based on whether onClick is provided
+  if (onClick) {
+    return (
+      <button onClick={onClick} className={`w-full text-left ${commonClasses}`}>
+        {content}
+      </button>
+    );
+  } else if (href) {
+    return (
+      <Link href={href} className={`w-full ${commonClasses}`}>
+        {content}
+      </Link>
+    );
+  } else {
+    // Fallback case - should not happen with proper props
+    return (
+      <div className={`w-full ${commonClasses}`}>
+        {content}
+      </div>
+    );
+  }
 };
 
-const FacultySidebar: React.FC = () => {
+const FacultySidebar: React.FC<FacultySidebarProps> = ({ 
+  projectId: currentProjectIdProp, 
+  activeFeature, 
+  onFeatureSelect
+}) => {
   const { isCollapsed, toggleSidebar, isMobileOpen, setMobileOpen } = useSidebarState();
   const pathname = usePathname();
   const router = useRouter();
@@ -63,9 +98,20 @@ const FacultySidebar: React.FC = () => {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   
-  // Extract the projectId from pathname
-  const projectIdMatch = pathname?.match(/\/development\/projects\/([^\/]+)/);
-  const currentProjectId = projectIdMatch ? projectIdMatch[1] : null;
+  // Extract the projectId from pathname for the development route
+  const developmentProjectIdMatch = pathname?.match(/\/development\/projects\/([^\/]+)/);
+  // Extract the projectId from pathname for the management route
+  const managementProjectIdMatch = pathname?.match(/\/development\/management\/([^\/]+)/);
+  
+  // Determine which projectId to use
+  const pathProjectId = developmentProjectIdMatch ? developmentProjectIdMatch[1] : 
+                       managementProjectIdMatch ? managementProjectIdMatch[1] : null;
+                       
+  // Use the prop if provided, otherwise use the one from the path
+  const currentProjectId = currentProjectIdProp || pathProjectId;
+  
+  // Determine if we're in the management route
+  const isManagementRoute = pathname?.includes('/development/management/');
   
   // Close mobile sidebar when route changes
   useEffect(() => {
@@ -135,32 +181,63 @@ const FacultySidebar: React.FC = () => {
     }
   };
 
-  // Generate navigation items based on the current project
-  const projectNavItems = currentProject ? [
-    {
-      href: `/development/projects/${currentProject.id}`,
-      icon: <DocumentTextIcon className="w-5 h-5" />,
-      label: 'Overview'
-    },
-    {
-      href: `/development/projects/${currentProject.id}/positions`,
-      icon: <DocumentDuplicateIcon className="w-5 h-5" />,
-      label: 'Positions'
-    },
-    {
-      href: `/development/projects/${currentProject.id}/applications`,
-      icon: <DocumentIcon className="w-5 h-5" />,
-      label: 'Applications'
-    },
-    {
-      href: `/development/projects/${currentProject.id}/team`,
-      icon: <UserGroupIcon className="w-5 h-5" />,
-      label: 'Team'
+  // Generate navigation items based on the current project and route
+  const getProjectNavItems = () => {
+    if (!currentProject) return [];
+    
+    if (isManagementRoute) {
+      return [
+        {
+          icon: <DocumentTextIcon className="w-5 h-5" />,
+          label: 'Overview',
+          feature: 'overview' as const
+        },
+        {
+          icon: <DocumentDuplicateIcon className="w-5 h-5" />,
+          label: 'Positions',
+          feature: 'positions' as const
+        },
+        {
+          icon: <DocumentIcon className="w-5 h-5" />,
+          label: 'Applications',
+          feature: 'applications' as const
+        },
+        {
+          icon: <UserGroupIcon className="w-5 h-5" />,
+          label: 'Team',
+          feature: 'team' as const
+        }
+      ];
+    } else {
+      return [
+        {
+          href: `/development/projects/${currentProject.id}`,
+          icon: <DocumentTextIcon className="w-5 h-5" />,
+          label: 'Overview'
+        },
+        {
+          href: `/development/projects/${currentProject.id}/positions`,
+          icon: <DocumentDuplicateIcon className="w-5 h-5" />,
+          label: 'Positions'
+        },
+        {
+          href: `/development/projects/${currentProject.id}/applications`,
+          icon: <DocumentIcon className="w-5 h-5" />,
+          label: 'Applications'
+        },
+        {
+          href: `/development/projects/${currentProject.id}/team`,
+          icon: <UserGroupIcon className="w-5 h-5" />,
+          label: 'Team'
+        }
+      ];
     }
-  ] : [];
+  };
+
+  const projectNavItems = getProjectNavItems();
 
   // Find the base route for projects
-  const isInProjectsRoute = pathname?.includes('/development/projects/');
+  const isInProjectsRoute = pathname?.includes('/development/projects/') || isManagementRoute;
   
   // Toggle project dropdown
   const toggleProjectDropdown = (e: React.MouseEvent) => {
@@ -172,13 +249,25 @@ const FacultySidebar: React.FC = () => {
   const switchProject = (project: Project) => {
     setCurrentProject(project);
     setIsProjectDropdownOpen(false);
-    router.push(`/development/projects/${project.id}`);
+    
+    if (isManagementRoute) {
+      router.push(`/development/management/${project.id}`);
+    } else {
+      router.push(`/development/projects/${project.id}`);
+    }
   };
   
   // Create a new project
   const handleCreateProject = () => {
     setIsProjectDropdownOpen(false);
     router.push('/development/projects/create');
+  };
+  
+  // Handle feature selection for management route
+  const handleFeatureSelect = (feature: 'overview' | 'positions' | 'applications' | 'team') => {
+    if (onFeatureSelect) {
+      onFeatureSelect(feature);
+    }
   };
 
   return (
@@ -211,14 +300,14 @@ const FacultySidebar: React.FC = () => {
             ${isCollapsed && !isMobileOpen ? 'justify-center' : 'justify-between'}
           `}>
             {(!isCollapsed || isMobileOpen) && (
-              <div className="text-2xl font-extrabold tracking-tighter text-violet-900">
+              <Link href="/development/dashboard" className="text-2xl font-extrabold tracking-tighter text-violet-900">
                 NYU
-              </div>
+              </Link>
             )}
             {isCollapsed && !isMobileOpen && (
-              <div className="text-2xl font-extrabold tracking-tighter text-violet-900">
+              <Link href="/development/dashboard" className="text-2xl font-extrabold tracking-tighter text-violet-900">
                 N
-              </div>
+              </Link>
             )}
             
             {isMobileOpen ? (
@@ -306,17 +395,37 @@ const FacultySidebar: React.FC = () => {
           {/* Project navigation */}
           {currentProject && isInProjectsRoute && (
             <div className="flex-1 overflow-y-auto py-2 px-3 space-y-1">
-              {projectNavItems.map((item) => (
-                <NavItem
-                  key={item.label}
-                  href={item.href}
-                  icon={item.icon}
-                  label={item.label}
-                  isActive={pathname === item.href}
-                  isCollapsed={isCollapsed}
-                  isMobile={isMobileOpen}
-                />
-              ))}
+              {projectNavItems.map((item) => {
+                // For management route
+                if (isManagementRoute && 'feature' in item) {
+                  return (
+                    <NavItem
+                      key={item.label}
+                      icon={item.icon}
+                      label={item.label}
+                      isActive={activeFeature === item.feature}
+                      isCollapsed={isCollapsed}
+                      isMobile={isMobileOpen}
+                      onClick={() => handleFeatureSelect(item.feature)}
+                    />
+                  );
+                }
+                // For development route
+                if (!isManagementRoute && 'href' in item) {
+                  return (
+                    <NavItem
+                      key={item.label}
+                      href={item.href}
+                      icon={item.icon}
+                      label={item.label}
+                      isActive={pathname === item.href}
+                      isCollapsed={isCollapsed}
+                      isMobile={isMobileOpen}
+                    />
+                  );
+                }
+                return null;
+              })}
             </div>
           )}
           
