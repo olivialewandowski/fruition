@@ -232,7 +232,7 @@ export const getStudentProjects = async (): Promise<Project[]> => {
   }
 };
 
-// Get materials for a project the student is a member of
+// Get materials for a project - allow viewing even if not a team member
 export const getStudentProjectMaterials = async (projectId: string): Promise<any[]> => {
   try {
     const auth = getAuth();
@@ -242,36 +242,35 @@ export const getStudentProjectMaterials = async (projectId: string): Promise<any
       throw new Error("User not authenticated");
     }
     
-    // First check if the student is a member of this project
+    // Check if the student is a member of this project
     const userRef = doc(db, "users", user.uid);
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
-      throw new Error("User not found");
+      console.warn("User not found");
     }
     
-    const userData = userDoc.data();
+    const userData = userDoc.data() || {};
     const participatingProjectIds = userData.participatingProjects || [];
+    const isMember = participatingProjectIds.includes(projectId);
     
-    if (!participatingProjectIds.includes(projectId)) {
-      throw new Error("You are not a member of this project");
-    }
-    
+    // Still proceed to get materials regardless of membership status
     // Get materials for the project
     const materialsQuery = query(collection(db, "materials"), where("projectId", "==", projectId));
     const materialsSnapshot = await getDocs(materialsQuery);
     
     return materialsSnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
+      isAccessRestricted: !isMember // Add flag to indicate if full access is restricted
     }));
   } catch (error) {
     console.error(`Error getting materials for project ${projectId}:`, error);
-    throw error;
+    return []; // Return empty array instead of throwing error
   }
 };
 
-// Get project team members for a project the student is a member of
+// Get project team members - allow viewing even if not a team member
 export const getStudentProjectTeamMembers = async (projectId: string): Promise<any[]> => {
   try {
     const auth = getAuth();
@@ -281,22 +280,19 @@ export const getStudentProjectTeamMembers = async (projectId: string): Promise<a
       throw new Error("User not authenticated");
     }
     
-    // First check if the student is a member of this project
+    // Check if the student is a member of this project
     const userRef = doc(db, "users", user.uid);
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
-      throw new Error("User not found");
+      console.warn("User not found");
     }
     
-    const userData = userDoc.data();
+    const userData = userDoc.data() || {};
     const participatingProjectIds = userData.participatingProjects || [];
+    const isMember = participatingProjectIds.includes(projectId);
     
-    if (!participatingProjectIds.includes(projectId)) {
-      throw new Error("You are not a member of this project");
-    }
-    
-    // Get project to access team members
+    // Get project data regardless of membership status
     const projectRef = doc(db, "projects", projectId);
     const projectDoc = await getDoc(projectRef);
     
@@ -321,11 +317,12 @@ export const getStudentProjectTeamMembers = async (projectId: string): Promise<a
               id: memberDoc.id,
               firstName: memberData.firstName,
               lastName: memberData.lastName,
-              email: memberData.email,
+              email: isMember ? memberData.email : '(Hidden)', // Only show email to team members
               department: memberData.department,
               university: memberData.university,
               role: member.role,
               joinedDate: member.joinedDate,
+              isAccessRestricted: !isMember // Add flag to indicate if full access is restricted
             };
           }
           
@@ -334,9 +331,10 @@ export const getStudentProjectTeamMembers = async (projectId: string): Promise<a
             id: member.id,
             firstName: member.name?.split(' ')[0] || '',
             lastName: member.name?.split(' ').slice(1).join(' ') || '',
-            email: member.email || '',
+            email: isMember ? (member.email || '') : '(Hidden)',
             role: member.role,
             joinedDate: member.joinedDate,
+            isAccessRestricted: !isMember
           };
         } catch (error) {
           console.error(`Error fetching team member ${member.id}:`, error);
@@ -346,9 +344,10 @@ export const getStudentProjectTeamMembers = async (projectId: string): Promise<a
             id: member.id,
             firstName: member.name?.split(' ')[0] || '',
             lastName: member.name?.split(' ').slice(1).join(' ') || '',
-            email: member.email || '',
+            email: isMember ? (member.email || '') : '(Hidden)',
             role: member.role,
             joinedDate: member.joinedDate,
+            isAccessRestricted: !isMember
           };
         }
       })
@@ -357,7 +356,55 @@ export const getStudentProjectTeamMembers = async (projectId: string): Promise<a
     return teamMembersData;
   } catch (error) {
     console.error(`Error getting team members for project ${projectId}:`, error);
-    throw error;
+    return []; // Return empty array instead of throwing error
+  }
+};
+
+// Get positions for a project - new function for student view
+export const getStudentProjectPositions = async (projectId: string): Promise<any[]> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    // Get all positions for this project
+    const positionsQuery = query(
+      collection(db, "positions"),
+      where("projectId", "==", projectId),
+      where("isActive", "==", true)
+    );
+    
+    const positionsSnapshot = await getDocs(positionsQuery);
+    
+    // Get the user's applications to check application status
+    const userApplications = await getStudentApplications();
+    const applicationByPositionId = new Map<string, any>();
+    
+    userApplications.forEach(app => {
+      if (app.position && app.position.id) {
+        applicationByPositionId.set(app.position.id, app);
+      }
+    });
+    
+    // Map positions with application status
+    return positionsSnapshot.docs.map(posDoc => {
+      const positionData = posDoc.data();
+      const positionId = posDoc.id;
+      const application = applicationByPositionId.get(positionId);
+      
+      return {
+        id: positionId,
+        ...positionData,
+        applicationStatus: application ? application.status : null,
+        applicationId: application ? application.id : null
+      };
+    });
+  } catch (error) {
+    console.error(`Error getting positions for project ${projectId}:`, error);
+    return []; // Return empty array instead of throwing error
   }
 };
 

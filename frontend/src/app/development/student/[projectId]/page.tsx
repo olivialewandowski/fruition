@@ -1,10 +1,9 @@
-// src/app/development/student/projects/[projectId]/page.tsx
+// src/app/development/student/[projectId]/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar';
-import TopNavigation from '@/components/layout/TopNavigation';
+import BaseLayout from '@/components/layout/BaseLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   getProjectById 
@@ -15,11 +14,17 @@ import {
 } from '@/services/studentService';
 import { Project } from '@/types/project';
 import { User } from '@/types/user';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useProjectRouting } from '@/services/projectRoutingService';
+import ProjectRouteGuard from '@/components/guards/ProjectRouteGuard';
 
-const StudentProjectView = () => {
+export default function StudentProjectView() {
   const { projectId } = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, userData, loading } = useAuth();
+  
+  // Ensure user is on the correct route based on role
+  useProjectRouting(projectId as string);
   
   // State
   const [project, setProject] = useState<Project | null>(null);
@@ -145,47 +150,39 @@ const StudentProjectView = () => {
     }
   };
 
-  // Define tabs
+  // Define tabs for project details
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'materials', label: 'Onboarding Materials' },
     { id: 'team', label: 'Team' }
   ];
 
-  if (isLoading) {
-    return (
-      <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
-        <div className="h-full">
-          <Sidebar />
-        </div>
-        <div className="flex flex-col flex-grow overflow-auto">
-          <TopNavigation 
-            title="Project Details" 
-            tabs={tabs} 
-            activeTab={activeTab} 
-            onTabChange={handleTabChange}
-          />
-          <div className="flex justify-center items-center h-full">
-            <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        </div>
-      </div>
-    );
+  // Check if the user is a student
+  const isStudent = userData?.role === 'student';
+  if (!isStudent && !loading) {
+    // Redirect faculty/admin to their version of the project page
+    if (projectId) {
+      router.push(`/development/projects/${projectId}`);
+    } else {
+      router.push('/development/dashboard');
+    }
+    return null;
   }
 
-  if (error) {
-    return (
-      <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
-        <div className="h-full">
-          <Sidebar />
-        </div>
-        <div className="flex flex-col flex-grow overflow-auto">
-          <TopNavigation 
-            title="Project Details"
-            tabs={tabs}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-          />
+  return (
+    <ProjectRouteGuard projectId={projectId as string}>
+      <BaseLayout
+        title={project?.title || 'Project Details'}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+      >
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <LoadingSpinner size="large" />
+            <p className="ml-4 text-gray-600">Loading project data...</p>
+          </div>
+        ) : error ? (
           <div className="flex justify-center items-center h-full">
             <div className="text-center p-8">
               <div className="text-red-600 text-lg mb-4">{error}</div>
@@ -197,24 +194,7 @@ const StudentProjectView = () => {
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
-        <div className="h-full">
-          <Sidebar />
-        </div>
-        <div className="flex flex-col flex-grow overflow-auto">
-          <TopNavigation 
-            title="Project Not Found"
-            tabs={tabs}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-          />
+        ) : !project ? (
           <div className="flex justify-center items-center h-full">
             <div className="text-center p-8">
               <div className="text-gray-600 text-lg mb-4">Project not found</div>
@@ -226,198 +206,180 @@ const StudentProjectView = () => {
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex overflow-hidden bg-white border border-solid border-neutral-200 h-screen">
-      <div className="h-full">
-        <Sidebar />
-      </div>
-      <div className="flex flex-col flex-grow overflow-auto">
-        <TopNavigation 
-          title={project.title || 'Project Details'}
-          tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
-        
-        <div className="px-6 py-5">
-          {/* Overview Tab */}
-          {activeTab === 'overview' && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Project Overview</h2>
-              
-              {/* Project details */}
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Description</h3>
-                  <p className="mt-2 text-gray-700">{project.description}</p>
-                </div>
+        ) : (
+          <>
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Project Overview</h2>
                 
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Keywords</h3>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {project.keywords?.map((keyword, index) => (
-                      <span 
-                        key={index}
-                        className="px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
-                    {(!project.keywords || project.keywords.length === 0) && (
-                      <span className="text-gray-500">No keywords specified</span>
+                {/* Project details */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">Description</h3>
+                    <p className="mt-2 text-gray-700">{project.description}</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">Keywords</h3>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {project.keywords?.map((keyword, index) => (
+                        <span 
+                          key={index}
+                          className="px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                      {(!project.keywords || project.keywords.length === 0) && (
+                        <span className="text-gray-500">No keywords specified</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">Department</h3>
+                      <p className="mt-2 text-gray-700">{project.department || 'Not specified'}</p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">University</h3>
+                      <p className="mt-2 text-gray-700">{project.university || 'Not specified'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">Mentor</h3>
+                      <p className="mt-2 text-gray-700">{project.mentorName || 'Not specified'}</p>
+                      <p className="mt-1 text-gray-500">{project.mentorEmail || ''}</p>
+                      <p className="mt-1 text-gray-500">{project.mentorTitle || ''}</p>
+                    </div>
+                    
+                    {project.isPrincipalInvestigator === false && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">Principal Investigator</h3>
+                        <p className="mt-2 text-gray-700">{project.principalInvestigatorName || 'Not specified'}</p>
+                        <p className="mt-1 text-gray-500">{project.principalInvestigatorEmail || ''}</p>
+                      </div>
                     )}
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Department</h3>
-                    <p className="mt-2 text-gray-700">{project.department || 'Not specified'}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">University</h3>
-                    <p className="mt-2 text-gray-700">{project.university || 'Not specified'}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Mentor</h3>
-                    <p className="mt-2 text-gray-700">{project.mentorName || 'Not specified'}</p>
-                    <p className="mt-1 text-gray-500">{project.mentorEmail || ''}</p>
-                    <p className="mt-1 text-gray-500">{project.mentorTitle || ''}</p>
-                  </div>
-                  
-                  {project.isPrincipalInvestigator === false && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800">Principal Investigator</h3>
-                      <p className="mt-2 text-gray-700">{project.principalInvestigatorName || 'Not specified'}</p>
-                      <p className="mt-1 text-gray-500">{project.principalInvestigatorEmail || ''}</p>
-                    </div>
-                  )}
-                </div>
               </div>
-            </div>
-          )}
-          
-          {/* Materials Tab */}
-          {activeTab === 'materials' && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Onboarding Materials</h2>
-              
-              {materials.length > 0 ? (
-                <div className="space-y-4">
-                  {materials.map((material) => (
-                    <div 
-                      key={material.id} 
-                      className="flex items-start space-x-4 p-4 rounded-lg border border-gray-200 hover:bg-gray-50"
-                    >
-                      <div className="flex-shrink-0">
-                        {getFileIcon(material.fileType)}
+            )}
+            
+            {/* Materials Tab */}
+            {activeTab === 'materials' && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Onboarding Materials</h2>
+                
+                {materials.length > 0 ? (
+                  <div className="space-y-4">
+                    {materials.map((material) => (
+                      <div 
+                        key={material.id} 
+                        className="flex items-start space-x-4 p-4 rounded-lg border border-gray-200 hover:bg-gray-50"
+                      >
+                        <div className="flex-shrink-0">
+                          {getFileIcon(material.fileType)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between">
+                            <div>
+                              <h4 className="text-lg font-medium text-gray-900">{material.name}</h4>
+                              <p className="mt-1 text-sm text-gray-500">{material.description}</p>
+                            </div>
+                            <div>
+                              <a
+                                href={material.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-purple-600 hover:text-purple-900"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                              </a>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex items-center text-xs text-gray-500">
+                            <span>
+                              {formatFileSize(material.fileSize)} • 
+                              Uploaded by {material.uploadedBy} • 
+                              {formatDate(material.uploadedAt)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between">
-                          <div>
-                            <h4 className="text-lg font-medium text-gray-900">{material.name}</h4>
-                            <p className="mt-1 text-sm text-gray-500">{material.description}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-lg text-gray-600">No materials have been uploaded yet.</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Team Tab */}
+            {activeTab === 'team' && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Project Team</h2>
+                
+                {teamMembers.length > 0 ? (
+                  <div className="space-y-4">
+                    {teamMembers.map((member) => (
+                      <div 
+                        key={member.id} 
+                        className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-purple-200 text-purple-700 flex items-center justify-center font-medium text-lg">
+                              {member.firstName?.charAt(0) || 'U'}
+                            </div>
+                            <div className="ml-4">
+                              <h3 className="text-lg font-medium text-gray-900">
+                                {member.firstName} {member.lastName}
+                              </h3>
+                              <p className="text-sm text-gray-500">{member.email}</p>
+                            </div>
                           </div>
                           <div>
-                            <a
-                              href={material.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-purple-600 hover:text-purple-900"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                            </a>
+                            <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
+                              {member.projectRole || member.role || 'Team Member'}
+                            </span>
                           </div>
                         </div>
-                        <div className="mt-2 flex items-center text-xs text-gray-500">
-                          <span>
-                            {formatFileSize(material.fileSize)} • 
-                            Uploaded by {material.uploadedBy} • 
-                            {formatDate(material.uploadedAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-lg text-gray-600">No materials have been uploaded yet.</p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Team Tab */}
-          {activeTab === 'team' && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Project Team</h2>
-              
-              {teamMembers.length > 0 ? (
-                <div className="space-y-4">
-                  {teamMembers.map((member) => (
-                    <div 
-                      key={member.id} 
-                      className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-purple-200 text-purple-700 flex items-center justify-center font-medium text-lg">
-                            {member.firstName?.charAt(0) || 'U'}
+                        
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">Department:</span>
+                            <span className="ml-2 text-gray-700">{member.department || 'Not specified'}</span>
                           </div>
-                          <div className="ml-4">
-                            <h3 className="text-lg font-medium text-gray-900">
-                              {member.firstName} {member.lastName}
-                            </h3>
-                            <p className="text-sm text-gray-500">{member.email}</p>
+                          <div>
+                            <span className="text-gray-500">University:</span>
+                            <span className="ml-2 text-gray-700">{member.university || 'Not specified'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Joined:</span>
+                            <span className="ml-2 text-gray-700">{formatDate(member.joinedDate)}</span>
                           </div>
                         </div>
-                        <div>
-                          <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
-                            {member.role || 'Team Member'}
-                          </span>
-                        </div>
                       </div>
-                      
-                      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">Department:</span>
-                          <span className="ml-2 text-gray-700">{member.department || 'Not specified'}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">University:</span>
-                          <span className="ml-2 text-gray-700">{member.university || 'Not specified'}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Joined:</span>
-                          <span className="ml-2 text-gray-700">{formatDate(member.joinedDate)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-lg text-gray-600">No team members have been added yet.</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-lg text-gray-600">No team members have been added yet.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </BaseLayout>
+    </ProjectRouteGuard>
   );
-};
-
-export default StudentProjectView;
+}
